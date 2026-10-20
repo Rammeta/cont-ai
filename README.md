@@ -15,10 +15,48 @@
 
 ---
 
+## 📥 Download Direto do Instalador Windows (`.exe`)
+
+Para instalar o **CONT-AI v2.0** diretamente no seu computador (Windows 10 / 11 x64) sem precisar compilar o código-fonte, clique no link abaixo:
+
+👉 **[⬇️ Baixar Instalador Oficial — CONT-AI-Setup-2.0.0.exe (Windows x64)](https://github.com/Rammeta/cont-ai/releases/download/v2.0.0/CONT-AI-Setup-2.0.0.exe)**  
+*(Ou acesse a página de [Releases Oficiais do Repositório](https://github.com/Rammeta/cont-ai/releases/latest))*
+
+---
+
+## ☕ Apoie o Projeto (PIX)
+
+O **CONT-AI** é distribuído de forma aberta e gratuita para ajudar escritórios de contabilidade, analistas fiscais e empresas a automatizarem a captação de documentos fiscais e auditoria de DIFAL.
+
+Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar a manutenção e evolução do projeto, faça uma contribuição voluntária de qualquer valor via **PIX**:
+
+<table>
+  <tr>
+    <td align="center" width="240">
+      <img src="docs/screenshots/pix_qrcode.svg" alt="QR Code PIX CONT-AI" width="200" />
+      <br />
+      <sub><b>Escaneie com o app do seu banco</b></sub>
+    </td>
+    <td valign="middle">
+      <p><b>🏢 Recebedor:</b> <code>66.604.571 VAGNER GODOY D</code> <i>(Conta PJ — São Paulo/SP)</i></p>
+      <p><b>🔑 Chave PIX Aleatória (EVP):</b> <code>ad834588-7fb9-45e7-8f01-7f7de3db757b</code></p>
+      <p><b>📋 PIX Copia e Cola</b> <i>(clique no ícone de copiar no canto do bloco abaixo)</i>:</p>
+    </td>
+  </tr>
+</table>
+
+```text
+00020126580014BR.GOV.BCB.PIX0136ad834588-7fb9-45e7-8f01-7f7de3db757b5204000053039865802BR592566.604.571 VAGNER GODOY D6009SAO PAULO61080540900062250521SJooPzypjS6LVYq7wbe1a6304EAE0
+```
+
+---
+
 ## Sumário
 
-1. [Sobre o Projeto](#-sobre-o-projeto)
-2. [Todas as Funcionalidades Discriminadas (com Prints)](#-todas-as-funcionalidades-discriminadas-com-prints)
+1. [Download Direto do Instalador Windows (`.exe`)](#-download-direto-do-instalador-windows-exe)
+2. [Apoie o Projeto (PIX)](#-apoie-o-projeto-pix)
+3. [Sobre o Projeto](#-sobre-o-projeto)
+4. [Todas as Funcionalidades Discriminadas (com Prints)](#-todas-as-funcionalidades-discriminadas-com-prints)
    - [1. Painel de Empresas (Hub Multi-CNPJ)](#1-painel-de-empresas-hub-multi-cnpj)
    - [2. Busca e Seleção Rápida de Empresas em Ordem Alfabética (A-Z)](#2-busca-e-seleção-rápida-de-empresas-em-ordem-alfabética-a-z)
    - [3. Guia Geral de Notas (Consolidação Fiscal dos 4 Modelos)](#3-guia-geral-de-notas-consolidação-fiscal-dos-4-modelos)
@@ -28,10 +66,10 @@
    - [7. NFS-e (Portal Nacional ADN & Prefeitura de São Paulo)](#7-nfs-e-portal-nacional-adn--prefeitura-de-são-paulo)
    - [8. Cálculo e Auditoria de DIFAL / Antecipação Tributária](#8-cálculo-e-auditoria-de-difal--antecipação-tributária)
    - [9. Central de Configurações, Empresas, Agendadores e Repositório](#9-central-de-configurações-empresas-agendadores-e-repositório)
-3. [Tutorial Passo a Passo de Uso no Dia a Dia](#-tutorial-passo-a-passo-de-uso-no-dia-a-dia)
-4. [Tutorial de Instalação (Ambiente de Desenvolvimento)](#-tutorial-de-instalação-ambiente-de-desenvolvimento)
-5. [Tutorial para Gerar o Executável / Instalador Windows (`.exe`)](#-tutorial-para-gerar-o-executável--instalador-windows-exe)
-6. [Arquitetura e Segurança](#-arquitetura-e-segurança)
+5. [Tutorial Passo a Passo de Uso no Dia a Dia](#-tutorial-passo-a-passo-de-uso-no-dia-a-dia)
+6. [Tutorial de Instalação (Ambiente de Desenvolvimento)](#-tutorial-de-instalação-ambiente-de-desenvolvimento)
+7. [Tutorial para Gerar o Executável / Instalador Windows (`.exe`)](#-tutorial-para-gerar-o-executável--instalador-windows-exe)
+8. [Arquitetura e Segurança](#-arquitetura-e-segurança)
 
 ---
 
