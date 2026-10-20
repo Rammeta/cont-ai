@@ -1,0 +1,66 @@
+{
+  "name": "cont-ai-entradas-difal-sn",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CONT-AI - Gestor de Movimento Fiscal (NF-e, NFC-e, CT-e, NFS-e e DIFAL)",
+  "author": "CONT-AI",
+  "type": "module",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:build": "vite build && electron-builder -w"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "@xmldom/xmldom": "^0.9.12",
+    "adm-zip": "^0.6.1",
+    "axios": "^1.20.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "fast-xml-parser": "^5.11.1",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "nfe-danfe-pdf": "^1.0.3",
+    "node-forge": "^1.4.0",
+    "pdf-lib": "^1.17.1",
+    "qrcode-generator": "^2.0.4",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^6.2.3",
+    "xml-crypto": "^6.1.2"
+  },
+  "build": {
+    "electronVersion": "43.4.1",
+    "appId": "com.contai.difal",
+    "productName": "CONT-AI - Gestor de Movimento Fiscal",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "sefaz/**/*",
+      "nfse/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "CONT-AI - Gestor de Movimento Fiscal",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico"
+    }
+  }
+}

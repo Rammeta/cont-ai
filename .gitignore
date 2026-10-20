@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+dist_electron/
+.build_cont_ai/
+*.exe
+*.blockmap
+*.asar
+
+# Environment & Secrets (NEVER commit certificates or client XMLs)
+.env
+.env.*
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+/xmls/
+/data/
+/logs/
+/certificados/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
