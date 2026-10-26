@@ -27,7 +27,7 @@ Para instalar o **CONT-AI v2.0** diretamente no seu computador (Windows 10 / 11 
 
 ## ☕ Apoie o Projeto (PIX)
 
-O **CONT-AI** é distribuído de forma aberta e gratuita para ajudar escritórios de contabilidade, analistas fiscais e empresas a automatizarem a captação de documentos fiscais, emissão de NFS-e Nacional e auditoria de DIFAL.
+O **CONT-AI** é distribuído de forma aberta e gratuita para ajudar escritórios de contabilidade, analistas fiscais e empresas a automatizarem a captação de documentos fiscais e auditoria de DIFAL.
 
 Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar a manutenção e evolução do projeto, faça uma contribuição voluntária de qualquer valor via **PIX**:
 

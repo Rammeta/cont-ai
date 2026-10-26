@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CONT-AI — Gestor de Movimento Fiscal, Emissor NFS-e & Apuração DIFAL | Vagner Godoy de Melo</title>
-  <meta name="description" content="Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais (NF-e, NFC-e, CT-e e NFS-e), Emissor Nacional de NFS-e e Auditoria de DIFAL." />
+  <title>CONT-AI — Gestor de Movimento Fiscal & Apuração DIFAL | Vagner Godoy de Melo</title>
+  <meta name="description" content="Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais (NF-e, NFC-e, CT-e e NFS-e) e Auditoria de DIFAL." />
   <link rel="icon" type="image/png" href="screenshots/logo.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -115,14 +115,13 @@
         <div>
           <span class="font-bold text-[#003366] text-sm leading-none flex items-center gap-1.5">
             CONT-AI
-            <span class="text-[10px] bg-[#005a9e] text-white px-1.5 py-0.2 rounded font-mono font-normal">v2.1</span>
+            <span class="text-[10px] bg-[#005a9e] text-white px-1.5 py-0.2 rounded font-mono font-normal">v2.0</span>
           </span>
-          <span class="text-[10px] text-[#555555] block">Gestor de Movimento Fiscal & Emissor Nacional NFS-e</span>
+          <span class="text-[10px] text-[#555555] block">Gestor de Movimento Fiscal & Apuração de DIFAL</span>
         </div>
       </div>
 
       <nav class="hidden md:flex items-center gap-5 text-xs font-semibold text-[#333333]">
-        <a href="#emissor" class="hover:text-[#005a9e] transition">Emissor NFS-e</a>
         <a href="#funcionalidades" class="hover:text-[#005a9e] transition">Módulos Fiscais</a>
         <a href="#telas" class="hover:text-[#005a9e] transition">Demonstração das Telas</a>
         <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition">Apoiar (PIX)</a>
@@ -149,7 +148,7 @@
           <!-- Coluna Texto de Apresentação -->
           <div class="lg:col-span-6 space-y-4">
             <h1 class="text-2xl sm:text-4xl font-extrabold text-[#003366] leading-tight">
-              Gestão Fiscal Integrada, Emissor Nacional de NFS-e & Auditoria de DIFAL
+              Gestão Fiscal Integrada & Auditoria de DIFAL
             </h1>
 
             <p class="text-sm sm:text-base text-[#444444] leading-relaxed">
@@ -216,7 +215,6 @@
                 <span>Empresas</span>
                 <span>Sincronização</span>
                 <span>Relatórios</span>
-                <span>Emissor NFS-e</span>
                 <span>Configurações</span>
                 <span class="ml-auto text-[10px] font-mono text-[#107c41] font-bold">SEFAZ Online</span>
               </div>
@@ -229,7 +227,7 @@
               <!-- Rodapé da Janela do ERP -->
               <div class="bg-[#f0f0f0] px-3 py-1 text-[11px] text-[#555555] flex items-center justify-between">
                 <span>Status: Pronto para operação</span>
-                <span class="font-mono">Versão 2.1.0 • Motor mTLS Ativo</span>
+                <span class="font-mono">Versão 2.0.0 • Motor mTLS Ativo</span>
               </div>
             </div>
           </div>
@@ -238,52 +236,7 @@
       </div>
     </section>
 
-    <!-- Módulo 1: Emissor Nacional de NFS-e -->
-    <section id="emissor" class="py-12 bg-[#ffffff] border-b border-[#c0c0c0]">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6">
-        <div class="vb-groupbox">
-          <span class="vb-legend">
-            Emissor Nacional de NFS-e (Sefin Nacional / ADN)
-          </span>
-
-          <div class="grid lg:grid-cols-12 gap-8 items-center mt-3">
-            <div class="lg:col-span-5 space-y-3">
-              <h2 class="text-xl sm:text-2xl font-bold text-[#003366]">
-                Emissão Direta via Certificado Digital A1
-              </h2>
-              <p class="text-xs sm:text-sm text-[#444444] leading-relaxed">
-                Desenvolvido para eliminar a instabilidade dos portais governamentais web. Conecte o Certificado A1 da empresa e emita a DPS/NFS-e diretamente pela API Nacional.
-              </p>
-              
-              <ul class="space-y-2 text-xs text-[#222222]">
-                <li class="bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
-                  <strong>Painel Suspenso de Seleção:</strong> Pesquise por código ou descrição em <code class="text-[#005a9e]">cTribNac</code> (LC 116), <code class="text-[#005a9e]">cNBS</code>, <code class="text-[#005a9e]">cIndOp</code> e <code class="text-[#005a9e]">cClassTrib</code>.
-                </li>
-                <li class="bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
-                  <strong>Controle de Sequencial:</strong> Acompanha o histórico de numeração de notas autorizadas para evitar duplicidades.
-                </li>
-                <li class="bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
-                  <strong>Espelho Pré-Emissão & DANFSe:</strong> Visualize a prévia dos impostos e retenções antes de assinar digitalmente e imprima o DANFSe oficial em PDF.
-                </li>
-              </ul>
-            </div>
-
-            <div class="lg:col-span-7 grid sm:grid-cols-2 gap-3">
-              <div class="border border-[#b0b0b0] bg-[#f8f9fa] p-1.5 shadow-sm rounded">
-                <img src="screenshots/screen_12_emissor_nfse.png" alt="Tela do Emissor NFS-e" class="w-full h-auto border border-[#d0d0d0]" />
-                <span class="block text-[11px] font-semibold text-[#003366] mt-1.5 text-center">Tela Operacional de Emissão DPS</span>
-              </div>
-              <div class="border border-[#b0b0b0] bg-[#f8f9fa] p-1.5 shadow-sm rounded">
-                <img src="screenshots/screen_18_preview_espelho_dps.png" alt="Espelho DPS / DANFSe" class="w-full h-auto border border-[#d0d0d0]" />
-                <span class="block text-[11px] font-semibold text-[#003366] mt-1.5 text-center">Espelho de Conferência e DANFSe</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Módulo 2: Grid das Funcionalidades Fiscais -->
+    <!-- Módulo: Grid das Funcionalidades Fiscais -->
     <section id="funcionalidades" class="py-12 bg-[#f0f2f5] border-b border-[#c0c0c0]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6">
         <div class="text-center max-w-3xl mx-auto mb-8">
@@ -352,10 +305,6 @@
                     class="tab-btn active">
               Hub de Empresas
             </button>
-            <button onclick="showScreen('screenshots/screen_12_emissor_nfse.png', 'Emissor Nacional de NFS-e: emissão simplificada de DPS com integração direta na API Nacional.', this)"
-                    class="tab-btn">
-              Emissor NFS-e
-            </button>
             <button onclick="showScreen('screenshots/screen_02_guia_notas.png', 'Guia Geral de Notas: consolidação mensal unificada de NF-e, NFC-e, CT-e e NFS-e com retenções federais.', this)"
                     class="tab-btn">
               Guia Geral de Notas
@@ -410,7 +359,7 @@
                 Este projeto economiza horas da sua rotina fiscal?
               </h3>
               <p class="text-xs text-[#444444] leading-relaxed">
-                O CONT-AI é distribuído de forma aberta para que escritórios e empresas não fiquem reféns de mensalidades caras de captura de XMLs. Qualquer contribuição voluntária via <strong>PIX</strong> ajuda diretamente a manter o suporte e o desenvolvimento contínuo das novas regras fiscais brasileiras.
+                O CONT-AI é distribuído de forma aberta para que escritórios e empresas não fiquem reféns de mensalidades caras de captura de XMLs. Qualquer contribuição voluntária via <strong>PIX</strong> ajuda diretamente a manter o suporte e o desenvolvimento contínuo das rotinas fiscais brasileiras.
               </p>
 
               <div class="bg-[#f8f9fa] border border-[#d0d0d0] p-3 rounded space-y-2 text-xs">
