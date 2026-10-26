@@ -1131,16 +1131,19 @@ export default function App() {
 
           {/* Right Global Utility Actions */}
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setIsSyncAllModalOpen(true)}
-              className="vb-top-btn vb-top-btn-sync"
-              title="Sincronizar todos os 4 modelos fiscais (NF-e, NFC-e, CT-e e NFS-e) de todas as empresas cadastradas"
-            >
-              <RefreshCw size={12} className="text-[#003366]" />
-              <span>Sincronizar Empresas</span>
-            </button>
-
-            <div className="h-4 w-[1px] bg-[#b8b8b8] mx-0.5" />
+            {(appModule === "hub" || appModule === "acompanhamento") && (
+              <>
+                <button
+                  onClick={() => setIsSyncAllModalOpen(true)}
+                  className="vb-top-btn vb-top-btn-sync"
+                  title="Sincronizar todos os 4 modelos fiscais (NF-e, NFC-e, CT-e e NFS-e) de todas as empresas cadastradas"
+                >
+                  <RefreshCw size={12} className="text-[#003366]" />
+                  <span>Sincronizar Empresas</span>
+                </button>
+                <div className="h-4 w-[1px] bg-[#b8b8b8] mx-0.5" />
+              </>
+            )}
 
             <button
               onClick={() => {
