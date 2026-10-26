@@ -4,6 +4,7 @@ import { getCompaniesMetrics, openCompanyFolder } from "../utils/electronBridge"
 import { formatDateBr, calculateDaysRemaining } from "../utils/certUtils";
 import { useDebounce } from "../utils/useDebounce";
 import SyncAllProgressModal from "./SyncAllProgressModal";
+import LoadingGearOverlay from "./LoadingGearOverlay";
 import logoImg from "../../assets/logo.png";
 import {
   RotateCw,
@@ -998,7 +999,12 @@ export default function EmpresasHubView({
           </div>
 
           {/* Tabela com Rolagem Real */}
-          <div className="flex-1 overflow-auto bg-white">
+          <div className="flex-1 overflow-auto bg-white relative">
+            <LoadingGearOverlay
+              isLoading={loadingMetrics && metrics.length > 0}
+              title="Sincronizando Empresas e Métricas..."
+              subtitle="Verificando volume de notas fiscais e certificados no disco..."
+            />
             <table className="datagrid-table">
               <thead>
                 <tr>
@@ -1175,11 +1181,13 @@ export default function EmpresasHubView({
               </thead>
               <tbody>
                 {loadingMetrics && metrics.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className="text-center py-8 text-[#555555]">
-                      <span>Carregando dados das empresas e verificando XMLs em disco...</span>
-                    </td>
-                  </tr>
+                  <LoadingGearOverlay
+                    isLoading={true}
+                    variant="table"
+                    colSpan={13}
+                    title="Carregando Empresas e Métricas..."
+                    subtitle="Lendo diretórios e validando certificados em disco..."
+                  />
                 ) : filteredMetrics.length === 0 ? (
                   <tr>
                     <td colSpan={13} className="text-center py-8 text-[#777777]">

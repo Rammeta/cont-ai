@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { EmpresaSefaz, ParsedCte, AppSettings } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import LoadingGearOverlay from "./LoadingGearOverlay";
 import { useDebounce } from "../utils/useDebounce";
 import {
   Truck,
@@ -1059,7 +1060,12 @@ export default function CteCaptacaoView({
 
         {/* 4. DATAGRID ERP DE CONHECIMENTOS DE TRANSPORTE (CT-E) */}
         <div className="border border-[#999999] bg-white flex flex-col flex-1 min-h-[280px] overflow-hidden">
-          <div className="overflow-auto flex-1">
+          <div className="overflow-auto flex-1 relative">
+            <LoadingGearOverlay
+              isLoading={loading && capturedCtes.length > 0}
+              title="Sincronizando Conhecimentos de Transporte (CT-e)..."
+              subtitle="Lendo e validando arquivos CT-e da empresa no disco..."
+            />
             <table className="datagrid-table">
               <thead>
                 <tr>
@@ -1143,13 +1149,14 @@ export default function CteCaptacaoView({
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-[#555555]">
-                      <RotateCw size={16} className="animate-spin inline mr-1 text-[#003366]" />
-                      Carregando conhecimentos de transporte do disco...
-                    </td>
-                  </tr>
+                {loading && capturedCtes.length === 0 ? (
+                  <LoadingGearOverlay
+                    isLoading={true}
+                    variant="table"
+                    colSpan={7}
+                    title="Carregando Conhecimentos de Transporte (CT-e)..."
+                    subtitle="Lendo e validando arquivos CT-e da empresa no disco..."
+                  />
                 ) : filteredCtes.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-[#777777]">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { EmpresaSefaz, ParsedNfce } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import LoadingGearOverlay from "./LoadingGearOverlay";
 import { useDebounce } from "../utils/useDebounce";
 import {
   ShoppingBag,
@@ -1053,7 +1054,12 @@ export default function NfceCaptacaoView({
             </span>
           </div>
 
-          <div className="overflow-auto flex-1 custom-scrollbar">
+          <div className="overflow-auto flex-1 custom-scrollbar relative">
+            <LoadingGearOverlay
+              isLoading={loading && capturedNfces.length > 0}
+              title="Sincronizando Cupons Fiscais (NFC-e)..."
+              subtitle="Lendo cupons fiscais da empresa no disco..."
+            />
             <table className="datagrid-table">
               <thead>
                 <tr>
@@ -1138,13 +1144,14 @@ export default function NfceCaptacaoView({
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-[#555555]">
-                      <RefreshCw size={16} className="animate-spin inline mr-2 text-[#003366]" />
-                      Carregando cupons NFC-e da empresa...
-                    </td>
-                  </tr>
+                {loading && capturedNfces.length === 0 ? (
+                  <LoadingGearOverlay
+                    isLoading={true}
+                    variant="table"
+                    colSpan={7}
+                    title="Carregando Cupons Fiscais (NFC-e)..."
+                    subtitle="Lendo cupons fiscais da empresa no disco..."
+                  />
                 ) : displayedNotas.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-[#555555]">

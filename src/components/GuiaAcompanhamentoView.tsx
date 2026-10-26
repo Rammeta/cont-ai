@@ -55,6 +55,7 @@ import CertificateBadge from "./CertificateBadge";
 import ExecutiveDashboardModal from "./ExecutiveDashboardModal";
 import SyncAllProgressModal from "./SyncAllProgressModal";
 import { DashboardData, generateExecutiveDashboardHtml } from "../utils/dashboardHtmlGenerator";
+import LoadingGearOverlay from "./LoadingGearOverlay";
 import logoImg from "../../assets/logo.png";
 
 interface GuiaAcompanhamentoViewProps {
@@ -1609,7 +1610,12 @@ export default function GuiaAcompanhamentoView({
           </div>
 
           {/* Tabela com Rolagem Real */}
-          <div className="flex-1 overflow-auto bg-white">
+          <div className="flex-1 overflow-auto bg-white relative">
+            <LoadingGearOverlay
+              isLoading={loading && itensConsolidados.length > 0}
+              title="Sincronizando Notas Fiscais..."
+              subtitle="Lendo e consolidando documentos fiscais da empresa no disco..."
+            />
             <table className="datagrid-table">
               <thead>
                 <tr>
@@ -1760,12 +1766,14 @@ export default function GuiaAcompanhamentoView({
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={12} className="text-center py-8 text-[#555555]">
-                      <span>Carregando notas fiscais consolidadas do disco...</span>
-                    </td>
-                  </tr>
+                {loading && itensConsolidados.length === 0 ? (
+                  <LoadingGearOverlay
+                    isLoading={true}
+                    variant="table"
+                    colSpan={12}
+                    title="Carregando Notas Fiscais Consolidadas..."
+                    subtitle="Lendo e consolidando NF-e, NFC-e, CT-e e NFS-e do disco..."
+                  />
                 ) : itensFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={12} className="text-center py-8 text-[#777777]">

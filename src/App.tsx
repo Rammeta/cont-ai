@@ -36,6 +36,7 @@ import EmpresasHubView from "./components/EmpresasHubView";
 import UnifiedConfigModal from "./components/UnifiedConfigModal";
 import SyncAllProgressModal from "./components/SyncAllProgressModal";
 import LauncherPortalView from "./components/LauncherPortalView";
+import LoadingGearOverlay from "./components/LoadingGearOverlay";
 import NfseEmissorView from "./components/NfseEmissorView";
 import logoImg from "../assets/logo.png";
 
@@ -89,6 +90,7 @@ export default function App() {
   // Top-level Module: "hub" (Painel das Empresas) | "acompanhamento" (Guia Geral) | "captacao" | "nfce" | "cte" | "nfse" | "difal"
   const [appModule, setAppModule] = useState<"hub" | "acompanhamento" | "captacao" | "nfce" | "cte" | "nfse" | "difal">("hub");
   const [internalIgnoredCount, setInternalIgnoredCount] = useState<number>(0);
+  const [isProcessingXmls, setIsProcessingXmls] = useState<boolean>(false);
 
   // Active Tab: "config" | "notas" | "itens"
   const [activeTab, setActiveTab] = useState<"config" | "notas" | "itens">("config");
@@ -553,6 +555,7 @@ export default function App() {
       return;
     }
 
+    setIsProcessingXmls(true);
     let addedNotasCount = 0;
     let addedItensCount = 0;
     let ignoredNotasCount = 0;
@@ -560,87 +563,91 @@ export default function App() {
     const currentNotas = [...notas];
     const currentItens = [...itens];
 
-    for (const file of validFiles) {
-      try {
-        const text = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ""));
-          reader.onerror = reject;
-          reader.readAsText(file, "utf-8");
-        });
+    try {
+      for (const file of validFiles) {
+        try {
+          const text = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = reject;
+            reader.readAsText(file, "utf-8");
+          });
 
-        // Ignora arquivos de CT-e (Modelo 57), NFC-e (Modelo 65) ou outros que não sejam NF-e (Modelo 55)
-        if (
-          file.name.toLowerCase().endsWith("-cte.xml") ||
-          file.name.toLowerCase().endsWith("-nfce.xml") ||
-          file.name.toLowerCase().endsWith("-nfse.xml") ||
-          text.includes("<infCte") ||
-          text.includes("<cteProc") ||
-          text.includes("<CTe")
-        ) {
-          ignoredNotasCount++;
-          continue;
+          // Ignora arquivos de CT-e (Modelo 57), NFC-e (Modelo 65) ou outros que não sejam NF-e (Modelo 55)
+          if (
+            file.name.toLowerCase().endsWith("-cte.xml") ||
+            file.name.toLowerCase().endsWith("-nfce.xml") ||
+            file.name.toLowerCase().endsWith("-nfse.xml") ||
+            text.includes("<infCte") ||
+            text.includes("<cteProc") ||
+            text.includes("<CTe")
+          ) {
+            ignoredNotasCount++;
+            continue;
+          }
+
+          // Verifica se a nota é interestadual
+          const ufRemMatch = text.match(/<enderEmit[^>]*>[\s\S]*?<UF>([^<]+)<\/UF>/i);
+          const ufDestMatch = text.match(/<enderDest[^>]*>[\s\S]*?<UF>([^<]+)<\/UF>/i);
+          const ufRem = ufRemMatch ? ufRemMatch[1].trim().toUpperCase() : "";
+          const ufDest = ufDestMatch ? ufDestMatch[1].trim().toUpperCase() : (activeEmpresa?.uf || "SP").toUpperCase();
+
+          if (ufRem && ufDest && ufRem === ufDest) {
+            ignoredNotasCount++;
+            continue;
+          }
+
+          const parsed = parseXMLContent(
+            text,
+            file.name,
+            config,
+            emitterRegimes,
+            itemConsumerOverrides,
+            cfopMap,
+            ncmRateRules,
+            recipientRegimes
+          );
+
+          // Delete existing file records to avoid duplicating on re-upload
+          const cleanNotas = currentNotas.filter(
+            (n) => !(n.arquivo === file.name && n.nNF === parsed.nota.nNF)
+          );
+          const cleanItens = currentItens.filter(
+            (i) => !(i.arquivo === file.name && i.nNF === parsed.nota.nNF)
+          );
+
+          cleanNotas.push(parsed.nota);
+          cleanItens.push(...parsed.itens);
+
+          currentNotas.splice(0, currentNotas.length, ...cleanNotas);
+          currentItens.splice(0, currentItens.length, ...cleanItens);
+
+          addedNotasCount++;
+          addedItensCount += parsed.itens.length;
+        } catch (err: any) {
+          console.error(err);
+          alertStatus(`Falha ao ler ${file.name}: ${err.message}`, "error");
         }
-
-        // Verifica se a nota é interestadual
-        const ufRemMatch = text.match(/<enderEmit[^>]*>[\s\S]*?<UF>([^<]+)<\/UF>/i);
-        const ufDestMatch = text.match(/<enderDest[^>]*>[\s\S]*?<UF>([^<]+)<\/UF>/i);
-        const ufRem = ufRemMatch ? ufRemMatch[1].trim().toUpperCase() : "";
-        const ufDest = ufDestMatch ? ufDestMatch[1].trim().toUpperCase() : (activeEmpresa?.uf || "SP").toUpperCase();
-
-        if (ufRem && ufDest && ufRem === ufDest) {
-          ignoredNotasCount++;
-          continue;
-        }
-
-        const parsed = parseXMLContent(
-          text,
-          file.name,
-          config,
-          emitterRegimes,
-          itemConsumerOverrides,
-          cfopMap,
-          ncmRateRules,
-          recipientRegimes
-        );
-
-        // Delete existing file records to avoid duplicating on re-upload
-        const cleanNotas = currentNotas.filter(
-          (n) => !(n.arquivo === file.name && n.nNF === parsed.nota.nNF)
-        );
-        const cleanItens = currentItens.filter(
-          (i) => !(i.arquivo === file.name && i.nNF === parsed.nota.nNF)
-        );
-
-        cleanNotas.push(parsed.nota);
-        cleanItens.push(...parsed.itens);
-
-        currentNotas.splice(0, currentNotas.length, ...cleanNotas);
-        currentItens.splice(0, currentItens.length, ...cleanItens);
-
-        addedNotasCount++;
-        addedItensCount += parsed.itens.length;
-      } catch (err: any) {
-        console.error(err);
-        alertStatus(`Falha ao ler ${file.name}: ${err.message}`, "error");
       }
+
+      // Sort lists numeric style
+      currentNotas.sort((a, b) => a.nNF.localeCompare(b.nNF, "pt-BR", { numeric: true }));
+      currentItens.sort((a, b) =>
+        `${a.nNF}-${a.itemSeq}`.localeCompare(`${b.nNF}-${b.itemSeq}`, "pt-BR", { numeric: true })
+      );
+
+      setNotas(currentNotas);
+      setItens(currentItens);
+      setInternalIgnoredCount((prev) => prev + ignoredNotasCount);
+
+      const ignoredMsg = ignoredNotasCount > 0 ? ` (${ignoredNotasCount} nota(s) interna(s) ignoradas por não incidirem DIFAL)` : "";
+      alertStatus(`${addedNotasCount} XML(s) interestadual(is) carregado(s)${ignoredMsg}. ${addedItensCount} item(ns) identificados.`);
+      
+      // Automatically switch tabs for direct spreadsheet views
+      setActiveTab("notas");
+    } finally {
+      setIsProcessingXmls(false);
     }
-
-    // Sort lists numeric style
-    currentNotas.sort((a, b) => a.nNF.localeCompare(b.nNF, "pt-BR", { numeric: true }));
-    currentItens.sort((a, b) =>
-      `${a.nNF}-${a.itemSeq}`.localeCompare(`${b.nNF}-${b.itemSeq}`, "pt-BR", { numeric: true })
-    );
-
-    setNotas(currentNotas);
-    setItens(currentItens);
-    setInternalIgnoredCount((prev) => prev + ignoredNotasCount);
-
-    const ignoredMsg = ignoredNotasCount > 0 ? ` (${ignoredNotasCount} nota(s) interna(s) ignoradas por não incidirem DIFAL)` : "";
-    alertStatus(`${addedNotasCount} XML(s) interestadual(is) carregado(s)${ignoredMsg}. ${addedItensCount} item(ns) identificados.`);
-    
-    // Automatically switch tabs for direct spreadsheet views
-    setActiveTab("notas");
   };
 
   // Parser: handle CFOP base list swap
@@ -1206,6 +1213,12 @@ export default function App() {
             </button>
           </div>
         )}
+
+        <LoadingGearOverlay
+          isLoading={isProcessingXmls}
+          title="Processando Notas Fiscais..."
+          subtitle="Auditando notas interestaduais e calculando DIFAL..."
+        />
 
         {appModule === "hub" ? (
           <EmpresasHubView

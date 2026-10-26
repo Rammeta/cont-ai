@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { EmpresaSefaz, SefazSyncStatus, CnpjConsultaResult } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import LoadingGearOverlay from "./LoadingGearOverlay";
 import {
   Building2,
   RefreshCw,
@@ -1882,7 +1883,12 @@ export default function CaptacaoView({
             </span>
           </div>
 
-          <div className="overflow-auto flex-1 custom-scrollbar">
+          <div className="overflow-auto flex-1 custom-scrollbar relative">
+            <LoadingGearOverlay
+              isLoading={loadingXmls && capturedNotas.length > 0}
+              title="Sincronizando Notas Fiscais (NF-e)..."
+              subtitle="Lendo e validando arquivos XML da empresa no disco..."
+            />
             <table className="datagrid-table">
               <thead>
                 <tr>
@@ -1993,13 +1999,14 @@ export default function CaptacaoView({
                 </tr>
               </thead>
               <tbody>
-                {loadingXmls ? (
-                  <tr>
-                    <td colSpan={9} className="text-center py-8 text-[#555555]">
-                      <RefreshCw size={16} className="animate-spin inline mr-2 text-[#003366]" />
-                      Carregando documentos fiscais da empresa...
-                    </td>
-                  </tr>
+                {loadingXmls && capturedNotas.length === 0 ? (
+                  <LoadingGearOverlay
+                    isLoading={true}
+                    variant="table"
+                    colSpan={9}
+                    title="Carregando Notas Fiscais (NF-e)..."
+                    subtitle="Lendo arquivos XML da empresa no disco..."
+                  />
                 ) : displayedNotas.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center py-8 text-[#555555]">

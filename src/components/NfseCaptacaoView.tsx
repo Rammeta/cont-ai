@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { EmpresaSefaz, ParsedNfse, NfseMetricas, AppSettings } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import LoadingGearOverlay from "./LoadingGearOverlay";
 import {
   Building2,
   RefreshCw,
@@ -1421,7 +1422,12 @@ export default function NfseCaptacaoView({
 
         {/* 4. DATAGRID ERP DE NOTAS FISCAIS DE SERVIÇO (NFS-E) */}
         <div className="border border-[#999999] bg-white flex flex-col flex-1 min-h-[280px] overflow-hidden">
-          <div className="overflow-auto flex-1">
+          <div className="overflow-auto flex-1 relative">
+            <LoadingGearOverlay
+              isLoading={loading && capturedNotas.length > 0}
+              title="Sincronizando Notas Fiscais de Serviço (NFS-e)..."
+              subtitle="Lendo e validando notas de serviço da empresa no disco..."
+            />
             <table className="datagrid-table">
               <thead>
                 <tr>
@@ -1493,13 +1499,14 @@ export default function NfseCaptacaoView({
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-8 text-[#555555]">
-                      <RotateCw size={16} className="animate-spin inline mr-1 text-[#003366]" />
-                      Carregando notas fiscais de serviço do disco...
-                    </td>
-                  </tr>
+                {loading && capturedNotas.length === 0 ? (
+                  <LoadingGearOverlay
+                    isLoading={true}
+                    variant="table"
+                    colSpan={6}
+                    title="Carregando Notas Fiscais de Serviço (NFS-e)..."
+                    subtitle="Lendo e validando notas tomadas e prestadas no disco..."
+                  />
                 ) : filteredNotas.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-8 text-[#777777]">
