@@ -44,16 +44,34 @@ function pushDiagnosticLog(level, args) {
   } catch (_) {}
 }
 
-// Cache em memória de alta performance para métricas de empresas (TTL 60s)
+// Cache em memória e persistente em disco para métricas de empresas
 const companiesMetricsCache = new Map();
+let companiesMetricsDiskCache = {};
+let saveMetricsTimer = null;
+
 function invalidateCompanyMetrics(cnpj) {
   if (!cnpj) {
+    companiesMetricsCache.clear();
+    companiesMetricsDiskCache = {};
+    if (typeof persistMetricsCacheDebounced === 'function') {
+      persistMetricsCacheDebounced();
+    }
     invalidateNfseCache();
+    if (typeof sefazManager !== 'undefined' && sefazManager?.companyDirCache) {
+      sefazManager.companyDirCache.clear();
+    }
     return;
   }
   const clean = String(cnpj).replace(/\D/g, '');
   companiesMetricsCache.delete(clean);
+  delete companiesMetricsDiskCache[clean];
+  if (typeof persistMetricsCacheDebounced === 'function') {
+    persistMetricsCacheDebounced();
+  }
   invalidateNfseCache(clean);
+  if (typeof sefazManager !== 'undefined' && sefazManager?.companyDirCache) {
+    sefazManager.companyDirCache.delete(clean);
+  }
 }
 
 const origLog = console.log;
@@ -105,7 +123,50 @@ let hasNotifiedBackground = false;
 // Diretório base para armazenar dados e XMLs das empresas
 const defaultStorageDir = path.join(app.getPath('userData'), 'sefaz_empresas');
 const settingsPath = path.join(app.getPath('userData'), 'app_settings.json');
+const metricsCachePath = path.join(app.getPath('userData'), 'companies_metrics_cache.json');
 getStateDatabase(app.getPath('userData'));
+
+function loadPersistentMetricsCache() {
+  try {
+    if (fs.existsSync(metricsCachePath)) {
+      const raw = fs.readFileSync(metricsCachePath, 'utf8');
+      companiesMetricsDiskCache = JSON.parse(raw) || {};
+    }
+  } catch (err) {
+    companiesMetricsDiskCache = {};
+  }
+}
+
+function persistMetricsCacheDebounced() {
+  if (saveMetricsTimer) clearTimeout(saveMetricsTimer);
+  saveMetricsTimer = setTimeout(() => {
+    try {
+      fs.writeFileSync(metricsCachePath, JSON.stringify(companiesMetricsDiskCache, null, 2), 'utf8');
+    } catch (e) {}
+  }, 1000);
+}
+
+loadPersistentMetricsCache();
+
+function getCompanyDirSignature(companyDir) {
+  try {
+    if (!fs.existsSync(companyDir)) return null;
+    const stat = fs.statSync(companyDir);
+    let sig = String(stat.mtimeMs);
+    const entries = fs.readdirSync(companyDir, { withFileTypes: true });
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        try {
+          const subStat = fs.statSync(path.join(companyDir, e.name));
+          sig += `:${e.name}_${subStat.mtimeMs}`;
+        } catch (_) {}
+      }
+    }
+    return sig;
+  } catch (_) {
+    return null;
+  }
+}
 
 function loadSettings() {
   const defaults = {
@@ -2051,14 +2112,16 @@ function parseFlexibleDate(dateVal) {
 }
 
 // 27c. Obter métricas rápidas de todas as empresas (contagem de documentos por modelo e validade de certificados)
-ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
+ipcMain.handle('app:get-companies-metrics', async (event, { companies, forceRefresh = false } = {}) => {
   try {
     if (!companies || !Array.isArray(companies)) {
       return { success: true, metrics: [] };
     }
 
     const now = Date.now();
-    const metrics = companies.map((company) => {
+    const metrics = [];
+
+    for (const company of companies) {
       const cleanCnpj = String(company.cnpj || '').replace(/\D/g, '');
       const companyDir = sefazManager.getCompanyDir(cleanCnpj, company.razaoSocial);
 
@@ -2069,15 +2132,44 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
       let nfsePrestadasCount = 0;
       let latestMtime = 0;
 
-      const cached = companiesMetricsCache.get(cleanCnpj);
-      if (cached && (now - cached.timestamp < 60000)) {
-        nfeCount = cached.nfeCount;
-        nfceCount = cached.nfceCount;
-        cteCount = cached.cteCount;
-        nfseTomadasCount = cached.nfseTomadasCount;
-        nfsePrestadasCount = cached.nfsePrestadasCount;
-        latestMtime = cached.latestMtime;
-      } else if (fs.existsSync(companyDir)) {
+      const memCached = !forceRefresh ? companiesMetricsCache.get(cleanCnpj) : null;
+      const diskCached = !forceRefresh ? companiesMetricsDiskCache[cleanCnpj] : null;
+
+      let dirSignature = null;
+      if (fs.existsSync(companyDir)) {
+        dirSignature = getCompanyDirSignature(companyDir);
+      }
+
+      let usedCached = false;
+      if (memCached && (now - memCached.timestamp < 300000)) { // 5 minutos de cache em memória
+        nfeCount = memCached.nfeCount;
+        nfceCount = memCached.nfceCount;
+        cteCount = memCached.cteCount;
+        nfseTomadasCount = memCached.nfseTomadasCount;
+        nfsePrestadasCount = memCached.nfsePrestadasCount;
+        latestMtime = memCached.latestMtime;
+        usedCached = true;
+      } else if (diskCached && dirSignature && diskCached.dirSignature === dirSignature) {
+        nfeCount = diskCached.nfeCount || 0;
+        nfceCount = diskCached.nfceCount || 0;
+        cteCount = diskCached.cteCount || 0;
+        nfseTomadasCount = diskCached.nfseTomadasCount || 0;
+        nfsePrestadasCount = diskCached.nfsePrestadasCount || 0;
+        latestMtime = diskCached.latestMtime || 0;
+        companiesMetricsCache.set(cleanCnpj, {
+          timestamp: now,
+          dirSignature,
+          nfeCount,
+          nfceCount,
+          cteCount,
+          nfseTomadasCount,
+          nfsePrestadasCount,
+          latestMtime
+        });
+        usedCached = true;
+      }
+
+      if (!usedCached && fs.existsSync(companyDir)) {
         const scanDir = (dir) => {
           try {
             const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -2105,15 +2197,23 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
           } catch (_) {}
         };
         scanDir(companyDir);
-        companiesMetricsCache.set(cleanCnpj, {
+
+        const cacheRecord = {
           timestamp: now,
+          dirSignature,
           nfeCount,
           nfceCount,
           cteCount,
           nfseTomadasCount,
           nfsePrestadasCount,
           latestMtime
-        });
+        };
+        companiesMetricsCache.set(cleanCnpj, cacheRecord);
+        companiesMetricsDiskCache[cleanCnpj] = cacheRecord;
+        persistMetricsCacheDebounced();
+
+        // Cede o loop de eventos para o Electron responder fluidamente à UI
+        await new Promise((resolve) => setImmediate(resolve));
       }
 
       // Certificado
@@ -2146,37 +2246,60 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
         }
       }
 
-      // Se ainda não temos dias restantes e o arquivo existe em disco, inspeciona diretamente o PFX
+      // Se ainda não temos dias restantes e o arquivo existe em disco, inspeciona PFX com cache
       if ((daysRemaining === null || certStatus === 'missing') && company.certPath && fs.existsSync(company.certPath)) {
         try {
-          const certInfo = sefazManager.testCertificate({
-            certPath: company.certPath,
-            password: company.password || ''
-          });
-          if (certInfo) {
-            if (certInfo.validTo) {
-              const parsedV = parseFlexibleDate(certInfo.validTo);
-              validTo = parsedV ? parsedV.toISOString() : String(certInfo.validTo);
-            }
-            subject = certInfo.subject || subject;
-            issuer = certInfo.issuer || issuer;
-            if (typeof certInfo.daysRemaining === 'number') {
-              daysRemaining = certInfo.daysRemaining;
-            } else if (validTo) {
-              const parsedV = parseFlexibleDate(validTo);
-              if (parsedV) {
-                daysRemaining = Math.ceil((parsedV.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          const certStat = fs.statSync(company.certPath);
+          const cachedCert = companiesMetricsDiskCache[cleanCnpj]?.certDetails;
+          if (cachedCert && cachedCert.certPath === company.certPath && cachedCert.mtime === certStat.mtimeMs) {
+            validTo = cachedCert.validTo;
+            daysRemaining = cachedCert.validTo ? Math.ceil((new Date(cachedCert.validTo).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+            subject = cachedCert.subject;
+            issuer = cachedCert.issuer;
+            certStatus = cachedCert.certStatus;
+          } else {
+            const certInfo = sefazManager.testCertificate({
+              certPath: company.certPath,
+              password: company.password || ''
+            });
+            if (certInfo) {
+              if (certInfo.validTo) {
+                const parsedV = parseFlexibleDate(certInfo.validTo);
+                validTo = parsedV ? parsedV.toISOString() : String(certInfo.validTo);
               }
-            }
+              subject = certInfo.subject || subject;
+              issuer = certInfo.issuer || issuer;
+              if (typeof certInfo.daysRemaining === 'number') {
+                daysRemaining = certInfo.daysRemaining;
+              } else if (validTo) {
+                const parsedV = parseFlexibleDate(validTo);
+                if (parsedV) {
+                  daysRemaining = Math.ceil((parsedV.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                }
+              }
 
-            if (daysRemaining !== null && daysRemaining !== undefined) {
-              if (daysRemaining < 0) {
-                certStatus = 'expired';
-              } else if (daysRemaining <= 30) {
-                certStatus = 'expiring_soon';
-              } else {
-                certStatus = 'valid';
+              if (daysRemaining !== null && daysRemaining !== undefined) {
+                if (daysRemaining < 0) {
+                  certStatus = 'expired';
+                } else if (daysRemaining <= 30) {
+                  certStatus = 'expiring_soon';
+                } else {
+                  certStatus = 'valid';
+                }
               }
+
+              if (!companiesMetricsDiskCache[cleanCnpj]) {
+                companiesMetricsDiskCache[cleanCnpj] = {};
+              }
+              companiesMetricsDiskCache[cleanCnpj].certDetails = {
+                certPath: company.certPath,
+                mtime: certStat.mtimeMs,
+                validTo,
+                subject,
+                issuer,
+                certStatus
+              };
+              persistMetricsCacheDebounced();
             }
           }
         } catch (_) {
@@ -2184,7 +2307,7 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
         }
       }
 
-      return {
+      metrics.push({
         id: company.id,
         cnpj: company.cnpj,
         razaoSocial: company.razaoSocial,
@@ -2205,8 +2328,8 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
         modelosHabilitados: company.modelosHabilitados,
         lastSyncDate: latestMtime > 0 ? new Date(latestMtime).toISOString() : null,
         companyDir
-      };
-    });
+      });
+    }
 
     return { success: true, metrics };
   } catch (err) {

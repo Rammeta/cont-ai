@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { EmpresaSefaz, EmpresaMetrics } from "../types";
 import { getCompaniesMetrics, openCompanyFolder } from "../utils/electronBridge";
 import { formatDateBr, calculateDaysRemaining } from "../utils/certUtils";
@@ -37,7 +37,85 @@ export default function EmpresasHubView({
   onNotify,
   refreshKey,
 }: EmpresasHubViewProps) {
-  const [metrics, setMetrics] = useState<EmpresaMetrics[]>([]);
+  const empresasRef = useRef(empresas);
+  empresasRef.current = empresas;
+
+  // Inicializa o grid instantaneamente com os dados em memória (0 ms de espera)
+  const [metrics, setMetrics] = useState<EmpresaMetrics[]>(() => {
+    return (empresas || []).map((e) => {
+      let certStatus: EmpresaMetrics["certStatus"] = "missing";
+      let daysRemaining = e.certInfo?.daysRemaining ?? null;
+      if ((daysRemaining === null || daysRemaining === undefined) && e.certInfo?.validTo) {
+        daysRemaining = calculateDaysRemaining(e.certInfo.validTo);
+      }
+      if (daysRemaining !== null) {
+        if (daysRemaining < 0) certStatus = "expired";
+        else if (daysRemaining <= 30) certStatus = "expiring_soon";
+        else certStatus = "valid";
+      }
+      return {
+        id: e.id,
+        cnpj: e.cnpj,
+        razaoSocial: e.razaoSocial,
+        uf: e.uf,
+        regime: e.regime,
+        nfeCount: 0,
+        nfceCount: 0,
+        cteCount: 0,
+        nfseTomadasCount: 0,
+        nfsePrestadasCount: 0,
+        nfseTotalCount: 0,
+        totalDocs: 0,
+        certStatus,
+        certDaysRemaining: daysRemaining,
+        certValidTo: e.certInfo?.validTo,
+        certSubject: e.certInfo?.subject,
+        certIssuer: e.certInfo?.issuer,
+        modelosHabilitados: e.modelosHabilitados,
+      };
+    });
+  });
+
+  // Sincroniza o grid com a lista de empresas caso sejam adicionadas ou removidas
+  useEffect(() => {
+    setMetrics((prev) => {
+      const prevMap = new Map(prev.map((p) => [p.id, p]));
+      return (empresas || []).map((e) => {
+        const existing = prevMap.get(e.id);
+        if (existing) {
+          return {
+            ...existing,
+            razaoSocial: e.razaoSocial,
+            cnpj: e.cnpj,
+            uf: e.uf,
+            regime: e.regime,
+            modelosHabilitados: e.modelosHabilitados,
+          };
+        }
+        return {
+          id: e.id,
+          cnpj: e.cnpj,
+          razaoSocial: e.razaoSocial,
+          uf: e.uf,
+          regime: e.regime,
+          nfeCount: 0,
+          nfceCount: 0,
+          cteCount: 0,
+          nfseTomadasCount: 0,
+          nfsePrestadasCount: 0,
+          nfseTotalCount: 0,
+          totalDocs: 0,
+          certStatus: "missing",
+          certDaysRemaining: null,
+          certValidTo: e.certInfo?.validTo,
+          certSubject: e.certInfo?.subject,
+          certIssuer: e.certInfo?.issuer,
+          modelosHabilitados: e.modelosHabilitados,
+        };
+      });
+    });
+  }, [empresas]);
+
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 250);
@@ -71,15 +149,16 @@ export default function EmpresasHubView({
   const [syncTargetCompany, setSyncTargetCompany] = useState<EmpresaSefaz | null>(null);
 
   // Carrega métricas do backend
-  const loadMetrics = useCallback(async () => {
-    if (empresas.length === 0) {
+  const loadMetrics = useCallback(async (forceRefresh = false) => {
+    const currentEmpresas = empresasRef.current;
+    if (!currentEmpresas || currentEmpresas.length === 0) {
       setMetrics([]);
       return;
     }
 
     setLoadingMetrics(true);
     try {
-      const res = await getCompaniesMetrics(empresas);
+      const res = await getCompaniesMetrics(currentEmpresas, forceRefresh);
       if (res.success && res.metrics) {
         const enriched = (res.metrics || []).map((m) => {
           let days = m.certDaysRemaining;
@@ -137,10 +216,10 @@ export default function EmpresasHubView({
     } finally {
       setLoadingMetrics(false);
     }
-  }, [empresas, onNotify]);
+  }, [onNotify]);
 
   useEffect(() => {
-    loadMetrics();
+    loadMetrics(false);
   }, [empresas.length, refreshKey, loadMetrics]);
 
   // Atualização do relógio a cada segundo
@@ -407,7 +486,7 @@ export default function EmpresasHubView({
         }
       } else if (e.key === "F5") {
         e.preventDefault();
-        loadMetrics();
+        loadMetrics(true);
         onNotify("Grid de empresas atualizada com sucesso.", "success");
       }
     };
@@ -653,7 +732,7 @@ export default function EmpresasHubView({
           <button
             type="button"
             onClick={() => {
-              loadMetrics();
+              loadMetrics(true);
               onNotify("Grid de empresas atualizada com sucesso.", "success");
             }}
             disabled={loadingMetrics}
@@ -1306,7 +1385,7 @@ export default function EmpresasHubView({
         targetCompany={syncTargetCompany}
         allCompanies={empresas}
         onComplete={() => {
-          loadMetrics();
+          loadMetrics(true);
           onNotify("Sincronização concluída com sucesso!", "success");
         }}
       />

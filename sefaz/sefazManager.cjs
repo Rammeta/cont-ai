@@ -29,6 +29,7 @@ class SefazManager {
     this.stateDb = getStateDatabase();
     this.nfceCache = new Map();
     this.cteCache = new Map();
+    this.companyDirCache = new Map();
     if (this.baseDataDir && !fs.existsSync(this.baseDataDir)) {
       try {
         fs.mkdirSync(this.baseDataDir, { recursive: true });
@@ -39,6 +40,9 @@ class SefazManager {
   setBaseDataDir(newDir) {
     if (newDir && typeof newDir === 'string') {
       this.baseDataDir = newDir;
+      if (this.companyDirCache) {
+        this.companyDirCache.clear();
+      }
       if (!fs.existsSync(this.baseDataDir)) {
         fs.mkdirSync(this.baseDataDir, { recursive: true });
       }
@@ -102,6 +106,24 @@ class SefazManager {
 
   getCompanyDir(cnpj, razaoSocial) {
     const cleanCnpj = String(cnpj || '').replace(/\D/g, '');
+    if (!cleanCnpj) {
+      return this.baseDataDir;
+    }
+
+    if (this.companyDirCache && this.companyDirCache.has(cleanCnpj)) {
+      const cached = this.companyDirCache.get(cleanCnpj);
+      if (cached && fs.existsSync(cached)) {
+        return cached;
+      }
+      this.companyDirCache.delete(cleanCnpj);
+    }
+
+    const returnAndCache = (dir) => {
+      if (this.companyDirCache && dir) {
+        this.companyDirCache.set(cleanCnpj, dir);
+      }
+      return dir;
+    };
 
     // 1. Procura se já existe qualquer pasta terminada com (cleanCnpj) ou igual a cleanCnpj
     let matchedDir = null;
@@ -145,7 +167,7 @@ class SefazManager {
             fs.rmSync(matchedDir, { recursive: true, force: true });
           } catch (eCopy) {}
         }
-        return desiredDir;
+        return returnAndCache(desiredDir);
       }
 
       // Se existia uma pasta legada (ex: apenas o CNPJ ou CNPJ (CNPJ)), renomeia para o nome real
@@ -153,30 +175,30 @@ class SefazManager {
         if (matchedName === cleanCnpj || matchedName === `${cleanCnpj} (${cleanCnpj})` || matchedName.startsWith(cleanCnpj)) {
           try {
             fs.renameSync(matchedDir, desiredDir);
-            return desiredDir;
+            return returnAndCache(desiredDir);
           } catch (eRename) {
             try {
               fs.cpSync(matchedDir, desiredDir, { recursive: true });
-              return desiredDir;
+              return returnAndCache(desiredDir);
             } catch (eCp) {
-              return matchedDir;
+              return returnAndCache(matchedDir);
             }
           }
         }
         // Se a pasta existente já tem um nome corporativo real válido, preserva-a
-        return matchedDir;
+        return returnAndCache(matchedDir);
       }
 
       // Se não existia pasta nenhuma, cria a desejada
       try {
         fs.mkdirSync(desiredDir, { recursive: true });
       } catch (e) {}
-      return desiredDir;
+      return returnAndCache(desiredDir);
     }
 
     // 3. Se razaoSocial NÃO foi informada ou é apenas dígitos, mas já encontramos uma pasta existente, retorna ela
     if (matchedDir) {
-      return matchedDir;
+      return returnAndCache(matchedDir);
     }
 
     // 4. Caso extremo onde não há razão social nem pasta existente: cria a pasta com o CNPJ
@@ -186,7 +208,7 @@ class SefazManager {
         fs.mkdirSync(fallbackDir, { recursive: true });
       } catch (e) {}
     }
-    return fallbackDir;
+    return returnAndCache(fallbackDir);
   }
 
   testCertificate(target) {

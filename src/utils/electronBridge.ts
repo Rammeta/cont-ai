@@ -943,7 +943,8 @@ export const saveHtmlDashboard = async (
 };
 
 export const getCompaniesMetrics = async (
-  companies: EmpresaSefaz[]
+  companies: EmpresaSefaz[],
+  forceRefresh: boolean = false
 ): Promise<{ success: boolean; metrics?: EmpresaMetrics[]; error?: string }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron.", metrics: [] };
@@ -959,6 +960,6 @@ export const getCompaniesMetrics = async (
     certInfo: c?.certInfo,
     modelosHabilitados: c?.modelosHabilitados,
   }));
-  return await ipc.invoke("app:get-companies-metrics", { companies: safeCompanies });
+  return await ipc.invoke("app:get-companies-metrics", { companies: safeCompanies, forceRefresh });
 };
 
