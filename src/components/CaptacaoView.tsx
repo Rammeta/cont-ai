@@ -1454,7 +1454,7 @@ export default function CaptacaoView({
             title={cooldownRemaining > 0 ? `SEFAZ em repouso (restam ${formatCooldown(cooldownRemaining)})` : "Consultar novas notas fiscais na SEFAZ Nacional (Atalho: F5)"}
           >
             <RefreshCw size={13} className={syncStatus.syncing ? "animate-spin text-[#003366]" : "text-[#003366]"} />
-            <span>{syncStatus.syncing ? "Sincronizando..." : cooldownRemaining > 0 ? `Repouso (${formatCooldown(cooldownRemaining)})` : "⚡ Sincronizar NF-e (F5)"}</span>
+            <span>{syncStatus.syncing ? "Sincronizando..." : cooldownRemaining > 0 ? `Repouso (${formatCooldown(cooldownRemaining)})` : "Sincronizar NF-e (F5)"}</span>
           </button>
 
           {cooldownRemaining > 0 && (
@@ -1769,8 +1769,8 @@ export default function CaptacaoView({
                     {consultandoLote
                       ? `Portal RFB (${loteProgresso?.current || 0}/${loteProgresso?.total || 0})...`
                       : pendingCnpjs.length > 0
-                      ? `🔍 Consultar SN (${pendingCnpjs.length} pendentes)`
-                      : "✓ SN Verificado (Reconsultar)"}
+                      ? `Consultar SN (${pendingCnpjs.length} pendentes)`
+                      : "SN Verificado (Reconsultar)"}
                   </span>
                 </button>
               </div>
@@ -1842,7 +1842,7 @@ export default function CaptacaoView({
                   title="Abrir DANFE oficial em PDF no leitor padrão do Windows"
                 >
                   <FileText size={12} className="text-[#aa2222]" />
-                  <span>➔ Abrir DANFE PDF (Enter)</span>
+                  <span>Abrir DANFE PDF (Enter)</span>
                 </button>
 
                 <button
@@ -2302,7 +2302,7 @@ export default function CaptacaoView({
                   <div className="flex justify-between text-[10px] text-[#666666] mt-0.5">
                     <span>Dígitos inseridos: {chaveInput.replace(/\D/g, "").length} / 44</span>
                     {chaveInput.replace(/\D/g, "").length === 44 && (
-                      <span className="text-[#107c41] font-bold">✓ Chave com 44 dígitos válidos</span>
+                      <span className="text-[#107c41] font-bold">Chave com 44 dígitos válidos</span>
                     )}
                   </div>
                 </div>
@@ -2342,7 +2342,7 @@ export default function CaptacaoView({
 
               {searchChaveResult && (
                 <div className="bg-[#ffffff] border border-[#107c41] p-3 space-y-2">
-                  <div className="font-bold text-[#107c41]">✓ NF-e Capturada e Salva com Sucesso!</div>
+                  <div className="font-bold text-[#107c41]">NF-e Capturada e Salva com Sucesso!</div>
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
                     <div><strong>Emitente:</strong> {searchChaveResult.emitente}</div>
                     <div><strong>Valor Total:</strong> {formatBRL(searchChaveResult.valor)}</div>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CONT-AI — Gestor de Movimento Fiscal, Emissor NFS-e & Apuração DIFAL | Vagner Godoy de Melo</title>
-  <meta name="description" content="Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais (NF-e, NFC-e, CT-e e NFS-e), Emissor Nacional de NFS-e (Reforma Tributária IBS/CBS e NBS) e Auditoria de DIFAL." />
+  <meta name="description" content="Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais (NF-e, NFC-e, CT-e e NFS-e), Emissor Nacional de NFS-e e Auditoria de DIFAL." />
   <link rel="icon" type="image/png" href="screenshots/logo.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -12,7 +12,7 @@
     body {
       background-color: #e9edf2;
       color: #1e293b;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
     }
     
     /* Botões no estilo clássico do CONT-AI */
@@ -102,9 +102,8 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- Toast de confirmação ao copiar PIX -->
+  <!-- Notificação ao copiar PIX -->
   <div id="toast" class="fixed bottom-6 right-6 z-50 hidden items-center gap-2.5 bg-[#107c41] text-white px-4 py-3 rounded shadow-xl border border-emerald-500 font-semibold text-xs transition-all">
-    <span>✅</span>
     <span id="toast-text">Chave PIX copiada com sucesso!</span>
   </div>
 
@@ -126,16 +125,16 @@
         <a href="#emissor" class="hover:text-[#005a9e] transition">Emissor NFS-e</a>
         <a href="#funcionalidades" class="hover:text-[#005a9e] transition">Módulos Fiscais</a>
         <a href="#telas" class="hover:text-[#005a9e] transition">Demonstração das Telas</a>
-        <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition">☕ Apoiar (PIX)</a>
+        <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition">Apoiar (PIX)</a>
         <a href="#autor" class="hover:text-[#005a9e] transition">Autor</a>
       </nav>
 
       <div class="flex items-center gap-2">
         <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener" class="vb-btn text-xs py-1 px-2.5">
-          <span>⭐ GitHub</span>
+          <span>GitHub</span>
         </a>
         <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener" class="vb-btn vb-btn-primary text-xs py-1 px-3">
-          <span>⬇️ Baixar (.exe)</span>
+          <span>Baixar Windows (.exe)</span>
         </a>
       </div>
     </div>
@@ -149,17 +148,12 @@
           
           <!-- Coluna Texto de Apresentação -->
           <div class="lg:col-span-6 space-y-4">
-            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#e0ebf5] border border-[#a8c6e2] text-[#003366] text-xs font-bold">
-              <span class="w-2 h-2 rounded-full bg-[#107c41]"></span>
-              <span>Reforma Tributária 2026 (IBS/CBS, LC 116 e Tabela NBS)</span>
-            </div>
-
             <h1 class="text-2xl sm:text-4xl font-extrabold text-[#003366] leading-tight">
               Gestão Fiscal Integrada, Emissor Nacional de NFS-e & Auditoria de DIFAL
             </h1>
 
             <p class="text-sm sm:text-base text-[#444444] leading-relaxed">
-              Sistema Desktop ERP gratuito construído sob medida para <strong>escritórios de contabilidade</strong> e <strong>departamentos fiscais</strong>. Conexão direta via <strong>Certificado Digital A1 (mTLS)</strong> com a SEFAZ Nacional, Ambiente Nacional ADN e Prefeitura de São Paulo.
+              Sistema Desktop ERP gratuito desenvolvido para escritórios de contabilidade e departamentos fiscais. Conexão direta via Certificado Digital A1 (mTLS) com a SEFAZ Nacional, Ambiente Nacional ADN e Prefeitura de São Paulo.
             </p>
 
             <!-- Painel de Badges Fiscais -->
@@ -185,13 +179,13 @@
             <!-- Botões de Ação -->
             <div class="pt-3 flex flex-wrap items-center gap-3">
               <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener" class="vb-btn vb-btn-primary py-2.5 px-5 text-sm shadow">
-                <span>⬇️ Baixar Instalador Oficial Windows (.exe)</span>
+                <span>Baixar Instalador Oficial Windows (.exe)</span>
               </a>
               <a href="#apoiar" class="vb-btn vb-btn-success py-2.5 px-4 text-sm shadow">
-                <span>☕ Apoiar via PIX</span>
+                <span>Apoiar via PIX</span>
               </a>
               <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener" class="vb-btn py-2.5 px-3.5 text-sm">
-                <span>⭐ GitHub</span>
+                <span>Repositório GitHub</span>
               </a>
             </div>
 
@@ -200,7 +194,7 @@
             </p>
           </div>
 
-          <!-- Coluna Visual da Janela do ERP CONT-AI (Substituindo o vídeo) -->
+          <!-- Coluna Visual da Janela do ERP CONT-AI -->
           <div class="lg:col-span-6">
             <div class="border border-[#707070] bg-[#ffffff] shadow-2xl rounded overflow-hidden">
               <!-- Barra de Título Windows do CONT-AI -->
@@ -224,7 +218,7 @@
                 <span>Relatórios</span>
                 <span>Emissor NFS-e</span>
                 <span>Configurações</span>
-                <span class="ml-auto text-[10px] font-mono text-[#107c41] font-bold">● SEFAZ Online</span>
+                <span class="ml-auto text-[10px] font-mono text-[#107c41] font-bold">SEFAZ Online</span>
               </div>
 
               <!-- Print Principal em Destaque -->
@@ -248,31 +242,28 @@
     <section id="emissor" class="py-12 bg-[#ffffff] border-b border-[#c0c0c0]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6">
         <div class="vb-groupbox">
-          <span class="vb-legend flex items-center gap-2">
-            <span>📋 NOVO MÓDULO: Emissor Nacional de NFS-e (Sefin Nacional / ADN)</span>
+          <span class="vb-legend">
+            Emissor Nacional de NFS-e (Sefin Nacional / ADN)
           </span>
 
           <div class="grid lg:grid-cols-12 gap-8 items-center mt-3">
             <div class="lg:col-span-5 space-y-3">
               <h2 class="text-xl sm:text-2xl font-bold text-[#003366]">
-                Emissão Rápida com Reforma Tributária e Tabela NBS
+                Emissão Direta via Certificado Digital A1
               </h2>
               <p class="text-xs sm:text-sm text-[#444444] leading-relaxed">
-                Desenvolvido para eliminar o sofrimento dos portais governamentais lentos. Conecte o Certificado A1 da empresa e emita a DPS/NFS-e diretamente pela API Nacional.
+                Desenvolvido para eliminar a instabilidade dos portais governamentais web. Conecte o Certificado A1 da empresa e emita a DPS/NFS-e diretamente pela API Nacional.
               </p>
               
               <ul class="space-y-2 text-xs text-[#222222]">
-                <li class="flex items-start gap-2 bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
-                  <span class="text-[#107c41] font-bold">✔</span>
-                  <span><strong>Painel Suspenso Inteligente:</strong> Pesquise por código ou descrição em <code class="text-[#005a9e]">cTribNac</code> (LC 116), <code class="text-[#005a9e]">cNBS</code>, <code class="text-[#005a9e]">cIndOp</code> e <code class="text-[#005a9e]">cClassTrib</code>.</span>
+                <li class="bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
+                  <strong>Painel Suspenso de Seleção:</strong> Pesquise por código ou descrição em <code class="text-[#005a9e]">cTribNac</code> (LC 116), <code class="text-[#005a9e]">cNBS</code>, <code class="text-[#005a9e]">cIndOp</code> e <code class="text-[#005a9e]">cClassTrib</code>.
                 </li>
-                <li class="flex items-start gap-2 bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
-                  <span class="text-[#107c41] font-bold">✔</span>
-                  <span><strong>Controle Automático de Numeração:</strong> Acompanha o sequencial de notas autorizadas para evitar erros de duplicidade.</span>
+                <li class="bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
+                  <strong>Controle de Sequencial:</strong> Acompanha o histórico de numeração de notas autorizadas para evitar duplicidades.
                 </li>
-                <li class="flex items-start gap-2 bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
-                  <span class="text-[#107c41] font-bold">✔</span>
-                  <span><strong>Espelho Pré-Emissão & DANFSe:</strong> Visualize a prévia dos impostos e retenções antes de assinar digitalmente e imprima o DANFSe oficial em PDF.</span>
+                <li class="bg-[#f8f9fa] p-2 border border-[#e2e8f0] rounded">
+                  <strong>Espelho Pré-Emissão & DANFSe:</strong> Visualize a prévia dos impostos e retenções antes de assinar digitalmente e imprima o DANFSe oficial em PDF.
                 </li>
               </ul>
             </div>
@@ -302,42 +293,42 @@
 
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div class="vb-groupbox">
-            <span class="vb-legend">🏢 Hub Multi-Empresas</span>
+            <span class="vb-legend">Hub Multi-Empresas</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
               Gestão visual de toda a carteira de clientes, monitoramento de validade dos Certificados Digitais A1 (avisos de 30 dias e expirados) e botão de sincronização em lote de todas as empresas em 1 clique.
             </p>
           </div>
 
           <div class="vb-groupbox">
-            <span class="vb-legend">📦 NF-e Entradas (Modelo 55)</span>
+            <span class="vb-legend">NF-e Entradas (Modelo 55)</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
               Sincronização nativa direta via SEFAZ Nacional (<code class="text-[#005a9e]">NFeDistribuicaoDFe</code>), manifestação automática de Ciência da Operação e download dos XMLs completos.
             </p>
           </div>
 
           <div class="vb-groupbox">
-            <span class="vb-legend">🧾 NFS-e Tomadas e Prestadas</span>
+            <span class="vb-legend">NFS-e Tomadas e Prestadas</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
               Integração com o Ambiente de Dados Nacional (ADN) e Prefeitura de São Paulo, capturando automaticamente serviços tomados e prestados com espelho DANFSE em PDF.
             </p>
           </div>
 
           <div class="vb-groupbox">
-            <span class="vb-legend">🚚 CT-e Fretes & NFC-e Cupons</span>
+            <span class="vb-legend">CT-e Fretes & NFC-e Cupons</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
               Consulta de Conhecimentos de Transporte Eletrônicos com geração instantânea de DACTE e separação de cupons fiscais NFC-e (Modelo 65) por competência.
             </p>
           </div>
 
           <div class="vb-groupbox">
-            <span class="vb-legend">⚖️ Auditoria e Memória de DIFAL</span>
+            <span class="vb-legend">Auditoria e Memória de DIFAL</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
               Filtro automático de notas interestaduais, consulta se o fornecedor é Simples Nacional ou Regime Normal e cálculo com memória item a item por NCM/CFOP.
             </p>
           </div>
 
           <div class="vb-groupbox">
-            <span class="vb-legend">📑 Guia Geral & Exportações</span>
+            <span class="vb-legend">Guia Geral & Exportações</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
               Consolidação de todos os 4 modelos fiscais em uma única grade de auditoria, conferência de retenções federais (IRRF, PIS, COFINS, CSLL, INSS) e exportação em CSV/Excel.
             </p>
@@ -361,7 +352,7 @@
                     class="tab-btn active">
               Hub de Empresas
             </button>
-            <button onclick="showScreen('screenshots/screen_12_emissor_nfse.png', 'Emissor Nacional de NFS-e: emissão simplificada com enquadramento na Reforma Tributária (IBS/CBS e NBS).', this)"
+            <button onclick="showScreen('screenshots/screen_12_emissor_nfse.png', 'Emissor Nacional de NFS-e: emissão simplificada de DPS com integração direta na API Nacional.', this)"
                     class="tab-btn">
               Emissor NFS-e
             </button>
@@ -401,7 +392,7 @@
       <div class="max-w-4xl mx-auto px-4 sm:px-6">
         <div class="vb-groupbox border-2 border-[#107c41]">
           <span class="vb-legend text-[#107c41] flex items-center gap-1.5 text-sm">
-            <span>☕ Apoie o Desenvolvimento do CONT-AI (PIX)</span>
+            <span>Apoie o Desenvolvimento do CONT-AI (PIX)</span>
           </span>
 
           <div class="grid md:grid-cols-12 gap-6 items-center mt-3">
@@ -424,21 +415,21 @@
 
               <div class="bg-[#f8f9fa] border border-[#d0d0d0] p-3 rounded space-y-2 text-xs">
                 <div class="flex items-center justify-between">
-                  <span class="text-[#666666]">🏢 Titular / Conta PJ:</span>
+                  <span class="text-[#666666]">Titular / Conta PJ:</span>
                   <span class="font-bold text-[#111111] font-mono">66.604.571 VAGNER GODOY de MELO</span>
                 </div>
                 <div class="flex items-center justify-between border-t border-[#e0e0e0] pt-2">
-                  <span class="text-[#666666]">🔑 Chave PIX (CNPJ):</span>
+                  <span class="text-[#666666]">Chave PIX (CNPJ):</span>
                   <div class="flex items-center gap-2">
                     <code class="bg-white px-2 py-0.5 rounded border border-[#c0c0c0] font-bold text-[#107c41] font-mono">66.604.571/0001-43</code>
                     <button onclick="copyText('66604571000143', 'Chave PIX CNPJ (66.604.571/0001-43) copiada!')"
                             class="vb-btn vb-btn-success text-xs py-0.5 px-2">
-                      📋 Copiar CNPJ
+                      Copiar CNPJ
                     </button>
                   </div>
                 </div>
                 <div class="flex items-center justify-between border-t border-[#e0e0e0] pt-2">
-                  <span class="text-[#666666]">📋 PIX Copia e Cola:</span>
+                  <span class="text-[#666666]">PIX Copia e Cola:</span>
                   <button onclick="copyText('00020126580014BR.GOV.BCB.PIX0136ad834588-7fb9-45e7-8f01-7f7de3db757b5204000053039865802BR592566.604.571 VAGNER GODOY D6009SAO PAULO61080540900062250521SJooPzypjS6LVYq7wbe1a6304EAE0', 'Código PIX Copia e Cola copiado com sucesso!')"
                           class="vb-btn text-xs py-0.5 px-2.5">
                     Copiar Código PIX Completo
@@ -464,10 +455,10 @@
 
         <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
           <a href="https://www.linkedin.com/in/vagnergmelo/" target="_blank" rel="noopener" class="vb-btn text-xs py-1.5 px-4 font-bold text-[#005a9e]">
-            <span>🔗 Conectar no LinkedIn</span>
+            <span>Conectar no LinkedIn</span>
           </a>
           <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener" class="vb-btn text-xs py-1.5 px-4 font-bold">
-            <span>💻 Acompanhar no GitHub</span>
+            <span>Acompanhar no GitHub</span>
           </a>
         </div>
       </div>

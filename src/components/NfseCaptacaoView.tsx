@@ -975,7 +975,7 @@ export default function NfseCaptacaoView({
             title="Capturar notas fiscais de serviço no Portal Nacional ADN e Prefeitura de SP (Atalho: F5)"
           >
             <RefreshCw size={13} className={syncingNacional ? "animate-spin text-[#003366]" : "text-[#003366]"} />
-            <span>{syncingNacional ? "Consultando Portais..." : "⚡ Capturar NFS-e (F5)"}</span>
+            <span>{syncingNacional ? "Consultando Portais..." : "Capturar NFS-e (F5)"}</span>
           </button>
 
           <button

@@ -184,7 +184,6 @@ export default function ReportPrintModal({
         {/* Notificação para Modo Iframe */}
         {isIframe && (
           <div className="no-print bg-[#fff9e6] border-b border-[#e6c280] px-3 py-1.5 flex items-center gap-2 text-[#664400] text-[10px]">
-            <span>💡</span>
             <span>
               <strong>Dica de Impressão:</strong> Se o navegador bloquear o diálogo direto nesta aba de desenvolvimento, abra o sistema em janela dedicada para impressão em folha A4 completa.
             </span>

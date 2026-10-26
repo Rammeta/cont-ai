@@ -754,7 +754,7 @@ export default function CteCaptacaoView({
             title="Consultar WebService CTeDistribuicaoDFe da SEFAZ Nacional (Atalho: F5)"
           >
             <RefreshCw size={13} className={syncing ? "animate-spin text-[#003366]" : "text-[#003366]"} />
-            <span>{syncing ? "Consultando SEFAZ..." : "⚡ Sincronizar CT-e (F5)"}</span>
+            <span>{syncing ? "Consultando SEFAZ..." : "Sincronizar CT-e (F5)"}</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[#b5b5b5] mx-0.5" />

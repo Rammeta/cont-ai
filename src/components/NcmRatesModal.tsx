@@ -596,7 +596,7 @@ export default function NcmRatesModal({
         {/* Rodapé Clássico */}
         <div className="bg-[#e0e0e0] border-t border-[#b0b0b0] px-3 py-2 flex items-center justify-between shrink-0">
           <span className="text-[10px] text-[#555555]">
-            💡 <strong>Dica:</strong> Para aplicar uma alíquota reduzida a vários NCMs da mesma família, clique em <strong>Duplicar</strong> e apenas preencha o novo código.
+            <strong>Dica:</strong> Para aplicar uma alíquota reduzida a vários NCMs da mesma família, clique em <strong>Duplicar</strong> e apenas preencha o novo código.
           </span>
           <button
             type="button"

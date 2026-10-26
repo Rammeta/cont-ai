@@ -210,7 +210,7 @@ export default function NfseClientesManager({
               <div className="p-2 bg-[#dbeafe] border-2 border-[#005a9e] rounded shadow-sm flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-600 shrink-0 animate-pulse" />
                 <div className="flex-1">
-                  <div className="font-bold text-[#003366] text-[11px]">✨ Novo Tomador de Serviços</div>
+                  <div className="font-bold text-[#003366] text-[11px]">Novo Tomador de Serviços</div>
                   <div className="text-[10px] text-[#555555]">Preencha o formulário ao lado para salvar</div>
                 </div>
               </div>
@@ -282,9 +282,11 @@ export default function NfseClientesManager({
           <div className="flex flex-col gap-2.5">
             <div className="bg-white border border-[#b0b0b0] p-2 flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-2">
-                <span className="text-lg">
-                  {isEditingExisting ? "🏢" : "✨"}
-                </span>
+                {isEditingExisting ? (
+                  <Building2 size={16} className="text-[#005a9e]" />
+                ) : (
+                  <Users size={16} className="text-[#005a9e]" />
+                )}
                 <div>
                   <h2 className="font-bold text-[#003366] text-[12px]">
                     {isEditingExisting

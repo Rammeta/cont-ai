@@ -387,7 +387,7 @@ export default function NfsePadroesManager({
               <div className="p-2 bg-[#dbeafe] border-2 border-[#005a9e] rounded shadow-sm flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-600 shrink-0 animate-pulse" />
                 <div className="flex-1">
-                  <div className="font-bold text-[#003366] text-[11px]">✨ Novo Padrão de Emissão</div>
+                  <div className="font-bold text-[#003366] text-[11px]">Novo Padrão de Emissão</div>
                   <div className="text-[10px] text-[#555555]">Preencha o formulário ao lado para salvar</div>
                 </div>
               </div>
@@ -483,9 +483,11 @@ export default function NfsePadroesManager({
             {/* Barra de Título do Painel de Ajuste com Ações */}
             <div className="bg-white border border-[#b0b0b0] p-2 flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-2">
-                <span className="text-lg">
-                  {isEditingExisting ? "⚙️" : "✨"}
-                </span>
+                {isEditingExisting ? (
+                  <Settings size={16} className="text-[#005a9e]" />
+                ) : (
+                  <FileText size={16} className="text-[#005a9e]" />
+                )}
                 <div>
                   <h2 className="font-bold text-[#003366] text-[12px] flex items-center gap-1.5">
                     <span>

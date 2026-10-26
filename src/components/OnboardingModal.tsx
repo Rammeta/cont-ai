@@ -276,7 +276,7 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={14} className="text-[#d97706] shrink-0" />
                     <span>
-                      <strong>Selo Visual:</strong> Exibe <strong>🟢 Válido</strong> (com dias restantes), <strong>🟡 Alerta Preventivo de 30 Dias</strong> ou <strong>🔴 Expirado</strong>. Clique no selo para abrir o cadastro da empresa e renovar.
+                      <strong>Selo Visual:</strong> Exibe <strong>Válido</strong> (com dias restantes), <strong>Alerta Preventivo de 30 Dias</strong> ou <strong>Expirado</strong>. Clique no selo para abrir o cadastro da empresa e renovar.
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -300,12 +300,12 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
                 </p>
 
                 <div className="p-2.5 bg-[#1e293b] text-[#f1f5f9] font-mono text-[10.5px] leading-relaxed border border-[#334155] rounded-xs mb-2">
-                  <div className="text-[#38bdf8] font-bold">📁 [REPOSITÓRIO RAIZ] \ NOME DA EMPRESA (CNPJ)</div>
-                  <div className="pl-3 text-[#fde047]">└── 📁 2026 \ 📁 09 - Setembro</div>
-                  <div className="pl-6 text-[#7dd3fc]">├── 📁 NFE ENTRADAS \ 📁 DENTRO DO ESTADO & 📁 FORA DO ESTADO</div>
-                  <div className="pl-6 text-[#6ee7b7]">├── 📁 NFSE \ 📁 SERVIÇOS TOMADOS & 📁 SERVIÇOS PRESTADOS</div>
-                  <div className="pl-6 text-[#d8b4fe]">├── 📁 NFCE (Saídas Mod. 65)</div>
-                  <div className="pl-6 text-[#fcd34d]">└── 📁 CTE (Fretes Mod. 57)</div>
+                  <div className="text-[#38bdf8] font-bold">[REPOSITÓRIO RAIZ] \ NOME DA EMPRESA (CNPJ)</div>
+                  <div className="pl-3 text-[#fde047]">└── 2026 \ 09 - Setembro</div>
+                  <div className="pl-6 text-[#7dd3fc]">├── NFE ENTRADAS \ DENTRO DO ESTADO & FORA DO ESTADO</div>
+                  <div className="pl-6 text-[#6ee7b7]">├── NFSE \ SERVIÇOS TOMADOS & SERVIÇOS PRESTADOS</div>
+                  <div className="pl-6 text-[#d8b4fe]">├── NFCE (Saídas Mod. 65)</div>
+                  <div className="pl-6 text-[#fcd34d]">└── CTE (Fretes Mod. 57)</div>
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-[#555555] bg-[#f5f5f5] p-2 border border-[#e0e0e0]">
@@ -353,7 +353,7 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
                       <span>Sincronizar Todas as Empresas</span>
                     </div>
                     <p className="text-[#555555] text-[10.5px] leading-relaxed">
-                      O botão <strong>"⚡ Sincronizar Todas as Empresas"</strong> no Painel percorre todos os clientes cadastrados em 4 etapas sequenciais (NF-e &rarr; NFC-e &rarr; CT-e &rarr; NFS-e) de forma segura e incremental.
+                      O botão <strong>"Sincronizar Todas as Empresas"</strong> no Painel percorre todos os clientes cadastrados em 4 etapas sequenciais (NF-e &rarr; NFC-e &rarr; CT-e &rarr; NFS-e) de forma segura e incremental.
                     </p>
                   </div>
                 </div>

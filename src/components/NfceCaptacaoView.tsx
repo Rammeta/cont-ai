@@ -733,7 +733,7 @@ export default function NfceCaptacaoView({
             title="Consultar WebService SEFAZ de NFC-e (Atalho: F5)"
           >
             <RefreshCw size={13} className={syncing ? "animate-spin text-[#003366]" : "text-[#003366]"} />
-            <span>{syncing ? "Sincronizando..." : "⚡ Sincronizar NFC-e (F5)"}</span>
+            <span>{syncing ? "Sincronizando..." : "Sincronizar NFC-e (F5)"}</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[#b5b5b5] mx-0.5" />

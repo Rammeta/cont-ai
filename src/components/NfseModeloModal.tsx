@@ -44,7 +44,7 @@ export default function NfseModeloModal({
         {/* Titlebar Clássico Windows / ERP */}
         <div className="bg-gradient-to-r from-[#003366] to-[#005a9e] text-white px-3 py-1.5 flex items-center justify-between font-bold text-[12px] shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-emerald-400">📄</span>
+            <FileText size={14} className="text-sky-300" />
             <span>CONT-AI - [ Gerenciador de Padrões de Emissão de NFS-e ]</span>
           </div>
           <button

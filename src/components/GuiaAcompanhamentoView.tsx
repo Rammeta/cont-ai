@@ -1166,7 +1166,7 @@ export default function GuiaAcompanhamentoView({
             title="Sincronizar todos os 4 modelos fiscais (NF-e 55, NFC-e 65, CT-e 57 e NFS-e) desta empresa"
           >
             <RefreshCw size={13} className="text-[#003366]" />
-            <span>⚡ Sincronizar Tudo (Empresa)</span>
+            <span>Sincronizar Tudo (Empresa)</span>
           </button>
 
           <div className="h-4 w-[1px] bg-[#b5b5b5] mx-0.5" />
@@ -1341,7 +1341,6 @@ export default function GuiaAcompanhamentoView({
             >
               <div className="flex items-center justify-between text-[#003366] font-semibold text-[11px]">
                 <span>Compras (NF-e 55):</span>
-                <span>📦</span>
               </div>
               <div className="mt-1">
                 <span className="text-sm font-bold text-[#003366] block">
@@ -1365,7 +1364,6 @@ export default function GuiaAcompanhamentoView({
             >
               <div className="flex items-center justify-between text-[#6b21a8] font-semibold text-[11px]">
                 <span>Vendas (NFC-e 65):</span>
-                <span>🛍</span>
               </div>
               <div className="mt-1">
                 <span className="text-sm font-bold text-[#6b21a8] block">
@@ -1389,7 +1387,6 @@ export default function GuiaAcompanhamentoView({
             >
               <div className="flex items-center justify-between text-[#b45309] font-semibold text-[11px]">
                 <span>Fretes (CT-e 57):</span>
-                <span>🚚</span>
               </div>
               <div className="mt-1">
                 <span className="text-sm font-bold text-[#b45309] block">
@@ -1464,7 +1461,6 @@ export default function GuiaAcompanhamentoView({
             >
               <div className="flex items-center justify-between text-[#1e293b] font-semibold text-[11px]">
                 <span>Movimento Geral:</span>
-                <span>📊</span>
               </div>
               <div className="mt-1">
                 <span className="text-sm font-bold text-[#0f172a] block">

@@ -608,7 +608,7 @@ export default function EmpresasHubView({
             title="Abrir movimentação fiscal da empresa selecionada (Enter)"
           >
             <FolderOpen size={12} className="text-[#003366]" />
-            <span>⚡ Abrir Movimento Fiscal (Enter)</span>
+            <span>Abrir Movimento Fiscal (Enter)</span>
           </button>
 
           {onOpenCompanyModal && (

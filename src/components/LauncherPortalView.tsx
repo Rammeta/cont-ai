@@ -132,7 +132,7 @@ export default function LauncherPortalView({
           {/* Classic Window Titlebar */}
           <div className="bg-gradient-to-r from-[#003366] to-[#005a9e] text-white px-3 py-1.5 flex items-center justify-between font-bold text-[12px]">
             <div className="flex items-center gap-1.5">
-              <span>🛡️</span>
+              <ShieldCheck size={14} className="text-sky-300" />
               <span>CONT-AI - Seleção do Ambiente de Trabalho</span>
             </div>
             <span className="text-[10px] text-sky-200 font-normal">

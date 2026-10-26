@@ -404,35 +404,35 @@ export default function ConfiguracoesModal({
                 </p>
 
                 <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-300 space-y-1 overflow-x-auto">
-                  <div className="text-blue-400 font-bold">📂 [Pasta Selecionada]</div>
+                  <div className="text-blue-400 font-bold">[Pasta Selecionada]</div>
                   <div className="pl-4 text-emerald-300 font-semibold">
-                    └── 📁 NOME DA EMPRESA (CNPJ)
+                    └── NOME DA EMPRESA (CNPJ)
                   </div>
                   <div className="pl-8 text-amber-300 font-semibold">
-                    └── 📁 2026 <span className="text-slate-500 font-normal">(Ano de Emissão)</span>
+                    └── 2026 <span className="text-slate-500 font-normal">(Ano de Emissão)</span>
                   </div>
                   <div className="pl-12 text-purple-300 font-semibold">
-                    └── 📁 09 - Setembro <span className="text-slate-500 font-normal">(Competência)</span>
+                    └── 09 - Setembro <span className="text-slate-500 font-normal">(Competência)</span>
                   </div>
                   <div className="pl-16 text-cyan-300">
-                    ├── 📁 <span className="font-bold">DE FORA DO ESTADO</span>{" "}
+                    ├── <span className="font-bold">DE FORA DO ESTADO</span>{" "}
                     <span className="text-slate-500 text-[11px]">(Interestadual - DIFAL / Antecipação)</span>
                   </div>
                   <div className="pl-20 text-slate-400">
-                    ├── 📄 352609...-nfe.xml
+                    ├── 352609...-nfe.xml
                   </div>
                   <div className="pl-20 text-slate-400">
-                    └── 📑 352609...-danfe.pdf
+                    └── 352609...-danfe.pdf
                   </div>
                   <div className="pl-16 text-emerald-400">
-                    └── 📁 <span className="font-bold">DENTRO DO ESTADO</span>{" "}
+                    └── <span className="font-bold">DENTRO DO ESTADO</span>{" "}
                     <span className="text-slate-500 text-[11px]">(Interna Estadual)</span>
                   </div>
                   <div className="pl-20 text-slate-400">
-                    ├── 📄 352609...-nfe.xml
+                    ├── 352609...-nfe.xml
                   </div>
                   <div className="pl-20 text-slate-400">
-                    └── 📑 352609...-danfe.pdf
+                    └── 352609...-danfe.pdf
                   </div>
                 </div>
 

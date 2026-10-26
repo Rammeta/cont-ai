@@ -77,7 +77,7 @@ export default function ConfigSection({ config, onChange, summaryText }: ConfigS
         {/* Parâmetros Automatizados Conforme Legislação */}
         <fieldset className="vb-groupbox m-0 bg-[#ffffff]">
           <legend className="vb-legend text-[10px]">
-            ⚙ Parâmetros Automatizados Conforme Legislação Tributária
+            Parâmetros Automatizados Conforme Legislação Tributária
           </legend>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[10px] text-[#444444] leading-normal">
             <div className="bg-[#f9f9f9] border border-[#d8d8d8] p-1.5">

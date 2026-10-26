@@ -519,7 +519,7 @@ export default function DifalView({
             title="Sincronizar SEFAZ e calcular DIFAL automaticamente das notas interestaduais"
           >
             <RefreshCw size={13} className={syncing ? "animate-spin text-[#003366]" : "text-[#003366]"} />
-            <span>{syncing ? "Sincronizando SEFAZ..." : "⚡ Sincronizar e Calcular DIFAL"}</span>
+            <span>{syncing ? "Sincronizando SEFAZ..." : "Sincronizar e Calcular DIFAL"}</span>
           </button>
 
           <button
@@ -940,7 +940,7 @@ export default function DifalView({
                     Nenhuma nota fiscal interestadual carregada para o cálculo.
                   </span>
                   <p className="text-xs text-[#666666] max-w-md mt-1">
-                    Clique em <strong>"⚡ Sincronizar e Calcular DIFAL"</strong> na barra superior, selecione um mês de
+                    Clique em <strong>"Sincronizar e Calcular DIFAL"</strong> na barra superior, selecione um mês de
                     competência salvo ou importe arquivos XMLs na aba de configurações.
                   </p>
                 </fieldset>

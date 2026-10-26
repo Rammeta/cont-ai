@@ -405,7 +405,7 @@ export default function ItensTable({
                         className="bg-[#eef5fc] border border-[#99bce8] text-[#003366] px-1.5 py-0.5 text-[10px] font-bold"
                         title={`Regra cadastrada para NCM ${selectedItemMatchingRule.ncm} e UF ${selectedItemMatchingRule.ufDest}`}
                       >
-                        ✓ Regra Ativa: {formatNum(selectedItemMatchingRule.aliqInterna, 2)}% Interna
+                        Regra Ativa: {formatNum(selectedItemMatchingRule.aliqInterna, 2)}% Interna
                       </span>
                       <button
                         type="button"
@@ -605,7 +605,7 @@ export default function ItensTable({
                               className="vb-btn py-0 px-1 text-[8.5px] font-bold text-[#003366] bg-[#eef5fc]"
                               title={`Regra Especial: NCM ${matchingRule.ncm} para ${matchingRule.ufDest}. Clique para abrir e gerenciar.`}
                             >
-                              ✓ Salvo
+                              Salvo
                             </button>
                           ) : (
                             <button
