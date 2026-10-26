@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { EmpresaSefaz, ParsedNfce } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import { useDebounce } from "../utils/useDebounce";
 import {
   ShoppingBag,
   Building2,
@@ -41,7 +42,7 @@ import {
   resetCompanyNfceCache,
   saveCsvFile
 } from "../utils/electronBridge";
-import { formatBRL } from "../utils/calc";
+import { formatBRL, parseDateToTimestamp } from "../utils/calc";
 import CertificateBadge from "./CertificateBadge";
 import logoImg from "../../assets/logo.png";
 
@@ -69,6 +70,7 @@ export default function NfceCaptacaoView({
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [diasRetroativos, setDiasRetroativos] = useState<number>(90);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 250);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Estados de seleção de linha, limite e StatusBar
@@ -173,7 +175,7 @@ export default function NfceCaptacaoView({
           return;
         }
         onNotify(`Horário agendado atingido (${payload?.time || "diário"}): busca automática de NFC-e disparada!`, "success");
-        if (activeEmpresa && activeEmpresa.certPath && !syncing) {
+        if (activeEmpresa && (activeEmpresa.certPath || activeEmpresa.certStore === "windows" || activeEmpresa.certThumbprint) && !syncing) {
           handleSyncNfce();
         }
       }
@@ -240,7 +242,7 @@ export default function NfceCaptacaoView({
       onNotify("Selecione uma empresa para sincronizar.", "error");
       return;
     }
-    if (!activeEmpresa.certPath) {
+    if (!activeEmpresa.certPath && activeEmpresa.certStore !== "windows" && !activeEmpresa.certThumbprint) {
       onNotify("A empresa selecionada não possui Certificado Digital A1 configurado.", "error");
       onOpenCompanyModal();
       return;
@@ -475,8 +477,8 @@ export default function NfceCaptacaoView({
   // Filtros aplicados
   const filteredNotas = useMemo(() => {
     return notas.filter((n) => {
-      if (!searchTerm.trim()) return true;
-      const term = searchTerm.trim().toLowerCase();
+      if (!debouncedSearchTerm.trim()) return true;
+      const term = debouncedSearchTerm.trim().toLowerCase();
       const numQuery = term.replace(/^(n[º°o]?|nfc?-?e|#)\s*/i, "").trim();
       const isShortNumeric = /^\d{1,10}$/.test(numQuery);
       const destCnpjDigits = String(n.cnpjDest || "").replace(/\D/g, "");
@@ -509,7 +511,7 @@ export default function NfceCaptacaoView({
         valor.includes(term)
       );
     });
-  }, [notas, searchTerm]);
+  }, [notas, debouncedSearchTerm]);
 
   // Indicadores
   const metrics = useMemo(() => {
@@ -525,41 +527,42 @@ export default function NfceCaptacaoView({
 
   // Ordenação das notas NFC-e (menor para o maior / maior para o menor)
   const sortedNotas = useMemo(() => {
+    const dir = sortDirection === "asc" ? 1 : -1;
     return [...filteredNotas].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
       switch (sortColumn) {
-        case "numero":
-          valA = Number(String(a.nNF || "0").replace(/\D/g, "")) || 0;
-          valB = Number(String(b.nNF || "0").replace(/\D/g, "")) || 0;
-          break;
-        case "dataEmissao":
-          valA = a.dhEmi || a.formattedDate || "";
-          valB = b.dhEmi || b.formattedDate || "";
-          break;
-        case "destinatario":
-          valA = (a.destinatario || "").toLowerCase();
-          valB = (b.destinatario || "").toLowerCase();
-          break;
-        case "cnpj":
-          valA = (a.cnpjDest || "").replace(/\D/g, "");
-          valB = (b.cnpjDest || "").replace(/\D/g, "");
-          break;
-        case "situacao":
-          valA = a.isCancelada ? 1 : 0;
-          valB = b.isCancelada ? 1 : 0;
-          break;
+        case "numero": {
+          const valA = Number(String(a.nNF || "0").replace(/\D/g, "")) || 0;
+          const valB = Number(String(b.nNF || "0").replace(/\D/g, "")) || 0;
+          return (valA - valB) * dir;
+        }
+        case "dataEmissao": {
+          const tsA = parseDateToTimestamp(a.dhEmi || a.formattedDate || "");
+          const tsB = parseDateToTimestamp(b.dhEmi || b.formattedDate || "");
+          if (tsA !== tsB) return (tsA - tsB) * dir;
+          const numA = Number(String(a.nNF || "0").replace(/\D/g, "")) || 0;
+          const numB = Number(String(b.nNF || "0").replace(/\D/g, "")) || 0;
+          return (numA - numB) * dir;
+        }
+        case "destinatario": {
+          const dA = a.destinatario || "Consumidor Final";
+          const dB = b.destinatario || "Consumidor Final";
+          return dA.localeCompare(dB, "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+        }
+        case "cnpj": {
+          const cA = (a.cnpjDest || "").replace(/\D/g, "");
+          const cB = (b.cnpjDest || "").replace(/\D/g, "");
+          return cA.localeCompare(cB) * dir;
+        }
+        case "situacao": {
+          const sA = a.isCancelada ? 1 : 0;
+          const sB = b.isCancelada ? 1 : 0;
+          return (sA - sB) * dir;
+        }
         case "valorTotal":
-          valA = Number(a.vNF) || 0;
-          valB = Number(b.vNF) || 0;
-          break;
+          return ((Number(a.vNF) || 0) - (Number(b.vNF) || 0)) * dir;
         default:
-          valA = "";
-          valB = "";
+          return 0;
       }
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
     });
   }, [filteredNotas, sortColumn, sortDirection]);
 

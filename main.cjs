@@ -1,4 +1,8 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Notification, Menu, Tray, nativeImage } = require('electron');
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.contai.difal');
+}
 const path = require('path');
 const fs = require('fs');
 const SefazManager = require('./sefaz/sefazManager.cjs');
@@ -9,11 +13,13 @@ const { consultarTomadasSP, gerarPdfPadraoSp } = require('./nfse/spService.cjs')
 const { decryptPassword } = require('./nfse/cryptoUtils.cjs');
 const {
   scanNotasEmpresa,
+  invalidateNfseCache,
   calcularMetricas,
   gerarCsvRelatorio,
   gerarPacoteZip
 } = require('./nfse/reportsNfse.cjs');
 const DANFSe = require('./nfse/danfse.cjs');
+const dpsService = require('./nfse/dpsService.cjs');
 const PDFLib = require('pdf-lib');
 const qrcode = require('qrcode-generator');
 
@@ -36,6 +42,18 @@ function pushDiagnosticLog(level, args) {
       rollingLogs.shift();
     }
   } catch (_) {}
+}
+
+// Cache em memória de alta performance para métricas de empresas (TTL 60s)
+const companiesMetricsCache = new Map();
+function invalidateCompanyMetrics(cnpj) {
+  if (!cnpj) {
+    invalidateNfseCache();
+    return;
+  }
+  const clean = String(cnpj).replace(/\D/g, '');
+  companiesMetricsCache.delete(clean);
+  invalidateNfseCache(clean);
 }
 
 const origLog = console.log;
@@ -92,6 +110,7 @@ getStateDatabase(app.getPath('userData'));
 function loadSettings() {
   const defaults = {
     customStorageDir: defaultStorageDir,
+    customServerCertDir: '',
     modelSchedulers: {
       nfe: { enabled: false, time: '08:00', lastRunDate: null },
       nfce: { enabled: false, time: '18:30', lastRunDate: null },
@@ -235,11 +254,29 @@ function updateTrayMenu() {
   tray.setContextMenu(contextMenu);
 }
 
-function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
-  if (!fs.existsSync(iconPath)) return;
+function loadAppIcon() {
+  const icoPath = path.join(__dirname, 'assets', 'icon.ico');
+  const pngPath = path.join(__dirname, 'assets', 'logo.png');
+  try {
+    if (fs.existsSync(icoPath)) {
+      const img = nativeImage.createFromBuffer(fs.readFileSync(icoPath));
+      if (!img.isEmpty()) return img;
+    }
+    if (fs.existsSync(pngPath)) {
+      const img = nativeImage.createFromBuffer(fs.readFileSync(pngPath));
+      if (!img.isEmpty()) return img;
+    }
+  } catch (e) {
+    console.error('Erro ao carregar icone do app:', e);
+  }
+  return fs.existsSync(icoPath) ? icoPath : undefined;
+}
 
-  tray = new Tray(iconPath);
+function createTray() {
+  const appIcon = loadAppIcon();
+  if (!appIcon) return;
+
+  tray = new Tray(appIcon);
   tray.setToolTip('CONT-AI | Gestor de Movimento Fiscal');
 
   tray.on('double-click', () => {
@@ -265,7 +302,7 @@ function createTray() {
 }
 
 function createWindow () {
-  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+  const appIcon = loadAppIcon();
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -274,12 +311,28 @@ function createWindow () {
     minHeight: 560,
     backgroundColor: '#0F172A',
     title: 'CONT-AI | Gestor de Movimento Fiscal',
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    icon: appIcon,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
+  });
+
+  if (appIcon && typeof mainWindow.setIcon === 'function') {
+    try { mainWindow.setIcon(appIcon); } catch (_) {}
+  }
+
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.error(`[Renderer Log ${level}] ${message} (${sourceId}:${line})`);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (e, code, desc) => {
+    console.error(`[Renderer did-fail-load] Code ${code}: ${desc}`);
+  });
+
+  mainWindow.webContents.on('render-process-gone', (e, details) => {
+    console.error('[Renderer gone]', details);
   });
 
   // Remove completamente a barra de menus padrão do Electron
@@ -382,51 +435,281 @@ ipcMain.handle('dialog:open-cert', async (event, currentPath) => {
   }
 });
 
-// 1.1. Listar certificados disponíveis na rede (Z:\DIVERSOS\CERTIFICADOS ou UNC)
-ipcMain.handle('sefaz:list-network-certs', async () => {
+// Helper para busca recursiva de certificados (.pfx / .p12)
+function scanDirForCerts(dir, depth = 0, maxDepth = 3) {
+  let certs = [];
+  if (!dir || typeof dir !== 'string') return certs;
   try {
-    const candidateDirs = [
+    if (!fs.existsSync(dir)) return certs;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (ext === '.pfx' || ext === '.p12') {
+          const pwdMatch = entry.name.match(/_senha[ _]+([^_]+?)_/i)
+                        || entry.name.match(/senha[ _]+([^_.]+)/i)
+                        || entry.name.match(/_([0-9]{4,8})_/);
+          certs.push({
+            name: entry.name,
+            fullPath,
+            extractedPassword: pwdMatch ? pwdMatch[1].trim() : '',
+            dir,
+            relativePath: path.relative(dir, fullPath)
+          });
+        }
+      } else if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules' && depth < maxDepth) {
+        certs = certs.concat(scanDirForCerts(fullPath, depth + 1, maxDepth));
+      }
+    }
+  } catch (err) {
+    console.warn(`Erro ao escanear diretório ${dir}:`, err.message);
+  }
+  return certs;
+}
+
+// 1.1. Listar certificados disponíveis na rede ou servidor
+ipcMain.handle('sefaz:list-network-certs', async (event, customDir) => {
+  try {
+    const settings = loadSettings();
+    const candidateDirs = [];
+
+    // Prioridade 1: Diretório customizado passado como parâmetro da chamada
+    if (customDir && typeof customDir === 'string' && customDir.trim()) {
+      candidateDirs.push(customDir.trim());
+    }
+
+    // Prioridade 2: Diretório do servidor configurado nas preferências
+    if (settings.customServerCertDir && typeof settings.customServerCertDir === 'string' && settings.customServerCertDir.trim()) {
+      const sDir = settings.customServerCertDir.trim();
+      if (!candidateDirs.includes(sDir)) {
+        candidateDirs.push(sDir);
+      }
+    }
+
+    // Prioridade 3: Diretórios candidatos usuais no ambiente corporativo
+    const commonDirs = [
       'C:\\Certificados',
       'Z:\\CERTIFICADOS',
+      'Z:\\DIVERSOS\\CERTIFICADOS',
       'Y:\\CERTIFICADOS',
       'D:\\Certificados',
+      path.join(app.getPath('desktop'), 'Certificados'),
       path.join(__dirname, 'certs')
     ];
 
-    for (const dir of candidateDirs) {
-      if (fs.existsSync(dir)) {
-        try {
-          const files = fs.readdirSync(dir);
-          const certs = files
-            .filter((f) => f.toLowerCase().endsWith('.pfx') || f.toLowerCase().endsWith('.p12'))
-            .map((f) => {
-              // Tenta extrair a senha se estiver no padrão '_senha_SENHA_'
-              const pwdMatch = f.match(/_senha[ _]+([^_]+?)_/i) || f.match(/senha[ _]+([^_.]+)/i);
-              return {
-                name: f,
-                fullPath: path.join(dir, f),
-                extractedPassword: pwdMatch ? pwdMatch[1].trim() : '',
-                dir
-              };
-            });
-          if (certs.length > 0) {
-            return { success: true, dir, certs };
-          }
-        } catch (e) {
-          continue;
-        }
+    for (const d of commonDirs) {
+      if (!candidateDirs.includes(d)) {
+        candidateDirs.push(d);
       }
     }
-    return { success: false, error: 'Pasta de certificados da rede não encontrada.' };
+
+    let foundDir = null;
+    let allFoundCerts = [];
+
+    for (const dir of candidateDirs) {
+      try {
+        if (fs.existsSync(dir)) {
+          const certs = scanDirForCerts(dir, 0, 3);
+          if (certs.length > 0) {
+            foundDir = dir;
+            allFoundCerts = certs;
+            break;
+          }
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+
+    if (allFoundCerts.length > 0) {
+      return { success: true, dir: foundDir, certs: allFoundCerts };
+    }
+
+    const firstAccessibleDir = candidateDirs.find((d) => {
+      try { return fs.existsSync(d); } catch { return false; }
+    });
+
+    return {
+      success: false,
+      dir: firstAccessibleDir || settings.customServerCertDir || candidateDirs[0] || '',
+      certs: [],
+      error: 'Nenhum certificado digital (.pfx ou .p12) foi localizado no diretório configurado. Utilize o botão "Alterar Pasta" para selecionar a pasta correta da rede ou servidor.'
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
+// 1.2. Listar certificados digitais instalados no Windows Certificate Store
+ipcMain.handle('system:list-installed-certs', async () => {
+  return new Promise((resolve) => {
+    try {
+      const psScript = `
+$certs = Get-ChildItem -Path Cert:\\CurrentUser\\My, Cert:\\LocalMachine\\My -ErrorAction SilentlyContinue | Where-Object { $_.HasPrivateKey } | ForEach-Object {
+    $c = $_
+    $exp = $false
+    try {
+        $bytes = $c.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, 'probe')
+        if ($bytes -and $bytes.Length -gt 0) { $exp = $true }
+    } catch {}
+    
+    $doc = ''
+    if ($c.Subject -match '(?::| - |\\s)(\\d{14}|\\d{11})(?:,|$|\\s)') {
+        $doc = $matches[1]
+    } elseif ($c.Subject -match '(\\d{14})') {
+        $doc = $matches[1]
+    } elseif ($c.Subject -match '(\\d{11})') {
+        $doc = $matches[1]
+    }
+
+    $cn = ''
+    if ($c.Subject -match 'CN=([^,]+)') {
+        $cn = $matches[1].Trim()
+    }
+    $cleanName = $cn -replace ':\\d{11,14}$', '' -replace ' - \\d{11,14}$', ''
+
+    $issuerCn = ''
+    if ($c.Issuer -match 'CN=([^,]+)') {
+        $issuerCn = $matches[1].Trim()
+    } else {
+        $issuerCn = $c.Issuer
+    }
+    
+    [PSCustomObject]@{
+        Subject = $c.Subject
+        CommonName = $cn
+        CleanName = $cleanName
+        Issuer = $issuerCn
+        Thumbprint = $c.Thumbprint
+        SerialNumber = $c.SerialNumber
+        NotBefore = $c.NotBefore.ToString('yyyy-MM-ddTHH:mm:ss')
+        NotAfter = $c.NotAfter.ToString('yyyy-MM-ddTHH:mm:ss')
+        HasPrivateKey = $c.HasPrivateKey
+        IsExportable = $exp
+        Documento = $doc
+    }
+}
+ConvertTo-Json -InputObject $certs -Compress
+`;
+      const cp = require('child_process');
+      const b64 = Buffer.from(psScript, 'utf16le').toString('base64');
+      cp.exec(
+        `powershell -NoProfile -EncodedCommand ${b64}`,
+        { maxBuffer: 10 * 1024 * 1024, timeout: 15000 },
+        (err, stdout) => {
+          if (err) {
+            console.error('Erro ao listar certificados instalados no Windows:', err);
+            return resolve({ success: false, error: err.message, certs: [] });
+          }
+          try {
+            const raw = stdout ? stdout.trim() : '';
+            if (!raw) {
+              return resolve({ success: true, certs: [] });
+            }
+            const parsed = JSON.parse(raw);
+            const list = Array.isArray(parsed) ? parsed : [parsed];
+
+            // Deduplica por Thumbprint e calcula validade
+            const seen = new Set();
+            const now = new Date();
+            const processed = [];
+
+            for (const item of list) {
+              if (!item.Thumbprint || seen.has(item.Thumbprint)) continue;
+              seen.add(item.Thumbprint);
+
+              const notAfterDate = new Date(item.NotAfter);
+              const daysRemaining = Math.ceil((notAfterDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const isExpired = now > notAfterDate;
+
+              processed.push({
+                ...item,
+                daysRemaining,
+                isExpired
+              });
+            }
+
+            // Ordena pelos válidos primeiro, depois por dias restantes decrescente
+            processed.sort((a, b) => {
+              if (a.isExpired !== b.isExpired) return a.isExpired ? 1 : -1;
+              return b.daysRemaining - a.daysRemaining;
+            });
+
+            return resolve({ success: true, certs: processed });
+          } catch (pe) {
+            console.error('Erro ao converter JSON de certificados:', pe.message);
+            return resolve({ success: false, error: pe.message, certs: [] });
+          }
+        }
+      );
+    } catch (e) {
+      return resolve({ success: false, error: e.message, certs: [] });
+    }
+  });
+});
+
+// 1.3. Exportar certificado instalado no Windows (se a chave for exportável)
+ipcMain.handle('system:export-installed-cert', async (event, { thumbprint, password }) => {
+  return new Promise((resolve) => {
+    try {
+      if (!thumbprint) return resolve({ success: false, error: 'Thumbprint não informado.' });
+
+      const cacheDir = path.join(app.getPath('userData'), 'cached_certs');
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+
+      const pfxPassword = password || `cont_ai_${thumbprint.slice(0, 8)}`;
+      const destFile = path.join(cacheDir, `${thumbprint}.pfx`);
+
+      if (fs.existsSync(destFile)) {
+        return resolve({ success: true, pfxPath: destFile, password: pfxPassword });
+      }
+
+      const psScript = `
+$c = Get-ChildItem -Path Cert:\\CurrentUser\\My, Cert:\\LocalMachine\\My -ErrorAction SilentlyContinue | Where-Object { $_.Thumbprint -eq '${thumbprint}' } | Select-Object -First 1
+if (-not $c) {
+    Write-Output "CERT_NOT_FOUND"
+    exit 1
+}
+$secPass = ConvertTo-SecureString -String '${pfxPassword}' -Force -AsPlainText
+try {
+    Export-PfxCertificate -Cert $c -FilePath '${destFile.replace(/\\/g, '\\\\')}' -Password $secPass | Out-Null
+    Write-Output "SUCCESS"
+} catch {
+    Write-Output ("EXPORT_ERROR:" + $_.Exception.Message)
+    exit 2
+}
+`;
+      const cp = require('child_process');
+      const b64 = Buffer.from(psScript, 'utf16le').toString('base64');
+      cp.exec(`powershell -NoProfile -EncodedCommand ${b64}`, { timeout: 10000 }, (err, stdout) => {
+        const out = stdout ? stdout.trim() : '';
+        if (out.includes('SUCCESS') && fs.existsSync(destFile)) {
+          return resolve({ success: true, pfxPath: destFile, password: pfxPassword });
+        } else {
+          return resolve({
+            success: false,
+            error: out.replace('EXPORT_ERROR:', '') || err?.message || 'Chave privada protegida pelo Windows e não exportável.'
+          });
+        }
+      });
+    } catch (e) {
+      return resolve({ success: false, error: e.message });
+    }
+  });
+});
+
 // 2. Testar certificado
-ipcMain.handle('sefaz:test-cert', async (event, { certPath, password }) => {
+ipcMain.handle('sefaz:test-cert', async (event, payload) => {
   try {
-    const info = sefazManager.testCertificate({ certPath, password });
+    const norm = typeof payload === 'object' && payload !== null ? {
+      ...payload,
+      thumbprint: payload.thumbprint || payload.certThumbprint || '',
+      certThumbprint: payload.certThumbprint || payload.thumbprint || ''
+    } : payload;
+    const info = sefazManager.testCertificate(norm || {});
     return { success: true, info };
   } catch (err) {
     return { success: false, error: err.message };
@@ -462,6 +745,7 @@ ipcMain.handle('sefaz:sync-company', async (event, payload) => {
       return { success: false, ...result };
     }
 
+    invalidateCompanyMetrics(company?.cnpj);
     return { success: true, result };
   } catch (err) {
     return { success: false, error: err.message };
@@ -714,6 +998,7 @@ ipcMain.handle('sefaz:sync-cte', async (event, { company }) => {
         }
       }
     });
+    invalidateCompanyMetrics(company?.cnpj);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
@@ -846,6 +1131,7 @@ ipcMain.handle('sefaz:get-cte-nsu-state', async (event, { cnpj, razaoSocial }) =
 ipcMain.handle('sefaz:reset-cte-nsu', async (event, { cnpj, razaoSocial, targetNsu, clearFiles }) => {
   try {
     const result = sefazManager.resetCompanyCteNsu({ cnpj, razaoSocial, targetNsu, clearFiles });
+    invalidateCompanyMetrics(cnpj);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
@@ -1062,6 +1348,7 @@ ipcMain.handle('settings:get', () => {
   const settings = loadSettings();
   return {
     customStorageDir: sefazManager.getBaseDataDir(),
+    customServerCertDir: settings.customServerCertDir || '',
     defaultStorageDir,
     modelSchedulers: settings.modelSchedulers,
     scheduler: settings.scheduler,
@@ -1104,6 +1391,62 @@ ipcMain.handle('settings:open-storage-folder', async () => {
       fs.mkdirSync(currentDir, { recursive: true });
     }
     await shell.openPath(currentDir);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Handlers dedicados para a Pasta de Certificados do Servidor / Rede
+ipcMain.handle('settings:select-server-cert-dir', async () => {
+  try {
+    const settings = loadSettings();
+    const defaultP = (settings.customServerCertDir && fs.existsSync(settings.customServerCertDir))
+      ? settings.customServerCertDir
+      : app.getPath('desktop');
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Selecionar Pasta de Certificados Digitais do Servidor / Rede',
+      defaultPath: defaultP,
+      properties: ['openDirectory']
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+
+    const selectedDir = result.filePaths[0];
+    settings.customServerCertDir = selectedDir;
+    saveSettings(settings);
+
+    return {
+      success: true,
+      customServerCertDir: selectedDir
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('settings:save-server-cert-dir', async (event, dir) => {
+  try {
+    const settings = loadSettings();
+    settings.customServerCertDir = String(dir || '').trim();
+    saveSettings(settings);
+    return { success: true, customServerCertDir: settings.customServerCertDir };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('settings:open-server-cert-dir', async (event, customDir) => {
+  try {
+    const settings = loadSettings();
+    const targetDir = customDir || settings.customServerCertDir;
+    if (!targetDir || !fs.existsSync(targetDir)) {
+      return { success: false, error: 'Pasta de certificados não existe ou não está acessível no momento.' };
+    }
+    await shell.openPath(targetDir);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
@@ -1320,6 +1663,7 @@ ipcMain.handle('nfse:sync-company', async (event, { company, targetNsu }) => {
       }
     });
 
+    invalidateCompanyMetrics(company?.cnpj);
     return { success: true, ...result };
   } catch (err) {
     return { success: false, error: err.message };
@@ -1367,7 +1711,8 @@ ipcMain.handle('nfse:list-notas', async (event, { cnpj, razaoSocial, ano, mes, t
   try {
     const { companyNfseDir } = resolveCompanyNfseDir(cnpj, razaoSocial);
     const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo);
-    return { success: true, notas };
+    const metricas = calcularMetricas(notas);
+    return { success: true, notas, metricas };
   } catch (err) {
     return { success: false, error: err.message, notas: [] };
   }
@@ -1403,9 +1748,11 @@ ipcMain.handle('sefaz:reset-all-models-nsu', async (event, { cnpj, razaoSocial, 
   try {
     if (scope === 'all') {
       const result = sefazManager.resetAllCompaniesAllModelsNsu({ companies, clearFiles, clearManifestations });
+      companiesMetricsCache.clear();
       return { success: true, ...result };
     } else {
       const result = sefazManager.resetCompanyAllModelsNsu({ cnpj, razaoSocial, clearFiles, clearManifestations });
+      invalidateCompanyMetrics(cnpj);
       return { success: true, ...result };
     }
   } catch (err) {
@@ -1478,6 +1825,7 @@ ipcMain.handle('nfse:open-pdf', async (event, payload) => {
   try {
     let pdfPath = typeof payload === 'string' ? payload : (payload?.pdfPath || '');
     let xmlPath = typeof payload === 'object' ? payload?.xmlPath : null;
+    let xmlContent = typeof payload === 'object' ? (payload?.xmlContent || null) : null;
     const forceRegenerate = typeof payload === 'object' ? !!payload?.forceRegenerate : false;
 
     if (!pdfPath && xmlPath) {
@@ -1489,10 +1837,14 @@ ipcMain.handle('nfse:open-pdf', async (event, payload) => {
       if (fs.existsSync(candidateXml)) xmlPath = candidateXml;
     }
 
-    // Se o XML existe no disco, garante que o PDF do Portal Nacional esteja atualizado (ou regera de SP quando necessário)
-    if (xmlPath && fs.existsSync(xmlPath)) {
-      const xmlContent = fs.readFileSync(xmlPath, 'utf8');
-      const targetPdfPath = pdfPath || xmlPath.replace(/\.xml$/i, '.pdf');
+    if (!xmlContent && xmlPath && fs.existsSync(xmlPath)) {
+      xmlContent = fs.readFileSync(xmlPath, 'utf8');
+    }
+
+    // Se o XML existe em memória ou no disco, garante a geração do DANFSe PDF Padrão Nacional / PMSP
+    if (xmlContent) {
+      const os = require('os');
+      const targetPdfPath = pdfPath || (xmlPath ? xmlPath.replace(/\.xml$/i, '.pdf') : path.join(os.tmpdir(), `DANFSE_OFICIAL_${Date.now()}.pdf`));
 
       const isPortalSp = (
         /<OrigemCaptacao>PORTAL_SP<\/OrigemCaptacao>/i.test(xmlContent) ||
@@ -1555,13 +1907,18 @@ ipcMain.handle('nfse:open-pdf', async (event, payload) => {
 });
 
 // 25.1 Salvar XML individual de NFS-e
-ipcMain.handle('nfse:save-xml', async (event, { xmlPath, defaultName }) => {
+ipcMain.handle('nfse:save-xml', async (event, { xmlPath, defaultName, xmlContent }) => {
   try {
-    if (!xmlPath || !fs.existsSync(xmlPath)) {
+    let contentToSave = xmlContent;
+    if (!contentToSave && xmlPath && fs.existsSync(xmlPath)) {
+      contentToSave = fs.readFileSync(xmlPath, 'utf8');
+    }
+
+    if (!contentToSave && (!xmlPath || !fs.existsSync(xmlPath))) {
       return { success: false, error: 'Arquivo XML não localizado.' };
     }
 
-    const fileName = defaultName || path.basename(xmlPath);
+    const fileName = defaultName || (xmlPath ? path.basename(xmlPath) : 'NFSe.xml');
     const saveResult = await dialog.showSaveDialog(mainWindow, {
       title: 'Salvar Arquivo XML da NFS-e',
       defaultPath: path.join(app.getPath('downloads'), fileName.endsWith('.xml') ? fileName : `${fileName}.xml`),
@@ -1572,7 +1929,11 @@ ipcMain.handle('nfse:save-xml', async (event, { xmlPath, defaultName }) => {
       return { canceled: true };
     }
 
-    fs.copyFileSync(xmlPath, saveResult.filePath);
+    if (xmlPath && fs.existsSync(xmlPath) && !xmlContent) {
+      fs.copyFileSync(xmlPath, saveResult.filePath);
+    } else {
+      fs.writeFileSync(saveResult.filePath, contentToSave, 'utf8');
+    }
     return { success: true, filePath: saveResult.filePath };
   } catch (err) {
     return { success: false, error: err.message };
@@ -1588,6 +1949,36 @@ ipcMain.handle('nfse:open-folder', async (event, { cnpj, razaoSocial }) => {
     return { success: true, dir: targetDir };
   } catch (err) {
     return { success: false, error: err.message };
+  }
+});
+
+// 26b. Transmitir e Emitir DPS NFS-e Padrão Nacional
+ipcMain.handle('nfse:transmitir-dps', async (event, { empresa, dpsData }) => {
+  try {
+    if (!empresa) {
+      return { sucesso: false, status: 'ERRO', mensagem: 'Empresa emissora não informada.' };
+    }
+    const { companyDir } = resolveCompanyNfseDir(empresa.cnpj, empresa.razaoSocial);
+    const result = await dpsService.transmitirDpsNacional(empresa, dpsData, companyDir);
+    invalidateCompanyMetrics(empresa.cnpj);
+    return result;
+  } catch (err) {
+    return { sucesso: false, status: 'ERRO', mensagem: err.message || 'Erro inesperado na transmissão da DPS.' };
+  }
+});
+
+// 26c. Cancelar NFS-e Padrão Nacional junto à SEFIN (Evento 101101)
+ipcMain.handle('nfse:cancelar-nota', async (event, { empresa, cancelData }) => {
+  try {
+    if (!empresa) {
+      return { sucesso: false, status: 'ERRO', mensagem: 'Empresa emissora não informada.' };
+    }
+    const { companyDir } = resolveCompanyNfseDir(empresa.cnpj, empresa.razaoSocial);
+    const result = await dpsService.cancelarNfseNacional(empresa, cancelData, companyDir);
+    invalidateCompanyMetrics(empresa.cnpj);
+    return result;
+  } catch (err) {
+    return { sucesso: false, status: 'ERRO', mensagem: err.message || 'Erro inesperado no cancelamento da NFS-e.' };
   }
 });
 
@@ -1666,6 +2057,7 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
       return { success: true, metrics: [] };
     }
 
+    const now = Date.now();
     const metrics = companies.map((company) => {
       const cleanCnpj = String(company.cnpj || '').replace(/\D/g, '');
       const companyDir = sefazManager.getCompanyDir(cleanCnpj, company.razaoSocial);
@@ -1677,7 +2069,15 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
       let nfsePrestadasCount = 0;
       let latestMtime = 0;
 
-      if (fs.existsSync(companyDir)) {
+      const cached = companiesMetricsCache.get(cleanCnpj);
+      if (cached && (now - cached.timestamp < 60000)) {
+        nfeCount = cached.nfeCount;
+        nfceCount = cached.nfceCount;
+        cteCount = cached.cteCount;
+        nfseTomadasCount = cached.nfseTomadasCount;
+        nfsePrestadasCount = cached.nfsePrestadasCount;
+        latestMtime = cached.latestMtime;
+      } else if (fs.existsSync(companyDir)) {
         const scanDir = (dir) => {
           try {
             const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -1688,11 +2088,6 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
               } else if (entry.name.toLowerCase().endsWith('.xml')) {
                 const lName = entry.name.toLowerCase();
                 const lDir = fullPath.toLowerCase();
-
-                try {
-                  const stat = fs.statSync(fullPath);
-                  if (stat.mtimeMs > latestMtime) latestMtime = stat.mtimeMs;
-                } catch (_) {}
 
                 if (lName.endsWith('-nfce.xml') || lDir.includes('\\nfce\\') || lDir.includes('/nfce/')) {
                   nfceCount++;
@@ -1710,6 +2105,15 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies }) => {
           } catch (_) {}
         };
         scanDir(companyDir);
+        companiesMetricsCache.set(cleanCnpj, {
+          timestamp: now,
+          nfeCount,
+          nfceCount,
+          cteCount,
+          nfseTomadasCount,
+          nfsePrestadasCount,
+          latestMtime
+        });
       }
 
       // Certificado

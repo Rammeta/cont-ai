@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const cp = require('child_process');
 const https = require('https');
 const tls = require('tls');
 const zlib = require('zlib');
@@ -478,41 +479,55 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
   }
 
   const cleanCnpj = String(company.cnpj).replace(/\D/g, '');
+  const cleanThumb = (company.certThumbprint || company.thumbprint || '').replace(/[^a-fA-F0-9]/g, '');
+  let isWindowsCert = company.certStore === 'windows' || (!company.certPath && !!cleanThumb);
   let certPath = company.certPath;
 
-  if (!certPath || !fs.existsSync(certPath)) {
-    const fallbackCert = path.join(process.env.APPDATA || '', 'contai-robo', 'certificados', `${cleanCnpj}.pfx`);
-    if (fs.existsSync(fallbackCert)) {
-      certPath = fallbackCert;
-    } else {
-      throw new Error(`Certificado digital A1 não encontrado em: ${company.certPath}`);
+  if (!isWindowsCert) {
+    if (!certPath || !fs.existsSync(certPath)) {
+      const fallbackCert = path.join(process.env.APPDATA || '', 'contai-robo', 'certificados', `${cleanCnpj}.pfx`);
+      if (fs.existsSync(fallbackCert)) {
+        certPath = fallbackCert;
+      } else if (cleanThumb) {
+        isWindowsCert = true;
+      } else {
+        throw new Error(`Certificado digital A1 não encontrado em: ${company.certPath}`);
+      }
     }
   }
 
-  let pfxBuffer = fs.readFileSync(certPath);
-  const rawPassword = company.password || '';
-  const passphrase = decryptPassword(rawPassword);
-
-  // Auto-cura preventiva do PFX
+  let httpsAgent = null;
+  let pfxBuffer = null;
+  let passphrase = '';
   let tentouConverter = false;
-  try {
-    tls.createSecureContext({ pfx: pfxBuffer, passphrase });
-  } catch (errPfxInit) {
-    log(`PFX incompatível com OpenSSL 3 (${errPfxInit.message}). Convertendo certificado...`, 'warn');
-    const pfxConvertido = normalizarEExportarPfx(pfxBuffer, passphrase);
-    if (pfxConvertido && pfxConvertido.length > 0) {
-      pfxBuffer = pfxConvertido;
-      try { fs.writeFileSync(certPath, pfxBuffer); } catch (_) {}
-      tentouConverter = true;
-    }
-  }
 
-  let httpsAgent = new https.Agent({
-    pfx: pfxBuffer,
-    passphrase: passphrase,
-    rejectUnauthorized: true,
-    secureProtocol: 'TLSv1_2_method'
-  });
+  if (isWindowsCert) {
+    log(`Utilizando Certificado Digital do Repositório Windows (Thumbprint: ${cleanThumb || 'Padrão'})`);
+  } else {
+    pfxBuffer = fs.readFileSync(certPath);
+    const rawPassword = company.password || '';
+    passphrase = decryptPassword(rawPassword);
+
+    // Auto-cura preventiva do PFX
+    try {
+      tls.createSecureContext({ pfx: pfxBuffer, passphrase });
+    } catch (errPfxInit) {
+      log(`PFX incompatível com OpenSSL 3 (${errPfxInit.message}). Convertendo certificado...`, 'warn');
+      const pfxConvertido = normalizarEExportarPfx(pfxBuffer, passphrase);
+      if (pfxConvertido && pfxConvertido.length > 0) {
+        pfxBuffer = pfxConvertido;
+        try { fs.writeFileSync(certPath, pfxBuffer); } catch (_) {}
+        tentouConverter = true;
+      }
+    }
+
+    httpsAgent = new https.Agent({
+      pfx: pfxBuffer,
+      passphrase: passphrase,
+      rejectUnauthorized: true,
+      secureProtocol: 'TLSv1_2_method'
+    });
+  }
 
   let cursorNSU = (targetNsu !== undefined && targetNsu !== null && targetNsu !== '')
     ? parseInt(String(targetNsu), 10)
@@ -544,12 +559,33 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
     while (tentativas < maxTentativas) {
       try {
         await delay(tentativas === 0 ? 1000 : 3000 * tentativas);
-        response = await axios.get(url, {
-          httpsAgent,
-          headers: { 'Accept': 'application/json' },
-          timeout: 45000
-        });
-        break;
+        if (isWindowsCert) {
+          const certFlag = cleanThumb ? `--cert "CurrentUser\\My\\${cleanThumb}"` : '';
+          const cmd = `curl.exe -s -H "Accept: application/json" ${certFlag} "${url}"`;
+          const stdout = cp.execSync(cmd, { timeout: 45000, maxBuffer: 15 * 1024 * 1024 }).toString('utf8');
+          if (stdout && stdout.trim()) {
+            try {
+              const data = JSON.parse(stdout);
+              response = { data, status: 200 };
+            } catch (pErr) {
+              if (stdout.includes('404 - File or directory not found') || stdout.includes('404 Not Found')) {
+                response = { status: 404 };
+              } else {
+                throw new Error(`Resposta não-JSON do Portal Nacional: ${stdout.slice(0, 100)}`);
+              }
+            }
+          } else {
+            response = { status: 404 };
+          }
+          break;
+        } else {
+          response = await axios.get(url, {
+            httpsAgent,
+            headers: { 'Accept': 'application/json' },
+            timeout: 45000
+          });
+          break;
+        }
       } catch (error) {
         const errStr = (error.message || '') + ' ' + (error.code || '');
         const isPfxError = /Unsupported PKCS12|PKCS12|EVP_UNSUPPORTED|unsupported|mac verify failure|ERR_OSSL/i.test(errStr);

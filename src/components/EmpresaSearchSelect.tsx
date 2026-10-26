@@ -4,22 +4,34 @@ import { EmpresaSefaz } from "../types";
 
 interface EmpresaSearchSelectProps {
   empresas: EmpresaSefaz[];
-  value: string;
-  onChange: (id: string) => void;
+  value?: string;
+  activeEmpresaId?: string | null;
+  onChange?: (id: string) => void;
+  onSelectEmpresa?: (id: string) => void;
   className?: string;
   disabled?: boolean;
+  showStatusBadge?: boolean;
+  compact?: boolean;
+  align?: "left" | "right";
 }
 
 export const EmpresaSearchSelect: React.FC<EmpresaSearchSelectProps> = ({
   empresas,
   value,
+  activeEmpresaId,
   onChange,
+  onSelectEmpresa,
   className = "w-[320px] max-w-[340px]",
   disabled = false,
+  showStatusBadge = false,
+  compact = false,
+  align = "left",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  const effectiveValue = value ?? (activeEmpresaId || "");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,8 +48,8 @@ export const EmpresaSearchSelect: React.FC<EmpresaSearchSelectProps> = ({
   }, [empresas]);
 
   const selectedEmpresa = useMemo(
-    () => sortedEmpresas.find((e) => e.id === value) || sortedEmpresas[0] || null,
-    [sortedEmpresas, value]
+    () => sortedEmpresas.find((e) => e.id === effectiveValue) || sortedEmpresas[0] || null,
+    [sortedEmpresas, effectiveValue]
   );
 
   // Filter sorted companies by Razão Social, CNPJ (with or without punctuation), or UF
@@ -74,9 +86,9 @@ export const EmpresaSearchSelect: React.FC<EmpresaSearchSelectProps> = ({
   // Reset highlighted index when filter changes or dropdown opens
   useEffect(() => {
     if (!isOpen) return;
-    const currentIdx = filteredEmpresas.findIndex((e) => e.id === value);
+    const currentIdx = filteredEmpresas.findIndex((e) => e.id === effectiveValue);
     setHighlightedIndex(currentIdx >= 0 ? currentIdx : 0);
-  }, [isOpen, searchTerm, filteredEmpresas, value]);
+  }, [isOpen, searchTerm, filteredEmpresas, effectiveValue]);
 
   // Scroll highlighted option into view
   useEffect(() => {
@@ -97,7 +109,8 @@ export const EmpresaSearchSelect: React.FC<EmpresaSearchSelectProps> = ({
   };
 
   const handleSelect = (id: string) => {
-    onChange(id);
+    if (onChange) onChange(id);
+    if (onSelectEmpresa) onSelectEmpresa(id);
     setIsOpen(false);
     setSearchTerm("");
   };
@@ -202,7 +215,7 @@ export const EmpresaSearchSelect: React.FC<EmpresaSearchSelectProps> = ({
       )}
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-0.5 w-[430px] max-w-[90vw] bg-white border border-[#555555] shadow-lg z-50 flex flex-col">
+        <div className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full mt-0.5 w-[430px] max-w-[90vw] bg-white border border-[#555555] shadow-xl z-50 flex flex-col`}>
           <div className="bg-[#ececec] border-b border-[#c0c0c0] px-2 py-0.5 flex items-center justify-between text-[10px] text-[#444444]">
             <span>Ordem Alfabética (A-Z)</span>
             <span>
@@ -219,7 +232,7 @@ export const EmpresaSearchSelect: React.FC<EmpresaSearchSelectProps> = ({
               </div>
             ) : (
               filteredEmpresas.map((emp, idx) => {
-                const isSelected = emp.id === value;
+                const isSelected = emp.id === effectiveValue;
                 const isHighlighted = idx === highlightedIndex;
                 return (
                   <div

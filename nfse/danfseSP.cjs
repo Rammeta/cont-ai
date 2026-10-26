@@ -1,3 +1,4 @@
+const { sanitizeWinAnsi } = require('./danfse.cjs');
 // =========================================================================
 // CONT.AI - Gerador de DANFSe no Padrão Oficial da Prefeitura de São Paulo (PMSP)
 // Reproduz fielmente o layout oficial da NFS-e Paulistana (com Brasão,
@@ -651,6 +652,30 @@ async function gerarDanfseSpPdf(xmlString, deps = {}) {
   }
   fCourier = await pdf.embedFont(StandardFonts.Courier);
 
+  const wrapFont = (f) => {
+    if (!f || f._wrappedWinAnsi) return f;
+    const origWidth = f.widthOfTextAtSize.bind(f);
+    f.widthOfTextAtSize = function(text, size) {
+      return origWidth(sanitizeWinAnsi(text), size);
+    };
+    f._wrappedWinAnsi = true;
+    return f;
+  };
+  if (fN) wrapFont(fN);
+  if (fB) wrapFont(fB);
+  if (fCourier) wrapFont(fCourier);
+
+  const wrapPage = (p) => {
+    if (!p || p._wrappedWinAnsi) return p;
+    const origDraw = p.drawText.bind(p);
+    p.drawText = function(text, options) {
+      return origDraw(sanitizeWinAnsi(text), options);
+    };
+    p._wrappedWinAnsi = true;
+    return p;
+  };
+
+
   // Carrega Brasão de São Paulo
   let logoSp = null;
   if (logoSpBytes) {
@@ -695,7 +720,7 @@ async function gerarDanfseSpPdf(xmlString, deps = {}) {
   // =========================================================================
   // PÁGINA 1: NFS-e PADRÃO DA PREFEITURA DE SÃO PAULO
   // =========================================================================
-  const page1 = pdf.addPage([A4W, A4H]);
+  const page1 = pdf.addPage([A4W, A4H]); wrapPage(page1);
   let y = A4H - 20;
 
   // 1. Moldura do Cabeçalho Superior
@@ -984,7 +1009,7 @@ async function gerarDanfseSpPdf(xmlString, deps = {}) {
   // PÁGINA 2: REFORMA TRIBUTÁRIA IBS / CBS (se presente)
   // =========================================================================
   if (data.ibscbs) {
-    const page2 = pdf.addPage([A4W, A4H]);
+    const page2 = pdf.addPage([A4W, A4H]); wrapPage(page2);
     let y2 = A4H - 20;
 
     // Cabeçalho IBS/CBS

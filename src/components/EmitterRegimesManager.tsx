@@ -12,6 +12,7 @@ import {
   Info,
   Calendar,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 import { getRegimeLabel } from "../utils/calc";
 import {

@@ -167,6 +167,95 @@ export interface NcmRateRule {
   description?: string;
 }
 
+export interface NfseConfigEmissao {
+  opSimpNac?: string; // "" | "1" | "2" | "3" (1 - Não Optante, 2 - MEI, 3 - ME/EPP)
+  regApTribSN?: string; // "1" | "2" | "3" (Regime de Apuração dos Tributos no Simples Nacional)
+  regEspTrib?: string; // "0" a "9" (Regime Especial de Tributação)
+  cLocEmi?: string; // Município emissor (Código IBGE ou Nome)
+  inscricaoMunicipal?: string; // Inscrição Municipal (IM)
+  fone?: string; // DDD + telefone
+  email?: string; // E-mail de emissão
+  pTotTribFed?: string; // % Carga Tributária Federal aproximada
+  pTotTribMun?: string; // % Carga Tributária Municipal aproximada
+  pTotTribSN?: string; // % Alíquota Simples Nacional
+  tipoTotTribSN?: string; // Ex: "Alíquota do Simples Nacional"
+}
+
+export interface NfseModeloNota {
+  id: string;
+  nome: string; // Ex.: "Honorários mensais, Consultoria com ISS retido"
+  cTribNac: string; // 6 dígitos (Código de Tributação Nacional)
+  cNBS?: string; // 9 dígitos (Nomenclatura Brasileira de Serviços)
+  cTribMun?: string; // 3 dígitos (Código Tributação Municipal, ex: 000)
+  descricao: string; // Discriminação padrão dos serviços
+  temDesconto?: boolean; // Na nota: Tem desconto
+  pedeInfoComplementares?: boolean; // Na nota: Pede informações complementares
+  tribISSQN: string; // "1 - Operação tributável", "2 - Imunidade", "3 - Exportação de serviço", "4 - Não Incidência", "5 - Isenção"
+  tpRetISSQN: string; // "1 - Não retido", "2 - Retido pelo tomador", "3 - Retido pelo intermediário"
+  cLocPrestacao: string; // "No endereço do prestador" | "No endereço do tomador" | "Outro município"
+  cLocPrestacaoOutroMun?: string; // IBGE município prestação se outro
+  vRetCP?: string; // % Retenção Contribuição Previdenciária
+  cstPisCofins?: string; // CST PIS/COFINS (ex: "(não informado)", "01", etc.)
+  temIbsCbs?: boolean; // Reforma Tributária IBS/CBS: Sim / Não
+  cIndOp?: string; // "010101" - Estabelecimento do fornecedor como local da entrega...
+  cClassTrib?: string; // "000001" - Situações tributadas integralmente pelo IBS e CBS...
+  aliquotaIss?: string; // Alíquota ISS (%) opcional para autocompletar
+  valorPadrao?: string; // Valor base padrão opcional
+}
+
+export interface NfseClienteTomador {
+  id: string;
+  cnpjCpf: string;
+  razaoSocial: string;
+  nomeFantasia?: string;
+  email?: string;
+  municipio?: string;
+  uf?: string;
+  inscricaoMunicipal?: string;
+  telefone?: string;
+}
+
+export interface NfseNotaEmitida {
+  id: string;
+  numeroDps: string;
+  serieDps: string;
+  numeroNfse?: string;
+  chaveAcesso?: string;
+  dataEmissao: string;
+  competencia: string;
+  tomadorDoc: string;
+  tomadorNome: string;
+  tomadorEmail?: string;
+  tomadorMunicipio?: string;
+  discriminacao: string;
+  cTribNac: string;
+  cNBS?: string;
+  cTribMun?: string;
+  tribISSQN: string;
+  tpRetISSQN: string;
+  cLocPrestacao: string;
+  valorServicos: number;
+  aliquotaIss: number;
+  valorIss: number;
+  issRetido: boolean;
+  totalRetencoes: number;
+  valorLiquido: number;
+  status: "Autorizada" | "Cancelada" | "Processando" | "Rejeitada";
+  xmlAssinado?: string;
+  caminhoXml?: string;
+  codigoVerificacao?: string;
+  motivoCancelamento?: string;
+  dataCancelamento?: string;
+  temIbsCbs?: boolean;
+  cIndOp?: string;
+  cClassTrib?: string;
+  irrf?: number;
+  pis?: number;
+  cofins?: number;
+  csll?: number;
+  inss?: number;
+}
+
 export interface EmpresaSefaz {
   id: string;
   razaoSocial: string;
@@ -176,6 +265,8 @@ export interface EmpresaSefaz {
   certPath: string;
   password?: string;
   ambiente: number; // 1 = Produção, 2 = Homologação
+  inscricaoMunicipal?: string;
+  certificadoA1Validade?: string;
   certInfo?: {
     subject: string;
     issuer: string;
@@ -183,12 +274,18 @@ export interface EmpresaSefaz {
     daysRemaining: number;
     isExpired: boolean;
   };
+  certStore?: "windows" | "file";
+  certThumbprint?: string;
   modelosHabilitados?: {
     nfe?: boolean;  // Modelo 55 (Entradas) - padrão: true
     nfce?: boolean; // Modelo 65 (NFC-e Saídas) - padrão: true se emitir
     cte?: boolean;  // Modelo 57 (CT-e Fretes/Transportes) - padrão: true se tomar/emitir
     nfse?: boolean; // NFS-e (Serviços) - padrão: true se emitir/tomar
   };
+  emissaoConfig?: NfseConfigEmissao;
+  modelosNfse?: NfseModeloNota[];
+  clientesNfse?: NfseClienteTomador[];
+  notasEmitidasNfse?: NfseNotaEmitida[];
 }
 
 export interface SefazSyncStatus {
@@ -423,9 +520,27 @@ export interface ModelSchedulersMap {
 
 export interface AppSettings {
   customStorageDir?: string;
+  customServerCertDir?: string;
   modelSchedulers?: ModelSchedulersMap;
   scheduler?: ModelSchedulerConfig;
   nfseScheduler?: ModelSchedulerConfig;
+}
+
+export interface InstalledCertItem {
+  Subject: string;
+  CommonName: string;
+  CleanName: string;
+  Issuer: string;
+  Thumbprint: string;
+  SerialNumber: string;
+  NotBefore: string;
+  NotAfter: string;
+  HasPrivateKey: boolean;
+  IsExportable: boolean;
+  Documento: string;
+  daysRemaining?: number;
+  isExpired?: boolean;
+  matchedPfxPath?: string;
 }
 
 export interface EmpresaMetrics {

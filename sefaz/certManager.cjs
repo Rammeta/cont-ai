@@ -2,9 +2,19 @@ const fs = require('fs');
 const forge = require('node-forge');
 
 class CertManager {
-  constructor(certPath, password) {
-    this.certPath = certPath;
-    this.password = password || '';
+  constructor(certPathOrCompany, password, certStore, certThumbprint) {
+    if (typeof certPathOrCompany === 'object' && certPathOrCompany !== null) {
+      this.certPath = certPathOrCompany.certPath || '';
+      this.password = certPathOrCompany.password || '';
+      this.thumbprint = certPathOrCompany.certThumbprint || certPathOrCompany.thumbprint || '';
+      this.certStore = certPathOrCompany.certStore || (this.thumbprint ? 'windows' : 'file');
+    } else {
+      this.certPath = certPathOrCompany || '';
+      this.password = password || '';
+      this.thumbprint = certThumbprint || '';
+      this.certStore = certStore || (this.thumbprint ? 'windows' : 'file');
+    }
+    this.isWindowsNative = this.certStore === 'windows' || (!this.certPath && !!this.thumbprint);
     this.pfxBuffer = null;
     this.certPem = null;
     this.keyPem = null;
@@ -15,8 +25,46 @@ class CertManager {
   }
 
   load() {
-    if (!fs.existsSync(this.certPath)) {
-      throw new Error(`Arquivo de certificado não encontrado em: ${this.certPath}`);
+    if (this.isWindowsNative) {
+      if (!this.thumbprint) {
+        throw new Error('Certificado do Windows Store configurado sem Thumbprint.');
+      }
+      const windowsCrypto = require('./windowsCrypto.cjs');
+      const storeCert = windowsCrypto.getCertFromStoreSync(this.thumbprint);
+      this.certRawBase64 = storeCert.certB64;
+
+      try {
+        const derBytes = forge.util.decode64(storeCert.certB64);
+        const asn1 = forge.asn1.fromDer(derBytes);
+        const cert = forge.pki.certificateFromAsn1(asn1);
+        this.certPem = forge.pki.certificateToPem(cert);
+        this.fullCertChainPem = this.certPem;
+      } catch (e) {
+        const lines = (storeCert.certB64 || '').match(/.{1,64}/g) || [storeCert.certB64];
+        this.certPem = `-----BEGIN CERTIFICATE-----\n${lines.join('\n')}\n-----END CERTIFICATE-----`;
+        this.fullCertChainPem = this.certPem;
+      }
+
+      this.keyPem = null;
+      const validToDate = new Date(storeCert.validTo);
+      const validFromDate = new Date(storeCert.validFrom);
+      const now = new Date();
+
+      this.info = {
+        subject: storeCert.subject || storeCert.commonName || 'Desconhecido',
+        issuer: storeCert.issuer || 'Desconhecido',
+        extractedCnpj: storeCert.extractedCnpj || '',
+        validFrom: validFromDate,
+        validTo: validToDate,
+        isExpired: now > validToDate,
+        daysRemaining: Math.ceil((validToDate - now) / (1000 * 60 * 60 * 24))
+      };
+
+      return this.info;
+    }
+
+    if (!this.certPath || !fs.existsSync(this.certPath)) {
+      throw new Error(`Arquivo de certificado não encontrado em: ${this.certPath || 'Caminho em branco'}`);
     }
 
     this.pfxBuffer = fs.readFileSync(this.certPath);

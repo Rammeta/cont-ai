@@ -19,6 +19,7 @@ class StateDatabase {
     this.dbPath = path.join(this.userDataDir, 'contai_state.sqlite');
     this.key = crypto.scryptSync(SECRET_SEED, SALT, 32);
     this.migratedCnpjs = new Set();
+    this.memMetadataCache = new Map();
 
     this.initDatabase();
   }
@@ -133,7 +134,14 @@ class StateDatabase {
 
   loadMetadataCache(cnpj) {
     const clean = this.cleanCnpj(cnpj);
-    if (!clean || !this.db) return {};
+    if (!clean) return {};
+
+    // Cache em memória de altíssima performance para navegação instantânea
+    if (this.memMetadataCache.has(clean)) {
+      return this.memMetadataCache.get(clean);
+    }
+
+    if (!this.db) return {};
 
     try {
       const stmt = this.db.prepare('SELECT ch_nfe, mtime_ms, data_encrypted, iv, tag FROM xml_metadata WHERE cnpj = ?');
@@ -145,6 +153,7 @@ class StateDatabase {
           cache[row.ch_nfe] = dec;
         }
       }
+      this.memMetadataCache.set(clean, cache);
       return cache;
     } catch (err) {
       console.warn(`[StateDatabase] Erro ao carregar metadata cache (${clean}):`, err.message);
@@ -154,8 +163,17 @@ class StateDatabase {
 
   saveMetadataCache(cnpj, cacheRecord) {
     const clean = this.cleanCnpj(cnpj);
-    if (!clean || !this.db || !cacheRecord) return;
+    if (!clean || !cacheRecord) return;
 
+    // Atualiza o cache em memória
+    let mem = this.memMetadataCache.get(clean);
+    if (!mem) {
+      mem = {};
+      this.memMetadataCache.set(clean, mem);
+    }
+    Object.assign(mem, cacheRecord);
+
+    if (!this.db) return;
     const entries = Object.entries(cacheRecord);
     if (entries.length === 0) return;
 
@@ -182,7 +200,9 @@ class StateDatabase {
 
   clearMetadataCache(cnpj) {
     const clean = this.cleanCnpj(cnpj);
-    if (!clean || !this.db) return;
+    if (!clean) return;
+    this.memMetadataCache.delete(clean);
+    if (!this.db) return;
 
     try {
       const stmt = this.db.prepare('DELETE FROM xml_metadata WHERE cnpj = ?');

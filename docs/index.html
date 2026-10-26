@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CONT-AI — Gestor de Movimento Fiscal, Emissor NFS-e & Apuração DIFAL | Vagner Godoy de Melo</title>
+  <meta name="description" content="Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais (NF-e, NFC-e, CT-e e NFS-e), Emissor Nacional de NFS-e (Reforma Tributária IBS/CBS e NBS) e Auditoria de DIFAL." />
+  <link rel="icon" type="image/png" href="screenshots/logo.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .hero-gradient {
+      background: radial-gradient(circle at 20% 20%, rgba(0, 90, 158, 0.25) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 0%, rgba(16, 124, 65, 0.18) 0%, transparent 45%),
+                  #0b1120;
+    }
+    .tab-btn.active {
+      background-color: #005a9e;
+      color: #ffffff;
+      border-color: #005a9e;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased selection:bg-sky-600 selection:text-white">
+
+  <!-- Toast de confirmação ao copiar PIX -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden items-center gap-2.5 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-400/40 font-semibold text-sm transition-all">
+    <span>✅</span>
+    <span id="toast-text">Chave PIX copiada com sucesso!</span>
+  </div>
+
+  <!-- Navbar -->
+  <header class="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3 group">
+        <img src="screenshots/logo.png" alt="CONT-AI Logo" class="w-9 h-9 rounded-lg object-contain bg-white/95 p-0.5 shadow" />
+        <div>
+          <span class="font-extrabold tracking-tight text-white text-base block leading-none">CONT-AI <span class="text-sky-400 text-xs font-mono">v2.1</span></span>
+          <span class="text-[11px] text-slate-400 block mt-0.5">Gestor Fiscal & Emissor NFS-e</span>
+        </div>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-6 text-sm text-slate-300 font-medium">
+        <a href="#emissor" class="hover:text-white transition">Emissor NFS-e</a>
+        <a href="#funcionalidades" class="hover:text-white transition">Funcionalidades</a>
+        <a href="#telas" class="hover:text-white transition">Telas do Sistema</a>
+        <a href="#apoiar" class="text-emerald-400 hover:text-emerald-300 font-semibold transition">☕ Apoiar (PIX)</a>
+        <a href="#autor" class="hover:text-white transition">Autor</a>
+      </nav>
+
+      <div class="flex items-center gap-2.5">
+        <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener"
+           class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          <span>⭐ GitHub</span>
+        </a>
+        <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-600/25 transition">
+          <span>⬇️ Baixar Windows (.exe)</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-gradient pt-14 pb-20 border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-4xl mx-auto">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-sky-500/10 border border-sky-400/30 text-sky-300 text-xs font-semibold mb-6">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Novo: Emissor Nacional de NFS-e com Reforma Tributária (IBS/CBS e Tabela NBS)</span>
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+          Captação Fiscal mTLS, <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">Emissor Nacional de NFS-e</span> & Auditoria de DIFAL
+        </h1>
+
+        <p class="mt-5 text-base sm:text-lg text-slate-300 leading-relaxed max-w-3xl mx-auto">
+          Sistema Desktop ERP gratuito para escritórios de contabilidade, analistas fiscais e empresas.
+          Conecte-se direto via <strong>Certificado Digital A1</strong> aos WebServices da <strong>SEFAZ Nacional</strong>,
+          <strong>Portal Nacional ADN</strong> e <strong>Prefeitura de SP</strong> sem depender de portais lentos.
+        </p>
+
+        <!-- Botões principais -->
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3.5">
+          <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl text-sm sm:text-base font-extrabold bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white shadow-xl shadow-sky-600/30 border border-sky-400/30 transition transform hover:-translate-y-0.5">
+            <span>⬇️ Baixar Instalador Oficial (.exe)</span>
+            <span class="text-[11px] font-normal bg-black/25 px-2 py-0.5 rounded">Windows 10/11 x64</span>
+          </a>
+
+          <a href="#apoiar"
+             class="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 transition">
+            <span>☕ Apoiar o Projeto via PIX</span>
+          </a>
+
+          <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 transition">
+            <span>⭐ Dar Estrela no GitHub</span>
+          </a>
+        </div>
+
+        <div class="mt-5 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
+          <span>✔️ 100% Local (Seus certificados não saem do seu PC)</span>
+          <span>✔️ Multi-CNPJ Ilimitado</span>
+          <span>✔️ Alta Performance (+3.500 notas em &lt;1s)</span>
+        </div>
+      </div>
+
+      <!-- Vídeo / Preview Principal -->
+      <div class="mt-12 max-w-5xl mx-auto">
+        <div class="rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-900 shadow-2xl">
+          <div class="bg-slate-800/90 px-4 py-2.5 flex items-center justify-between border-b border-slate-700">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+              <span class="ml-2 text-xs font-mono text-slate-300">CONT-AI — Gestor de Movimento Fiscal & Emissor Nacional NFS-e</span>
+            </div>
+            <span class="text-[11px] text-sky-400 font-semibold">Demonstração em Vídeo</span>
+          </div>
+          <video controls preload="metadata" poster="screenshots/screen_11_launcher_portal.png" class="w-full max-h-[560px] object-contain bg-black">
+            <source src="screenshots/cont_ai_v2_demo.mp4" type="video/mp4" />
+            <img src="screenshots/screen_11_launcher_portal.png" alt="Portal CONT-AI" class="w-full" />
+          </video>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Destaque: Novo Emissor Nacional de NFS-e -->
+  <section id="emissor" class="py-16 bg-slate-900/60 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid lg:grid-cols-12 gap-10 items-center">
+        <div class="lg:col-span-5 space-y-4">
+          <span class="inline-block px-3 py-1 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-bold uppercase tracking-wider">
+            Destaque da Nova Versão
+          </span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+            Emissor Nacional de NFS-e pronto para a Reforma Tributária
+          </h2>
+          <p class="text-slate-300 text-sm leading-relaxed">
+            Emita Notas Fiscais de Serviços Eletrônicas diretamente pela API Nacional Sefin/ADN usando seu Certificado Digital A1, sem depender da instabilidade do portal web.
+          </p>
+          <ul class="space-y-2.5 text-sm text-slate-200 pt-2">
+            <li class="flex items-start gap-2.5">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><strong>Painéis Suspensos Inteligentes:</strong> Busca completa de <code class="text-sky-300">cTribNac</code> (LC 116), <code class="text-sky-300">cNBS</code>, <code class="text-sky-300">cTribMun</code>, <code class="text-sky-300">cIndOp</code> e <code class="text-sky-300">cClassTrib</code> (NT 004 IBS/CBS).</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><strong>Controle Automático de Numeração:</strong> Sincronizado com o histórico de NFS-e emitidas para nunca colidir numeração.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><strong>Espelho Pré-Emissão & DANFSe Oficial:</strong> Confira todos os impostos e retenções antes de transmitir e gere o PDF oficial instantaneamente.</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <span><strong>Cadastro de Clientes & Modelos de Serviço:</strong> Reaproveite padrões de emissão em 1 clique.</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="lg:col-span-7 grid sm:grid-cols-2 gap-4">
+          <div class="rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shadow-lg">
+            <img src="screenshots/screen_12_emissor_nfse.png" alt="Emissor Nacional NFS-e" class="w-full h-auto object-cover" />
+            <div class="p-3 text-xs text-slate-300 font-medium border-t border-slate-800">
+              📋 Emissão rápida com correlação LC 116 / NBS e Reforma Tributária
+            </div>
+          </div>
+          <div class="rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shadow-lg">
+            <img src="screenshots/screen_18_preview_espelho_dps.png" alt="Preview Espelho DPS" class="w-full h-auto object-cover" />
+            <div class="p-3 text-xs text-slate-300 font-medium border-t border-slate-800">
+              🔍 Espelho de conferência pré-transmissão e DANFSe em PDF
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grid de Módulos e Funcionalidades -->
+  <section id="funcionalidades" class="py-16 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto mb-12">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Tudo o que o Departamento Fiscal precisa em um único App</h2>
+        <p class="mt-3 text-slate-400 text-sm sm:text-base">
+          Interface clássica de alta densidade inspirada nos melhores ERPs contábeis, construída para velocidade e precisão.
+        </p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/40 transition">
+          <div class="text-2xl mb-3">🏢</div>
+          <h3 class="text-base font-bold text-white mb-2">Hub Multi-CNPJ & Controle de Certificados</h3>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Gerencie dezenas de empresas simultaneamente, monitore a validade dos Certificados A1 (com alertas de 30 dias) e sincronize toda a carteira de clientes em lote.
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/40 transition">
+          <div class="text-2xl mb-3">📦</div>
+          <h3 class="text-base font-bold text-white mb-2">NF-e Entradas (Modelo 55) + Ciência Automática</h3>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Captação via <code class="text-sky-300">NFeDistribuicaoDFe</code> direto na SEFAZ Nacional, com manifestação automática de Ciência da Operação (210210) para baixar o XML completo.
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/40 transition">
+          <div class="text-2xl mb-3">🧾</div>
+          <h3 class="text-base font-bold text-white mb-2">NFS-e Nacional (ADN) & Prefeitura de SP</h3>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Baixa automaticamente serviços tomados e prestados no Portal Nacional ADN e na Prefeitura de São Paulo, gerando relatórios e DANFSE em PDF.
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/40 transition">
+          <div class="text-2xl mb-3">🚚</div>
+          <h3 class="text-base font-bold text-white mb-2">CT-e Fretes (57) & NFC-e Cupons (65)</h3>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Consulta nacional de Conhecimentos de Transporte Eletrônicos (com geração de DACTE) e organização de Cupons Fiscais NFC-e por competência.
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/40 transition">
+          <div class="text-2xl mb-3">⚖️</div>
+          <h3 class="text-base font-bold text-white mb-2">Auditoria de DIFAL & Simples Nacional</h3>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Identifica compras interestaduais, consulta automaticamente se o fornecedor é optante pelo Simples Nacional/MEI e calcula o DIFAL item a item por NCM/CFOP.
+          </p>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-sky-500/40 transition">
+          <div class="text-2xl mb-3">📊</div>
+          <h3 class="text-base font-bold text-white mb-2">Guia Geral de Fechamento & Exportação ZIP/CSV</h3>
+          <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            Consolida NF-e, NFC-e, CT-e e NFS-e em uma única grade de auditoria, destacando retenções federais (IRRF, PIS, COFINS, CSLL, INSS) e ISS retido.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Galeria Interativa de Telas -->
+  <section id="telas" class="py-16 bg-slate-900/40 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto mb-8">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Explore as Telas do Sistema</h2>
+        <p class="mt-2 text-sm text-slate-400">Clique nas abas abaixo para visualizar cada módulo do CONT-AI em detalhes.</p>
+      </div>
+
+      <div class="flex flex-wrap justify-center gap-2 mb-8">
+        <button onclick="showScreen('screenshots/screen_01_painel_empresas.png', 'Painel de Empresas (Hub Multi-CNPJ) com indicadores de certificados e contagem de documentos.', this)"
+                class="tab-btn active px-4 py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-900 text-slate-300 transition cursor-pointer">
+          1. Hub de Empresas
+        </button>
+        <button onclick="showScreen('screenshots/screen_12_emissor_nfse.png', 'Emissor Nacional de NFS-e com seleção inteligente de cTribNac, NBS e Reforma Tributária (IBS/CBS).', this)"
+                class="tab-btn px-4 py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-900 text-slate-300 transition cursor-pointer">
+          2. Emissor NFS-e Nacional
+        </button>
+        <button onclick="showScreen('screenshots/screen_02_guia_notas.png', 'Guia Geral de Notas unificando os 4 modelos fiscais com retenções e DIFAL.', this)"
+                class="tab-btn px-4 py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-900 text-slate-300 transition cursor-pointer">
+          3. Guia Geral de Notas
+        </button>
+        <button onclick="showScreen('screenshots/screen_03_nfe_entradas.png', 'Captação de NF-e Entradas (Modelo 55) com consulta de regime tributário do fornecedor.', this)"
+                class="tab-btn px-4 py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-900 text-slate-300 transition cursor-pointer">
+          4. NF-e Entradas (55)
+        </button>
+        <button onclick="showScreen('screenshots/screen_06_nfse.png', 'Gestão e Captação de NFS-e Tomadas e Prestadas (ADN Nacional + Prefeitura SP).', this)"
+                class="tab-btn px-4 py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-900 text-slate-300 transition cursor-pointer">
+          5. Captação NFS-e
+        </button>
+        <button onclick="showScreen('screenshots/screen_07_calculo_difal.png', 'Memória de Cálculo e Auditoria de DIFAL / Antecipação Tributária por item e NCM.', this)"
+                class="tab-btn px-4 py-2 rounded-lg text-xs font-bold border border-slate-700 bg-slate-900 text-slate-300 transition cursor-pointer">
+          6. Cálculo de DIFAL
+        </button>
+      </div>
+
+      <div class="max-w-5xl mx-auto rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 shadow-2xl">
+        <img id="gallery-img" src="screenshots/screen_01_painel_empresas.png" alt="Tela do Sistema CONT-AI" class="w-full h-auto object-contain" />
+        <div id="gallery-caption" class="p-4 text-center text-xs sm:text-sm text-slate-300 bg-slate-900 border-t border-slate-800 font-medium">
+          Painel de Empresas (Hub Multi-CNPJ) com indicadores de certificados e contagem de documentos.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Seção APOIE O PROJETO (PIX) -->
+  <section id="apoiar" class="py-16 border-b border-slate-800 bg-gradient-to-b from-slate-950 to-emerald-950/20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="rounded-3xl bg-slate-900/95 border-2 border-emerald-500/40 p-6 sm:p-10 shadow-2xl">
+        <div class="grid md:grid-cols-12 gap-8 items-center">
+          <!-- QR Code PIX -->
+          <div class="md:col-span-4 flex flex-col items-center text-center">
+            <div class="bg-white p-4 rounded-2xl shadow-lg border border-emerald-200">
+              <img src="screenshots/pix_qrcode.svg" alt="QR Code PIX CONT-AI" class="w-48 h-48 object-contain" />
+            </div>
+            <span class="mt-3 text-xs font-semibold text-emerald-300">📱 Escaneie no app do seu banco</span>
+          </div>
+
+          <!-- Dados e Botões de Cópia -->
+          <div class="md:col-span-8 space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-bold">
+              <span>💚 Apoie o Desenvolvimento Independente</span>
+            </div>
+
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+              O CONT-AI economiza horas do seu fechamento fiscal?
+            </h2>
+
+            <p class="text-sm text-slate-300 leading-relaxed">
+              Este sistema foi construído e disponibilizado gratuitamente para ajudar contadores, analistas fiscais e empresários brasileiros, sem mensalidades abusivas.
+              Sua contribuição voluntária via <strong>PIX</strong> mantém o projeto vivo, financia novas integrações e garante atualizações contínuas com as mudanças da Reforma Tributária.
+            </p>
+
+            <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+                <span class="text-slate-400">🏢 Recebedor:</span>
+                <span class="font-bold text-white font-mono">66.604.571 VAGNER GODOY de MELO</span>
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm border-t border-slate-800/80 pt-3">
+                <span class="text-slate-400">🔑 Chave PIX (CNPJ):</span>
+                <div class="flex items-center gap-2">
+                  <code class="px-2.5 py-1 rounded bg-slate-800 text-emerald-300 font-mono font-bold text-sm">66.604.571/0001-43</code>
+                  <button onclick="copyText('66604571000143', 'Chave PIX CNPJ (66.604.571/0001-43) copiada!')"
+                          class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer">
+                    📋 Copiar CNPJ
+                  </button>
+                </div>
+              </div>
+
+              <div class="border-t border-slate-800/80 pt-3 flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs text-slate-400">Ou copie o código <strong>PIX Copia e Cola</strong> do QR Code:</span>
+                <button onclick="copyText('00020126580014BR.GOV.BCB.PIX0136ad834588-7fb9-45e7-8f01-7f7de3db757b5204000053039865802BR592566.604.571 VAGNER GODOY D6009SAO PAULO61080540900062250521SJooPzypjS6LVYq7wbe1a6304EAE0', 'Código PIX Copia e Cola copiado!')"
+                        class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 font-bold text-xs transition cursor-pointer">
+                  ⚡ Copiar PIX Copia e Cola
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sobre o Autor / Portfólio -->
+  <section id="autor" class="py-16 border-b border-slate-800">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-2xl font-extrabold text-white">Idealizado e Desenvolvido por Vagner Godoy de Melo</h2>
+      <p class="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+        Desenvolvimento de soluções em automação fiscal, integração direta com WebServices governamentais (SEFAZ, ADN NFS-e, Reforma Tributária IBS/CBS) e ferramentas de alta performance para a área contábil e tributária.
+      </p>
+
+      <div class="mt-7 flex flex-wrap items-center justify-center gap-4">
+        <a href="https://www.linkedin.com/in/vagnergmelo/" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#0A66C2] hover:bg-[#004182] text-white font-bold text-sm shadow-lg transition">
+          <span>🔗 Conectar no LinkedIn</span>
+        </a>
+        <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm border border-slate-700 transition">
+          <span>💻 Repositório Oficial no GitHub</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Rodapé & Licença -->
+  <footer class="py-10 bg-slate-950 text-center text-xs text-slate-500">
+    <div class="max-w-5xl mx-auto px-4 space-y-2">
+      <p class="font-semibold text-slate-400">
+        Copyright © 2026 Vagner Godoy de Melo — CONT-AI Gestor de Movimento Fiscal
+      </p>
+      <p class="max-w-3xl mx-auto leading-relaxed">
+        Distribuído sob <strong>Licença de Código Aberto Não-Comercial (Source-Available Non-Commercial License)</strong>.
+        Uso gratuito para usuários finais e estudos. É estritamente proibida a comercialização, revenda, sublicenciamento ou inclusão em softwares comerciais de terceiros sem autorização expressa do autor.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    function showScreen(src, caption, btn) {
+      document.getElementById('gallery-img').src = src;
+      document.getElementById('gallery-caption').textContent = caption;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function copyText(text, msg) {
+      navigator.clipboard.writeText(text).then(() => {
+        const toast = document.getElementById('toast');
+        const toastText = document.getElementById('toast-text');
+        toastText.textContent = msg;
+        toast.classList.remove('hidden');
+        toast.classList.add('flex');
+        setTimeout(() => {
+          toast.classList.add('hidden');
+          toast.classList.remove('flex');
+        }, 3500);
+      });
+    }
+  </script>
+</body>
+</html>

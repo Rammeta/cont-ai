@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { EmpresaSefaz, EmpresaMetrics } from "../types";
 import { getCompaniesMetrics, openCompanyFolder } from "../utils/electronBridge";
 import { formatDateBr, calculateDaysRemaining } from "../utils/certUtils";
+import { useDebounce } from "../utils/useDebounce";
 import SyncAllProgressModal from "./SyncAllProgressModal";
 import logoImg from "../../assets/logo.png";
 import {
@@ -39,6 +40,7 @@ export default function EmpresasHubView({
   const [metrics, setMetrics] = useState<EmpresaMetrics[]>([]);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 250);
   const [statusFilter, setStatusFilter] = useState<"todas" | "valid" | "expiring" | "expired" | "with_docs">("todas");
   const [regimeFilter, setRegimeFilter] = useState<"todos" | "simples" | "normal">("todos");
   const [selectedId, setSelectedId] = useState<string | null>(activeEmpresaId || (empresas[0]?.id ?? null));
@@ -227,8 +229,8 @@ export default function EmpresasHubView({
   // Filtragem das empresas
   const filteredMetrics = useMemo(() => {
     return metrics.filter((m) => {
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase().trim();
+      if (debouncedSearchTerm.trim()) {
+        const q = debouncedSearchTerm.toLowerCase().trim();
         const cleanQ = q.replace(/\D/g, "");
         const cleanCnpj = String(m.cnpj || "").replace(/\D/g, "");
         const matchName = (m.razaoSocial || "").toLowerCase().includes(q);
@@ -246,70 +248,73 @@ export default function EmpresasHubView({
 
       return true;
     });
-  }, [metrics, searchTerm, statusFilter, regimeFilter]);
+  }, [metrics, debouncedSearchTerm, statusFilter, regimeFilter]);
+
+  // Mapa fixo de código sequencial por empresa (para que ordenar por Cód. ou outras colunas preserve o código de cada empresa)
+  const codigoMap = useMemo(() => {
+    const map = new Map<string, number>();
+    metrics.forEach((m, index) => {
+      map.set(m.id, index + 1);
+    });
+    return map;
+  }, [metrics]);
 
   // Ordenação das empresas (menor para o maior / maior para o menor)
   const sortedMetrics = useMemo(() => {
+    const dir = sortDirection === "asc" ? 1 : -1;
+    const getDays = (item: EmpresaMetrics): number | null => {
+      if (item.certDaysRemaining !== null && item.certDaysRemaining !== undefined) return item.certDaysRemaining;
+      if (item.certValidTo) return calculateDaysRemaining(item.certValidTo);
+      return null;
+    };
+    const getCertRank = (item: EmpresaMetrics): number => {
+      const days = getDays(item);
+      if (item.certStatus === "expired" || (days !== null && days <= 0)) return 1; // Vencido
+      if (item.certStatus === "expiring_soon" || (days !== null && days <= 30)) return 2; // Atenção
+      if (!item.certValidTo && days === null) return 4; // Sem certificado
+      return 3; // Válido
+    };
+
     return [...filteredMetrics].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
       switch (sortColumn) {
         case "codigo":
-          valA = a.id || "";
-          valB = b.id || "";
-          break;
+          return ((codigoMap.get(a.id) || 0) - (codigoMap.get(b.id) || 0)) * dir;
         case "razaoSocial":
-          valA = (a.razaoSocial || "").toLowerCase();
-          valB = (b.razaoSocial || "").toLowerCase();
-          break;
+          return (a.razaoSocial || "").localeCompare(b.razaoSocial || "", "pt-BR", { sensitivity: "base", numeric: true }) * dir;
         case "cnpj":
-          valA = (a.cnpj || "").replace(/\D/g, "");
-          valB = (b.cnpj || "").replace(/\D/g, "");
-          break;
+          return (a.cnpj || "").replace(/\D/g, "").localeCompare((b.cnpj || "").replace(/\D/g, "")) * dir;
         case "uf":
-          valA = (a.uf || "").toLowerCase();
-          valB = (b.uf || "").toLowerCase();
-          break;
+          return (a.uf || "").localeCompare(b.uf || "", "pt-BR", { sensitivity: "base" }) * dir;
         case "regime":
-          valA = (a.regime || "").toLowerCase();
-          valB = (b.regime || "").toLowerCase();
-          break;
+          return (a.regime || "").localeCompare(b.regime || "", "pt-BR", { sensitivity: "base" }) * dir;
         case "nfe":
-          valA = Number(a.nfeCount) || 0;
-          valB = Number(b.nfeCount) || 0;
-          break;
+          return ((Number(a.nfeCount) || 0) - (Number(b.nfeCount) || 0)) * dir;
         case "nfce":
-          valA = Number(a.nfceCount) || 0;
-          valB = Number(b.nfceCount) || 0;
-          break;
+          return ((Number(a.nfceCount) || 0) - (Number(b.nfceCount) || 0)) * dir;
         case "cte":
-          valA = Number(a.cteCount) || 0;
-          valB = Number(b.cteCount) || 0;
-          break;
-        case "nfse":
-          valA = Number(a.nfseCount) || 0;
-          valB = Number(b.nfseCount) || 0;
-          break;
-        case "totalDocs":
-          valA = Number(a.totalDocs) || 0;
-          valB = Number(b.totalDocs) || 0;
-          break;
-        case "diasRest": {
-          const daysA = a.certDaysRemaining !== null && a.certDaysRemaining !== undefined ? a.certDaysRemaining : (a.certValidTo ? calculateDaysRemaining(a.certValidTo) : null);
-          const daysB = b.certDaysRemaining !== null && b.certDaysRemaining !== undefined ? b.certDaysRemaining : (b.certValidTo ? calculateDaysRemaining(b.certValidTo) : null);
-          valA = daysA !== null ? daysA : 99999;
-          valB = daysB !== null ? daysB : 99999;
-          break;
+          return ((Number(a.cteCount) || 0) - (Number(b.cteCount) || 0)) * dir;
+        case "nfse": {
+          const nfseA = Number(a.nfseTotalCount ?? ((a.nfseTomadasCount || 0) + (a.nfsePrestadasCount || 0))) || 0;
+          const nfseB = Number(b.nfseTotalCount ?? ((b.nfseTomadasCount || 0) + (b.nfsePrestadasCount || 0))) || 0;
+          return (nfseA - nfseB) * dir;
         }
+        case "totalDocs":
+          return ((Number(a.totalDocs) || 0) - (Number(b.totalDocs) || 0)) * dir;
+        case "validade":
+        case "diasRest": {
+          const dA = getDays(a);
+          const dB = getDays(b);
+          const valA = dA !== null ? dA : 99999;
+          const valB = dB !== null ? dB : 99999;
+          return (valA - valB) * dir;
+        }
+        case "situacaoCert":
+          return (getCertRank(a) - getCertRank(b)) * dir;
         default:
-          valA = "";
-          valB = "";
+          return 0;
       }
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
     });
-  }, [filteredMetrics, sortColumn, sortDirection]);
+  }, [filteredMetrics, sortColumn, sortDirection, codigoMap]);
 
   // Manter linha selecionada válida
   useEffect(() => {
@@ -1048,7 +1053,19 @@ export default function EmpresasHubView({
                       </span>
                     </div>
                   </th>
-                  <th style={{ width: "100px" }}>Validade A1</th>
+                  <th
+                    onClick={() => handleHeaderSort("validade")}
+                    className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"
+                    style={{ width: "100px" }}
+                    title="Clique para ordenar por data de validade do Certificado A1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>Validade A1</span>
+                      <span className="text-[10px] text-[#005a9e] font-bold">
+                        {sortColumn === "validade" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </div>
+                  </th>
                   <th
                     onClick={() => handleHeaderSort("diasRest")}
                     className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"
@@ -1062,7 +1079,19 @@ export default function EmpresasHubView({
                       </span>
                     </div>
                   </th>
-                  <th style={{ width: "125px" }}>Situação Certificado</th>
+                  <th
+                    onClick={() => handleHeaderSort("situacaoCert")}
+                    className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"
+                    style={{ width: "125px" }}
+                    title="Clique para ordenar por situação do certificado"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>Situação Certificado</span>
+                      <span className="text-[10px] text-[#005a9e] font-bold">
+                        {sortColumn === "situacaoCert" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1131,7 +1160,7 @@ export default function EmpresasHubView({
                         className={`cursor-pointer ${isSelected ? "selected" : ""}`}
                       >
                         <td style={{ textAlign: "center", fontWeight: 600 }}>
-                          {String(idx + 1).padStart(3, "0")}
+                          {String(codigoMap.get(item.id) || (idx + 1)).padStart(3, "0")}
                         </td>
                         <td style={{ fontWeight: 600 }} title={item.razaoSocial}>
                           {item.razaoSocial}

@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:build": "vite build && electron-builder -w"
+    "electron:build": "vite build && npx electron-builder -w"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -23,7 +23,6 @@
     "express": "^4.21.2",
     "fast-xml-parser": "^5.11.1",
     "lucide-react": "^0.546.0",
-    "motion": "^12.23.24",
     "nfe-danfe-pdf": "^1.0.3",
     "node-forge": "^1.4.0",
     "pdf-lib": "^1.17.1",
@@ -45,6 +44,9 @@
       "main.cjs",
       "sefaz/**/*",
       "nfse/**/*",
+      "assets/**/*"
+    ],
+    "asarUnpack": [
       "assets/**/*"
     ],
     "win": {

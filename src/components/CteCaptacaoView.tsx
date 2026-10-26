@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { EmpresaSefaz, ParsedCte, AppSettings } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import { useDebounce } from "../utils/useDebounce";
 import {
   Truck,
   RotateCw,
@@ -43,6 +44,7 @@ import {
   onSchedulerTrigger,
   saveCsvFile
 } from "../utils/electronBridge";
+import { parseDateToTimestamp } from "../utils/calc";
 import CertificateBadge from "./CertificateBadge";
 import logoImg from "../../assets/logo.png";
 
@@ -74,6 +76,7 @@ export default function CteCaptacaoView({
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ step?: string; message?: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 250);
   const [exporting, setExporting] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [localAppSettings, setLocalAppSettings] = useState<AppSettings | null>(null);
@@ -164,7 +167,7 @@ export default function CteCaptacaoView({
           return;
         }
         onNotify(`Horário agendado atingido (${payload?.time || "diário"}): busca de CT-e disparada!`, "success");
-        if (activeEmpresa && activeEmpresa.certPath && !syncing) {
+        if (activeEmpresa && (activeEmpresa.certPath || activeEmpresa.certStore === "windows" || activeEmpresa.certThumbprint) && !syncing) {
           handleSyncCte();
         }
       }
@@ -226,7 +229,7 @@ export default function CteCaptacaoView({
       return;
     }
 
-    if (!activeEmpresa.certPath) {
+    if (!activeEmpresa.certPath && activeEmpresa.certStore !== "windows" && !activeEmpresa.certThumbprint) {
       onNotify("Empresa sem Certificado Digital A1 configurado.", "error");
       onOpenCompanyModal();
       return;
@@ -491,8 +494,8 @@ export default function CteCaptacaoView({
   // Filtros aplicados
   const filteredCtes = useMemo(() => {
     return ctes.filter((c) => {
-      if (!searchTerm.trim()) return true;
-      const term = searchTerm.trim().toLowerCase();
+      if (!debouncedSearchTerm.trim()) return true;
+      const term = debouncedSearchTerm.trim().toLowerCase();
       const numQuery = term.replace(/^(n[º°o]?|ct-?e|#)\s*/i, "").trim();
       const isShortNumeric = /^\d{1,10}$/.test(numQuery);
       const emitCnpjDigits = String(c.cnpjEmitente || "").replace(/\D/g, "");
@@ -529,7 +532,7 @@ export default function CteCaptacaoView({
         valor.includes(term)
       );
     });
-  }, [ctes, searchTerm]);
+  }, [ctes, debouncedSearchTerm]);
 
   // Indicadores
   const metrics = useMemo(() => {
@@ -545,41 +548,39 @@ export default function CteCaptacaoView({
 
   // Ordenação dos CT-es (menor para o maior / maior para o menor)
   const sortedCtes = useMemo(() => {
+    const dir = sortDirection === "asc" ? 1 : -1;
     return [...filteredCtes].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
       switch (sortColumn) {
-        case "numero":
-          valA = Number(String(a.nCT || "0").replace(/\D/g, "")) || 0;
-          valB = Number(String(b.nCT || "0").replace(/\D/g, "")) || 0;
-          break;
-        case "dataEmissao":
-          valA = a.dhEmi || "";
-          valB = b.dhEmi || "";
-          break;
+        case "numero": {
+          const valA = Number(String(a.nCT || "0").replace(/\D/g, "")) || 0;
+          const valB = Number(String(b.nCT || "0").replace(/\D/g, "")) || 0;
+          return (valA - valB) * dir;
+        }
+        case "dataEmissao": {
+          const tsA = parseDateToTimestamp(a.dhEmi || a.formattedDate || "");
+          const tsB = parseDateToTimestamp(b.dhEmi || b.formattedDate || "");
+          if (tsA !== tsB) return (tsA - tsB) * dir;
+          const numA = Number(String(a.nCT || "0").replace(/\D/g, "")) || 0;
+          const numB = Number(String(b.nCT || "0").replace(/\D/g, "")) || 0;
+          return (numA - numB) * dir;
+        }
         case "emitente":
-          valA = (a.emitente || "").toLowerCase();
-          valB = (b.emitente || "").toLowerCase();
-          break;
-        case "tomador":
-          valA = (a.tomadorNome || "").toLowerCase();
-          valB = (b.tomadorNome || "").toLowerCase();
-          break;
-        case "rota":
-          valA = ((a.ufIni || "") + (a.ufFim || "")).toLowerCase();
-          valB = ((b.ufIni || "") + (b.ufFim || "")).toLowerCase();
-          break;
+          return (a.emitente || "").localeCompare(b.emitente || "", "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+        case "tomador": {
+          const tA = a.tomador || a.papelTomador || "";
+          const tB = b.tomador || b.papelTomador || "";
+          return tA.localeCompare(tB, "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+        }
+        case "rota": {
+          const rA = `${a.ufRem || a.ufEmit || ""}->${a.ufDest || ""}`;
+          const rB = `${b.ufRem || b.ufEmit || ""}->${b.ufDest || ""}`;
+          return rA.localeCompare(rB, "pt-BR", { sensitivity: "base" }) * dir;
+        }
         case "valor":
-          valA = Number(a.vTPrest) || 0;
-          valB = Number(b.vTPrest) || 0;
-          break;
+          return ((Number(a.vTPrest) || 0) - (Number(b.vTPrest) || 0)) * dir;
         default:
-          valA = "";
-          valB = "";
+          return 0;
       }
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
     });
   }, [filteredCtes, sortColumn, sortDirection]);
 

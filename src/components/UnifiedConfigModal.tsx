@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { EmpresaSefaz, RegimeDestinatario, ModelSchedulersMap } from "../types";
+import { EmpresaSefaz, RegimeDestinatario, ModelSchedulersMap, NfseConfigEmissao, NfseModeloNota } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import NfseModeloModal from "./NfseModeloModal";
 import { formatDateBr } from "../utils/certUtils";
 import {
   Building2,
@@ -31,13 +32,25 @@ import {
   RotateCcw,
   RefreshCcw,
   Database,
-  DownloadCloud
+  DownloadCloud,
+  Send,
+  Laptop,
+  Server,
+  HardDrive,
+  CheckSquare,
+  Square,
+  Tag
 } from "lucide-react";
 import {
   selectCertFile,
   testCert,
   listNetworkCerts,
   NetworkCertItem,
+  listInstalledCerts,
+  exportInstalledCert,
+  selectServerCertFolder,
+  saveServerCertFolder,
+  openServerCertFolder,
   getAppSettings,
   selectStorageFolder,
   openStorageFolder,
@@ -52,6 +65,7 @@ import {
   resetAllModelsNsu,
   exportDiagnostics
 } from "../utils/electronBridge";
+import { InstalledCertItem } from "../types";
 import CertificateBadge from "./CertificateBadge";
 import logoImg from "../../assets/logo.png";
 
@@ -83,13 +97,24 @@ export default function UnifiedConfigModal({
     if (isOpen) {
       setActiveTab(initialTab);
       loadSettingsData();
+      if (initialTab === "empresas" && activeEmpresaId && !editingCompany) {
+        const activeComp = empresas.find((e) => e.id === activeEmpresaId);
+        if (activeComp) {
+          setEditingCompany(activeComp);
+          setEditCompanyTab("empresa");
+        }
+      }
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, activeEmpresaId]);
 
   // -------------------------------------------------------------
   // ESTADOS DA ABA DE EMPRESAS
   // -------------------------------------------------------------
   const [editingCompany, setEditingCompany] = useState<Partial<EmpresaSefaz> | null>(null);
+  const [editCompanyTab, setEditCompanyTab] = useState<"empresa" | "emissao">("empresa");
+  const [selectedModeloId, setSelectedModeloId] = useState<string | null>(null);
+  const [isModeloModalOpen, setIsModeloModalOpen] = useState(false);
+  const [editingModelo, setEditingModelo] = useState<NfseModeloNota | null>(null);
   const [companyListSearch, setCompanyListSearch] = useState("");
   const [testingStatus, setTestingStatus] = useState<{
     loading: boolean;
@@ -104,6 +129,16 @@ export default function UnifiedConfigModal({
   const [isNetworkModalOpen, setIsNetworkModalOpen] = useState(false);
   const [networkSearchTerm, setNetworkSearchTerm] = useState("");
   const [networkCertDir, setNetworkCertDir] = useState("");
+
+  // -------------------------------------------------------------
+  // ESTADOS DOS CERTIFICADOS INSTALADOS NO WINDOWS
+  // -------------------------------------------------------------
+  const [installedCerts, setInstalledCerts] = useState<InstalledCertItem[]>([]);
+  const [loadingInstalledCerts, setLoadingInstalledCerts] = useState(false);
+  const [isInstalledCertsModalOpen, setIsInstalledCertsModalOpen] = useState(false);
+  const [installedCertsFilter, setInstalledCertsFilter] = useState("");
+  const [installedCertsMode, setInstalledCertsMode] = useState<"select" | "batch_create">("select");
+  const [selectedInstalledCertsForBatch, setSelectedInstalledCertsForBatch] = useState<string[]>([]);
 
   // -------------------------------------------------------------
   // ESTADOS DA ABA DE AGENDADORES & ARMAZENAMENTO
@@ -215,6 +250,9 @@ export default function UnifiedConfigModal({
       const data = await getAppSettings();
       if (data) {
         setSettings(data);
+        if (data.customServerCertDir) {
+          setNetworkCertDir(data.customServerCertDir);
+        }
         if (data.modelSchedulers) {
           setSchedulers({
             nfe: data.modelSchedulers.nfe || { enabled: false, time: "08:00" },
@@ -394,6 +432,8 @@ export default function UnifiedConfigModal({
   // MÉTODOS DE CADASTRO/EDIÇÃO DE EMPRESAS
   // -------------------------------------------------------------
   const handleStartNew = () => {
+    setEditCompanyTab("empresa");
+    setSelectedModeloId(null);
     setEditingCompany({
       id: "emp_" + Date.now(),
       razaoSocial: "",
@@ -403,6 +443,21 @@ export default function UnifiedConfigModal({
       certPath: "",
       password: "",
       ambiente: 1,
+      inscricaoMunicipal: "",
+      emissaoConfig: {
+        opSimpNac: "3",
+        regApTribSN: "1",
+        regEspTrib: "0",
+        cLocEmi: "",
+        inscricaoMunicipal: "",
+        fone: "",
+        email: "",
+        pTotTribFed: "",
+        pTotTribMun: "",
+        pTotTribSN: "2,00",
+        tipoTotTribSN: "Alíquota do Simples Nacional",
+      },
+      modelosNfse: [],
       modelosHabilitados: {
         nfe: true,
         nfce: false,
@@ -475,22 +530,196 @@ export default function UnifiedConfigModal({
     }
   };
 
-  const handleOpenNetworkModal = async () => {
-    setIsNetworkModalOpen(true);
-    setLoadingNetworkCerts(true);
+  const handleSelectServerCertFolder = async () => {
     try {
-      const res = await listNetworkCerts();
-      if (res.success && res.certs) {
-        setNetworkCerts(res.certs);
-        setNetworkCertDir(res.dir || "");
-      } else {
-        alert("Erro ao buscar certificados na rede: " + (res.error || "Nenhum diretório encontrado"));
+      const res = await selectServerCertFolder();
+      if (res.success && res.customServerCertDir) {
+        setNetworkCertDir(res.customServerCertDir);
+        setSettings((prev) => (prev ? { ...prev, customServerCertDir: res.customServerCertDir } : null));
+        setSavedSuccessMsg("Pasta do servidor de certificados atualizada com sucesso!");
+        setTimeout(() => setSavedSuccessMsg(null), 4000);
+        handleRefreshNetworkCerts(res.customServerCertDir);
       }
     } catch (e: any) {
-      alert("Erro ao conectar no servidor de rede: " + e.message);
+      alert("Erro ao selecionar pasta do servidor: " + e.message);
+    }
+  };
+
+  const handleOpenServerCertFolder = async () => {
+    try {
+      const target = networkCertDir || settings?.customServerCertDir;
+      const res = await openServerCertFolder(target);
+      if (!res.success) {
+        alert(res.error || "Não foi possível abrir a pasta do servidor.");
+      }
+    } catch (e: any) {
+      alert("Erro ao abrir pasta do servidor: " + e.message);
+    }
+  };
+
+  const handleRefreshNetworkCerts = async (targetDir?: string) => {
+    setLoadingNetworkCerts(true);
+    try {
+      const dirToScan = targetDir || networkCertDir || settings?.customServerCertDir;
+      const res = await listNetworkCerts(dirToScan);
+      if (res.success && res.certs) {
+        setNetworkCerts(res.certs);
+        if (res.dir) setNetworkCertDir(res.dir);
+      } else {
+        setNetworkCerts([]);
+        if (res.dir) setNetworkCertDir(res.dir);
+      }
+    } catch (e: any) {
+      console.warn("Erro ao buscar certificados na rede:", e.message);
     } finally {
       setLoadingNetworkCerts(false);
     }
+  };
+
+  const handleTestServerCertDir = async () => {
+    setLoadingNetworkCerts(true);
+    try {
+      const dirToScan = settings?.customServerCertDir || networkCertDir;
+      const res = await listNetworkCerts(dirToScan);
+      if (res.success && res.certs) {
+        setNetworkCerts(res.certs);
+        alert(`Varredura concluída! Foram encontrados ${res.certs.length} certificados digitais (.pfx/.p12) na pasta: \n${res.dir || dirToScan}`);
+      } else {
+        alert(res.error || "Nenhum certificado localizado na pasta informada.");
+      }
+    } catch (e: any) {
+      alert("Erro ao testar pasta do servidor: " + e.message);
+    } finally {
+      setLoadingNetworkCerts(false);
+    }
+  };
+
+  const handleOpenNetworkModal = async () => {
+    setIsNetworkModalOpen(true);
+    await handleRefreshNetworkCerts();
+  };
+
+  // Handlers para Certificados Instalados no Windows
+  const handleLoadInstalledCerts = async () => {
+    setLoadingInstalledCerts(true);
+    try {
+      const res = await listInstalledCerts();
+      if (res.success && res.certs) {
+        setInstalledCerts(res.certs);
+      } else {
+        alert("Erro ao consultar certificados do Windows: " + (res.error || "Falha desconhecida"));
+      }
+    } catch (e: any) {
+      alert("Erro ao ler certificados instalados: " + e.message);
+    } finally {
+      setLoadingInstalledCerts(false);
+    }
+  };
+
+  const handleOpenInstalledCertsModal = async (mode: "select" | "batch_create" = "select") => {
+    setInstalledCertsMode(mode);
+    setSelectedInstalledCertsForBatch([]);
+    setIsInstalledCertsModalOpen(true);
+    await handleLoadInstalledCerts();
+  };
+
+  const handleSelectInstalledCert = async (cert: InstalledCertItem) => {
+    if (!editingCompany) return;
+
+    const cleanDoc = (cert.Documento || "").replace(/\D/g, "");
+    const formattedDoc = cleanDoc.length === 14
+      ? cleanDoc.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+      : (cleanDoc.length === 11 ? cleanDoc.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4") : cert.Documento);
+
+    const updatedCompany: Partial<EmpresaSefaz> = {
+      ...editingCompany,
+      cnpj: formattedDoc || editingCompany.cnpj,
+      razaoSocial: editingCompany.razaoSocial || cert.CleanName || cert.CommonName,
+      certStore: "windows",
+      certThumbprint: cert.Thumbprint,
+      certPath: "",
+      password: "",
+      certInfo: {
+        subject: cert.CommonName || cert.CleanName || cert.Subject,
+        issuer: cert.Issuer,
+        validTo: cert.NotAfter,
+        daysRemaining: cert.daysRemaining || 0,
+        isExpired: cert.isExpired || false,
+      },
+    };
+
+    setEditingCompany(updatedCompany);
+    setIsInstalledCertsModalOpen(false);
+    setTestingStatus({
+      loading: false,
+      success: true,
+      info: {
+        subject: cert.CommonName || cert.CleanName || cert.Subject,
+        issuer: cert.Issuer,
+        validTo: cert.NotAfter,
+        daysRemaining: cert.daysRemaining || 0,
+        isExpired: cert.isExpired || false,
+      } as any,
+    });
+  };
+
+  const handleBatchCreateCompanies = () => {
+    if (selectedInstalledCertsForBatch.length === 0) return;
+
+    const toAdd = installedCerts.filter((c) => selectedInstalledCertsForBatch.includes(c.Thumbprint));
+    const newCompanies: EmpresaSefaz[] = [];
+
+    for (const cert of toAdd) {
+      const cleanDoc = (cert.Documento || "").replace(/\D/g, "");
+      const exists = empresas.some((e) => e.cnpj.replace(/\D/g, "") === cleanDoc);
+      if (exists) continue;
+
+      const formattedDoc = cleanDoc.length === 14
+        ? cleanDoc.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+        : cleanDoc;
+
+      const match = networkCerts.find(
+        (nc) => nc.name.replace(/\D/g, "").includes(cleanDoc) || nc.fullPath.includes(cleanDoc)
+      );
+
+      newCompanies.push({
+        id: "emp_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+        razaoSocial: cert.CleanName || cert.CommonName || ("EMPRESA " + cleanDoc),
+        cnpj: formattedDoc,
+        uf: "SP",
+        regime: "simples",
+        certPath: "",
+        password: "",
+        ambiente: 1,
+        certStore: "windows",
+        certThumbprint: cert.Thumbprint,
+        certInfo: {
+          subject: cert.CommonName || cert.CleanName || cert.Subject,
+          issuer: cert.Issuer,
+          validTo: cert.NotAfter,
+          daysRemaining: cert.daysRemaining || 0,
+          isExpired: cert.isExpired || false,
+        },
+        modelosHabilitados: {
+          nfe: true,
+          nfce: true,
+          cte: true,
+          nfse: true,
+        },
+      });
+    }
+
+    if (newCompanies.length === 0) {
+      alert("Todas as empresas selecionadas já estão cadastradas no sistema.");
+      return;
+    }
+
+    const updated = [...empresas, ...newCompanies];
+    onSaveEmpresas(updated);
+    setIsInstalledCertsModalOpen(false);
+    setSelectedInstalledCertsForBatch([]);
+    setSavedSuccessMsg(`${newCompanies.length} nova(s) empresa(s) cadastrada(s) a partir dos Certificados do Windows!`);
+    setTimeout(() => setSavedSuccessMsg(null), 5000);
   };
 
   const handleSelectNetworkCert = (cert: NetworkCertItem) => {
@@ -509,8 +738,39 @@ export default function UnifiedConfigModal({
   };
 
   const handleTestCert = async () => {
+    // Se for certificado vinculado do repositório Windows
+    const hasWindowsThumb = editingCompany?.certThumbprint || (editingCompany as any)?.thumbprint;
+    if (editingCompany?.certStore === "windows" && hasWindowsThumb) {
+      setTestingStatus({ loading: true });
+      try {
+        const res = await testCert({
+          certStore: "windows",
+          thumbprint: hasWindowsThumb,
+          certThumbprint: hasWindowsThumb
+        });
+        if (res.success && res.info) {
+          setTestingStatus({ loading: false, success: true, info: res.info });
+          setEditingCompany((prev) => prev ? {
+            ...prev,
+            certInfo: {
+              subject: res.info.subject,
+              issuer: res.info.issuer,
+              validTo: res.info.validTo ? new Date(res.info.validTo).toISOString() : "",
+              daysRemaining: res.info.daysRemaining,
+              isExpired: res.info.isExpired,
+            }
+          } : null);
+        } else {
+          setTestingStatus({ loading: false, success: false, error: res.error || "Falha ao validar certificado no Windows." });
+        }
+      } catch (e: any) {
+        setTestingStatus({ loading: false, success: false, error: e.message });
+      }
+      return;
+    }
+
     if (!editingCompany?.certPath) {
-      alert("Selecione um arquivo de certificado (.pfx ou .p12)");
+      alert("Selecione um arquivo de certificado (.pfx ou .p12) ou vincule um Certificado do Windows.");
       return;
     }
     setTestingStatus({ loading: true });
@@ -526,9 +786,66 @@ export default function UnifiedConfigModal({
     }
   };
 
+  const handleOpenAddModelo = () => {
+    setEditingModelo(null);
+    setIsModeloModalOpen(true);
+  };
+
+  const handleOpenEditModelo = () => {
+    if (!selectedModeloId || !editingCompany?.modelosNfse) return;
+    const found = editingCompany.modelosNfse.find((m) => m.id === selectedModeloId);
+    if (found) {
+      setEditingModelo(found);
+      setIsModeloModalOpen(true);
+    }
+  };
+
+  const handleDuplicateModelo = () => {
+    if (!selectedModeloId || !editingCompany?.modelosNfse) return;
+    const found = editingCompany.modelosNfse.find((m) => m.id === selectedModeloId);
+    if (!found) return;
+    const duplicated: NfseModeloNota = {
+      ...found,
+      id: "mod_" + Date.now(),
+      nome: found.nome + " (Cópia)",
+    };
+    const updatedModelos = [...editingCompany.modelosNfse, duplicated];
+    setEditingCompany({ ...editingCompany, modelosNfse: updatedModelos });
+    setSelectedModeloId(duplicated.id);
+  };
+
+  const handleRemoveModelo = () => {
+    if (!selectedModeloId || !editingCompany?.modelosNfse) return;
+    const found = editingCompany.modelosNfse.find((m) => m.id === selectedModeloId);
+    if (!found) return;
+    if (confirm(`Deseja remover o modelo "${found.nome}"?`)) {
+      const updatedModelos = editingCompany.modelosNfse.filter((m) => m.id !== selectedModeloId);
+      setEditingCompany({ ...editingCompany, modelosNfse: updatedModelos });
+      setSelectedModeloId(null);
+    }
+  };
+
+  const handleSaveModelo = (modelo: NfseModeloNota) => {
+    const list = editingCompany?.modelosNfse || [];
+    const exists = list.some((m) => m.id === modelo.id);
+    let updatedModelos: NfseModeloNota[];
+    if (exists) {
+      updatedModelos = list.map((m) => (m.id === modelo.id ? modelo : m));
+    } else {
+      updatedModelos = [...list, modelo];
+    }
+    setEditingCompany({ ...editingCompany, modelosNfse: updatedModelos });
+    setSelectedModeloId(modelo.id);
+  };
+
   const handleSaveCompany = () => {
-    if (!editingCompany?.razaoSocial || !editingCompany?.cnpj || !editingCompany?.certPath) {
-      alert("Por favor, preencha a Razão Social, CNPJ e selecione o Certificado Digital A1.");
+    const hasValidCert = Boolean(
+      (editingCompany?.certStore === "windows" && editingCompany?.certThumbprint) ||
+      editingCompany?.certPath
+    );
+
+    if (!editingCompany?.razaoSocial || !editingCompany?.cnpj || !hasValidCert) {
+      alert("Por favor, preencha a Razão Social, CNPJ e vincule o Certificado Digital A1 (Arquivo .pfx ou Windows).");
       return;
     }
 
@@ -544,9 +861,14 @@ export default function UnifiedConfigModal({
       cnpj: cleanCnpj,
       uf: (editingCompany.uf || "SP").toUpperCase(),
       regime: (editingCompany.regime as RegimeDestinatario) || "simples",
-      certPath: editingCompany.certPath,
+      certPath: editingCompany.certPath || "",
       password: editingCompany.password || "",
       ambiente: Number(editingCompany.ambiente) || 1,
+      certStore: editingCompany.certStore || (editingCompany.certThumbprint ? "windows" : "file"),
+      certThumbprint: editingCompany.certThumbprint || "",
+      inscricaoMunicipal: editingCompany.inscricaoMunicipal?.trim() || editingCompany.emissaoConfig?.inscricaoMunicipal?.trim() || "",
+      emissaoConfig: editingCompany.emissaoConfig,
+      modelosNfse: editingCompany.modelosNfse || [],
       modelosHabilitados: {
         nfe: editingCompany.modelosHabilitados?.nfe !== false,
         nfce: editingCompany.modelosHabilitados?.nfce === true,
@@ -775,310 +1097,766 @@ export default function UnifiedConfigModal({
                 <fieldset className="vb-groupbox">
                   <legend className="vb-legend flex items-center gap-1.5">
                     <KeyRound size={12} className="text-[#003366]" />
-                    <span>{empresas.some((e) => e.id === editingCompany.id) ? "Editar Empresa Cadastrada" : "Nova Empresa Cadastrada"}</span>
+                    <span>{empresas.some((e) => e.id === editingCompany.id) ? "Editar Empresa" : "Nova Empresa"}</span>
                   </legend>
 
+                  {/* Sub-Abas do Cadastro: Empresa | Emissão (Padrão Solicitado) */}
+                  <div className="flex items-center gap-1 border-b border-[#b5b5b5] mb-2 pb-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditCompanyTab("empresa")}
+                      className={`erp-tab-btn ${editCompanyTab === "empresa" ? "active" : ""}`}
+                    >
+                      <Building2 size={12} className={editCompanyTab === "empresa" ? "text-[#003366]" : "text-[#555555]"} />
+                      <span>Empresa</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditCompanyTab("emissao")}
+                      className={`erp-tab-btn ${editCompanyTab === "emissao" ? "active" : ""}`}
+                    >
+                      <Send size={12} className={editCompanyTab === "emissao" ? "text-[#003366]" : "text-[#555555]"} />
+                      <span>Emissão</span>
+                    </button>
+                  </div>
+
                   <div className="flex flex-col gap-3">
-                    {/* Grupo 1: Dados Cadastrais */}
-                    <fieldset className="vb-groupbox bg-white">
-                      <legend className="vb-legend">Dados Cadastrais da Empresa</legend>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                        <div className="md:col-span-2">
-                          <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
-                            Razão Social / Nome da Empresa *
-                          </label>
-                          <input
-                            type="text"
-                            value={editingCompany.razaoSocial || ""}
-                            onChange={(e) => setEditingCompany({ ...editingCompany, razaoSocial: e.target.value })}
-                            placeholder="Ex: EMPRESA EXEMPLO COMERCIO LTDA"
-                            className="vb-input w-full uppercase"
-                          />
-                        </div>
+                    {editCompanyTab === "empresa" && (
+                      <>
+                        {/* Grupo 1: Dados Cadastrais */}
+                        <fieldset className="vb-groupbox bg-white">
+                          <legend className="vb-legend">Dados Cadastrais da Empresa</legend>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                            <div className="md:col-span-2">
+                              <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
+                                Razão Social / Nome da Empresa *
+                              </label>
+                              <input
+                                type="text"
+                                value={editingCompany.razaoSocial || ""}
+                                onChange={(e) => setEditingCompany({ ...editingCompany, razaoSocial: e.target.value })}
+                                placeholder="Ex: EMPRESA EXEMPLO COMERCIO LTDA"
+                                className="vb-input w-full uppercase"
+                              />
+                            </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
-                            CNPJ (14 dígitos) *
-                          </label>
-                          <input
-                            type="text"
-                            value={editingCompany.cnpj || ""}
-                            onChange={(e) => setEditingCompany({ ...editingCompany, cnpj: e.target.value.replace(/\D/g, "") })}
-                            placeholder="Ex: 00000000000191"
-                            maxLength={14}
-                            className="vb-input w-full font-mono"
-                          />
-                        </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
+                                CNPJ (14 dígitos) *
+                              </label>
+                              <input
+                                type="text"
+                                value={editingCompany.cnpj || ""}
+                                onChange={(e) => setEditingCompany({ ...editingCompany, cnpj: e.target.value.replace(/\D/g, "") })}
+                                placeholder="Ex: 00000000000191"
+                                maxLength={14}
+                                className="vb-input w-full font-mono"
+                              />
+                            </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
-                            UF (Estado) *
-                          </label>
-                          <input
-                            type="text"
-                            value={editingCompany.uf || "SP"}
-                            onChange={(e) => setEditingCompany({ ...editingCompany, uf: e.target.value.toUpperCase() })}
-                            placeholder="SP"
-                            maxLength={2}
-                            className="vb-input w-full uppercase text-center"
-                          />
-                        </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
+                                UF (Estado) *
+                              </label>
+                              <input
+                                type="text"
+                                value={editingCompany.uf || "SP"}
+                                onChange={(e) => setEditingCompany({ ...editingCompany, uf: e.target.value.toUpperCase() })}
+                                placeholder="SP"
+                                maxLength={2}
+                                className="vb-input w-full uppercase text-center"
+                              />
+                            </div>
 
-                        <div className="md:col-span-2">
-                          <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
-                            Regime Tributário *
-                          </label>
-                          <select
-                            value={editingCompany.regime || "simples"}
-                            onChange={(e) => setEditingCompany({ ...editingCompany, regime: e.target.value as any })}
-                            className="vb-input w-full"
-                          >
-                            <option value="simples">Simples Nacional (ME / EPP)</option>
-                            <option value="normal">Regime Normal (Lucro Presumido / Lucro Real)</option>
-                            <option value="outro">Outros Regimes</option>
-                          </select>
-                        </div>
-                      </div>
-                    </fieldset>
-
-                    {/* Grupo 2: Certificado Digital A1 */}
-                    <fieldset className="vb-groupbox bg-white">
-                      <legend className="vb-legend">Certificado Digital A1 (.pfx ou .p12)</legend>
-                      <div className="flex flex-col gap-2">
-                        <div>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <label className="block text-[10px] font-bold text-[#333333]">
-                              Arquivo do Certificado Digital A1 *
-                            </label>
-                            <button
-                              type="button"
-                              onClick={handleOpenNetworkModal}
-                              className="text-[10px] text-[#003366] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                            >
-                              <Search size={11} />
-                              <span>Localizar na Rede (Servidor)</span>
-                            </button>
+                            <div className="md:col-span-2">
+                              <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
+                                Regime Tributário *
+                              </label>
+                              <select
+                                value={editingCompany.regime || "simples"}
+                                onChange={(e) => setEditingCompany({ ...editingCompany, regime: e.target.value as any })}
+                                className="vb-input w-full"
+                              >
+                                <option value="simples">Simples Nacional (ME / EPP)</option>
+                                <option value="normal">Regime Normal (Lucro Presumido / Lucro Real)</option>
+                                <option value="outro">Outros Regimes</option>
+                              </select>
+                            </div>
                           </div>
+                        </fieldset>
 
-                          <div
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              setIsDragging(true);
-                            }}
-                            onDragLeave={() => setIsDragging(false)}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              setIsDragging(false);
-                              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                const file = e.dataTransfer.files[0];
-                                const ext = file.name.split(".").pop()?.toLowerCase();
-                                if (ext === "pfx" || ext === "p12") {
-                                  const filePath = (file as any).path || file.name;
-                                  setEditingCompany((prev) => (prev ? { ...prev, certPath: filePath } : null));
-                                  if (editingCompany?.password) {
-                                    autoDetectAndTestCert(filePath, editingCompany.password);
-                                  }
-                                } else {
-                                  alert("Selecione um arquivo de certificado válido (.pfx ou .p12)");
-                                }
-                              }
-                            }}
-                            className={`flex items-center gap-1.5 p-1 border ${
-                              isDragging ? "border-[#005a9e] bg-[#e6f2ff]" : "border-[#7a7a7a] bg-white"
-                            }`}
-                          >
-                            <input
-                              type="text"
-                              value={editingCompany.certPath || ""}
-                              readOnly
-                              placeholder="Clique em 'Selecionar Arquivo' ou arraste o certificado A1 aqui..."
-                              className="flex-1 bg-transparent text-[11px] font-mono text-[#000000] outline-none px-1"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleSelectCert}
-                              className="vb-btn"
-                            >
-                              <FolderOpen size={12} />
-                              <span>Selecionar Arquivo</span>
-                            </button>
-                          </div>
-                        </div>
+                        {/* Grupo 2: Certificado Digital A1 */}
+                        <fieldset className="vb-groupbox bg-white">
+                          <legend className="vb-legend">Certificado Digital A1 (.pfx ou .p12)</legend>
+                          <div className="flex flex-col gap-2">
+                            <div>
+                              <div className="flex items-center justify-between mb-0.5">
+                                <label className="block text-[10px] font-bold text-[#333333]">
+                                  Origem e Arquivo do Certificado Digital A1 *
+                                </label>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenInstalledCertsModal("select")}
+                                    className="text-[10px] text-[#003366] hover:bg-[#d9e8f5] font-bold flex items-center gap-1 cursor-pointer bg-[#eef4fa] px-1.5 py-0.5 border border-[#bcd2e8]"
+                                    title="Acessar os certificados digitais instalados no Windows desta máquina"
+                                  >
+                                    <Laptop size={11} className="text-[#003366]" />
+                                    <span>Certificados do Windows</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleOpenNetworkModal}
+                                    className="text-[10px] text-[#003366] hover:bg-[#e4e4e4] font-bold flex items-center gap-1 cursor-pointer bg-[#f5f5f5] px-1.5 py-0.5 border border-[#cccccc]"
+                                    title="Localizar arquivos .pfx na pasta compartilhada da rede ou servidor"
+                                  >
+                                    <Server size={11} className="text-[#003366]" />
+                                    <span>Localizar no Servidor</span>
+                                  </button>
+                                </div>
+                              </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
-                          <div>
-                            <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
-                              Senha do Certificado Digital A1
-                            </label>
-                            <input
-                              type="password"
-                              value={editingCompany.password || ""}
-                              onChange={(e) => {
-                                const pwd = e.target.value;
-                                setEditingCompany({ ...editingCompany, password: pwd });
-                                if (editingCompany?.certPath && pwd.length >= 2) {
-                                  autoDetectAndTestCert(editingCompany.certPath, pwd);
-                                }
-                              }}
-                              placeholder="Digite a senha do certificado..."
-                              className="vb-input w-full font-mono"
-                            />
-                          </div>
-
-                          <div>
-                            <button
-                              type="button"
-                              onClick={handleTestCert}
-                              disabled={testingStatus.loading || !editingCompany.certPath}
-                              className="vb-btn vb-btn-primary w-full justify-center"
-                            >
-                              {testingStatus.loading ? (
-                                <>
-                                  <RotateCw size={12} className="animate-spin" />
-                                  <span>Testando Certificado...</span>
-                                </>
+                              {editingCompany.certStore === "windows" && editingCompany.certThumbprint ? (
+                                <div className="p-2.5 bg-[#f0f9ff] border border-[#7dd3fc] flex flex-col gap-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 text-[#0369a1] font-bold text-[11px]">
+                                      <Laptop size={14} className="text-[#0284c7]" />
+                                      <span>Certificado Vinculado do Repositório do Windows</span>
+                                      <span className="text-[9px] bg-[#dbeafe] text-[#1e40af] font-bold px-1.5 py-0.2 border border-[#bfdbfe]">
+                                        WINDOWS STORE
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenInstalledCertsModal("select")}
+                                        className="vb-btn text-[10px]"
+                                      >
+                                        Trocar Certificado
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingCompany((prev) => prev ? { ...prev, certStore: "file", certThumbprint: "", certPath: "" } : null);
+                                          setTestingStatus({ loading: false });
+                                        }}
+                                        className="vb-btn text-[10px] text-rose-700 hover:text-rose-900"
+                                      >
+                                        Desvincular / Usar Arquivo .PFX
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-[11px] text-[#0f172a] font-medium">
+                                    Titular: <strong>{editingCompany.certInfo?.subject || editingCompany.razaoSocial}</strong>
+                                  </div>
+                                  <div className="text-[10px] text-[#475569] font-mono flex flex-wrap items-center gap-3">
+                                    <span><strong>Thumbprint:</strong> {editingCompany.certThumbprint}</span>
+                                    {editingCompany.certInfo?.validTo && (
+                                      <span><strong>Validade:</strong> {formatDateBr(editingCompany.certInfo.validTo)} ({editingCompany.certInfo.daysRemaining} dias restantes)</span>
+                                    )}
+                                  </div>
+                                </div>
                               ) : (
-                                <>
-                                  <ShieldCheck size={12} />
-                                  <span>Testar e Validar Certificado A1</span>
-                                </>
+                                <div
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(true);
+                                  }}
+                                  onDragLeave={() => setIsDragging(false)}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(false);
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                      const file = e.dataTransfer.files[0];
+                                      const ext = file.name.split(".").pop()?.toLowerCase();
+                                      if (ext === "pfx" || ext === "p12") {
+                                        const filePath = (file as any).path || file.name;
+                                        setEditingCompany((prev) => (prev ? { ...prev, certPath: filePath, certStore: "file", certThumbprint: "" } : null));
+                                        if (editingCompany?.password) {
+                                          autoDetectAndTestCert(filePath, editingCompany.password);
+                                        }
+                                      } else {
+                                        alert("Selecione um arquivo de certificado válido (.pfx ou .p12)");
+                                      }
+                                    }
+                                  }}
+                                  className={`flex items-center gap-1.5 p-1 border ${
+                                    isDragging ? "border-[#005a9e] bg-[#e6f2ff]" : "border-[#7a7a7a] bg-white"
+                                  }`}
+                                >
+                                  <input
+                                    type="text"
+                                    value={editingCompany.certPath || ""}
+                                    readOnly
+                                    placeholder="Clique em 'Selecionar Arquivo', 'Certificados do Windows' ou arraste o certificado A1 aqui..."
+                                    className="flex-1 bg-transparent text-[11px] font-mono text-[#000000] outline-none px-1"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handleSelectCert}
+                                    className="vb-btn"
+                                  >
+                                    <FolderOpen size={12} />
+                                    <span>Selecionar Arquivo</span>
+                                  </button>
+                                </div>
                               )}
-                            </button>
-                          </div>
-                        </div>
+                            </div>
 
-                        {/* Status de Teste do Certificado */}
-                        {testingStatus.success && testingStatus.info && (
-                          <div className="p-2 bg-[#eaf7ea] border border-[#7bc97b] text-emerald-900 text-[11px] flex items-center gap-2">
-                            <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
-                            <div>
-                              <strong>Certificado A1 Válido e Operacional!</strong> Titular: <strong>{testingStatus.info.subject}</strong> | Validade:{" "}
-                              <strong>{formatDateBr(testingStatus.info.validTo)}</strong> ({testingStatus.info.daysRemaining} dias restantes)
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
+                              <div>
+                                <label className="block text-[10px] font-bold text-[#333333] mb-0.5">
+                                  Senha do Certificado Digital A1
+                                </label>
+                                {editingCompany.certStore === "windows" && editingCompany.certThumbprint ? (
+                                  <div className="p-1 bg-[#f8fafc] border border-[#cbd5e1] text-[11px] text-[#64748b] italic flex items-center gap-1.5 h-[24px]">
+                                    <ShieldCheck size={13} className="text-[#0284c7] shrink-0" />
+                                    <span className="truncate">Dispensa de senha (Chave Gerenciada pelo Windows)</span>
+                                  </div>
+                                ) : (
+                                  <input
+                                    type="password"
+                                    value={editingCompany.password || ""}
+                                    onChange={(e) => {
+                                      const pwd = e.target.value;
+                                      setEditingCompany({ ...editingCompany, password: pwd });
+                                      if (editingCompany?.certPath && pwd.length >= 2) {
+                                        autoDetectAndTestCert(editingCompany.certPath, pwd);
+                                      }
+                                    }}
+                                    placeholder="Digite a senha do certificado..."
+                                    className="vb-input w-full font-mono"
+                                  />
+                                )}
+                              </div>
+
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={handleTestCert}
+                                  disabled={
+                                    testingStatus.loading ||
+                                    (!editingCompany.certPath && (editingCompany.certStore !== "windows" || !editingCompany.certThumbprint))
+                                  }
+                                  className="vb-btn vb-btn-primary w-full justify-center"
+                                >
+                                  {testingStatus.loading ? (
+                                    <>
+                                      <RotateCw size={12} className="animate-spin" />
+                                      <span>Testando Certificado...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShieldCheck size={12} />
+                                      <span>Testar e Validar Certificado A1</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Status de Teste do Certificado */}
+                            {testingStatus.success && testingStatus.info && (
+                              <div className="p-2 bg-[#eaf7ea] border border-[#7bc97b] text-emerald-900 text-[11px] flex items-center gap-2">
+                                <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
+                                <div>
+                                  <strong>Certificado A1 Válido e Operacional!</strong> Titular: <strong>{testingStatus.info.subject}</strong> | Validade:{" "}
+                                  <strong>{formatDateBr(testingStatus.info.validTo)}</strong> ({testingStatus.info.daysRemaining} dias restantes)
+                                </div>
+                              </div>
+                            )}
+
+                            {testingStatus.error && (
+                              <div className="p-2 bg-[#fdeaea] border border-[#e57373] text-rose-900 text-[11px] flex items-center gap-2">
+                                <AlertTriangle size={15} className="text-rose-700 shrink-0" />
+                                <div>
+                                  <strong>Falha na validação do certificado:</strong> {testingStatus.error}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </fieldset>
+
+                        {/* Grupo 3: Modelos Habilitados */}
+                        <fieldset className="vb-groupbox bg-white">
+                          <legend className="vb-legend">Modelos Fiscais Habilitados para Consulta Automática</legend>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editingCompany.modelosHabilitados?.nfe !== false}
+                                onChange={(e) =>
+                                  setEditingCompany({
+                                    ...editingCompany,
+                                    modelosHabilitados: {
+                                      ...editingCompany.modelosHabilitados,
+                                      nfe: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="accent-[#003366]"
+                              />
+                              <div>
+                                <div className="font-bold text-[11px] flex items-center gap-1">
+                                  <FileText size={12} className="text-emerald-700" />
+                                  <span>NF-e (Mod. 55)</span>
+                                </div>
+                                <div className="text-[10px] text-[#666666]">Entradas Fornecedores</div>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editingCompany.modelosHabilitados?.nfce === true}
+                                onChange={(e) =>
+                                  setEditingCompany({
+                                    ...editingCompany,
+                                    modelosHabilitados: {
+                                      ...editingCompany.modelosHabilitados,
+                                      nfce: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="accent-[#003366]"
+                              />
+                              <div>
+                                <div className="font-bold text-[11px] flex items-center gap-1">
+                                  <ShoppingBag size={12} className="text-blue-700" />
+                                  <span>NFC-e (Mod. 65)</span>
+                                </div>
+                                <div className="text-[10px] text-[#666666]">Saídas Consumidor</div>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editingCompany.modelosHabilitados?.cte !== false}
+                                onChange={(e) =>
+                                  setEditingCompany({
+                                    ...editingCompany,
+                                    modelosHabilitados: {
+                                      ...editingCompany.modelosHabilitados,
+                                      cte: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="accent-[#003366]"
+                              />
+                              <div>
+                                <div className="font-bold text-[11px] flex items-center gap-1">
+                                  <Truck size={12} className="text-amber-700" />
+                                  <span>CT-e (Mod. 57)</span>
+                                </div>
+                                <div className="text-[10px] text-[#666666]">Conhecimentos Frete</div>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editingCompany.modelosHabilitados?.nfse !== false}
+                                onChange={(e) =>
+                                  setEditingCompany({
+                                    ...editingCompany,
+                                    modelosHabilitados: {
+                                      ...editingCompany.modelosHabilitados,
+                                      nfse: e.target.checked,
+                                    },
+                                  })
+                                }
+                                className="accent-[#003366]"
+                              />
+                              <div>
+                                <div className="font-bold text-[11px] flex items-center gap-1">
+                                  <Landmark size={12} className="text-indigo-700" />
+                                  <span>NFS-e (Serviços)</span>
+                                </div>
+                                <div className="text-[10px] text-[#666666]">Nacional & São Paulo</div>
+                              </div>
+                            </label>
+                          </div>
+                        </fieldset>
+                      </>
+                    )}
+
+                    {editCompanyTab === "emissao" && (
+                      <div className="flex flex-col gap-3">
+                        {/* Seção 1: Prestador */}
+                        <fieldset className="vb-groupbox bg-white">
+                          <legend className="vb-legend">Prestador</legend>
+                          <div className="flex flex-col gap-2 max-w-2xl">
+                            {/* opSimpNac */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                opSimpNac
+                              </label>
+                              <div className="col-span-9">
+                                <select
+                                  value={editingCompany.emissaoConfig?.opSimpNac ?? ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      emissaoConfig: {
+                                        ...editingCompany.emissaoConfig,
+                                        opSimpNac: val,
+                                      },
+                                    });
+                                  }}
+                                  className="vb-select w-full"
+                                >
+                                  <option value="">(não informado)</option>
+                                  <option value="1">1 - Não Optante</option>
+                                  <option value="2">2 - Optante - Microempreendedor Individual (MEI)</option>
+                                  <option value="3">3 - Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP)</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* regApTribSN */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                regApTribSN
+                              </label>
+                              <div className="col-span-9">
+                                <select
+                                  disabled={editingCompany.emissaoConfig?.opSimpNac !== "2" && editingCompany.emissaoConfig?.opSimpNac !== "3"}
+                                  value={editingCompany.emissaoConfig?.regApTribSN || "1"}
+                                  onChange={(e) =>
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      emissaoConfig: {
+                                        ...editingCompany.emissaoConfig,
+                                        regApTribSN: e.target.value,
+                                      },
+                                    })
+                                  }
+                                  className="vb-select w-full disabled:bg-[#f0f0f0] disabled:text-[#888888]"
+                                >
+                                  <option value="1">1 - Regime de apuração dos tributos federais e municipal pelo SN</option>
+                                  <option value="2">2 - Regime de apuração dos tributos federais pelo SN e o ISSQN pela NFS-e conforme respectiva legislação municipal do tributo</option>
+                                  <option value="3">3 - Regime de apuração dos tributos federais e municipal pela NFS-e conforme respectivas legislações federal e municipal de cada tributo</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* regEspTrib */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                regEspTrib
+                              </label>
+                              <div className="col-span-9">
+                                <select
+                                  value={editingCompany.emissaoConfig?.regEspTrib || "0"}
+                                  onChange={(e) =>
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      emissaoConfig: {
+                                        ...editingCompany.emissaoConfig,
+                                        regEspTrib: e.target.value,
+                                      },
+                                    })
+                                  }
+                                  className="vb-select w-full"
+                                >
+                                  <option value="0">0 - Nenhum</option>
+                                  <option value="1">1 - Ato Cooperado (Cooperativa)</option>
+                                  <option value="2">2 - Estimativa</option>
+                                  <option value="3">3 - Microempresa Municipal</option>
+                                  <option value="4">4 - Notário ou Registrador</option>
+                                  <option value="5">5 - Profissional Autônomo</option>
+                                  <option value="6">6 - Sociedade de Profissionais</option>
+                                  <option value="9">9 - Outros</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* cLocEmi */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                cLocEmi
+                              </label>
+                              <div className="col-span-9">
+                                <input
+                                  type="text"
+                                  value={editingCompany.emissaoConfig?.cLocEmi || ""}
+                                  onChange={(e) =>
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      emissaoConfig: {
+                                        ...editingCompany.emissaoConfig,
+                                        cLocEmi: e.target.value,
+                                      },
+                                    })
+                                  }
+                                  placeholder="Código IBGE ou Nome do Município"
+                                  className="vb-input w-full"
+                                />
+                              </div>
+                            </div>
+
+                            {/* IM */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                IM
+                              </label>
+                              <div className="col-span-9">
+                                <input
+                                  type="text"
+                                  value={editingCompany.emissaoConfig?.inscricaoMunicipal || editingCompany.inscricaoMunicipal || ""}
+                                  onChange={(e) => {
+                                    const imVal = e.target.value;
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      inscricaoMunicipal: imVal,
+                                      emissaoConfig: {
+                                        ...editingCompany.emissaoConfig,
+                                        inscricaoMunicipal: imVal,
+                                      },
+                                    });
+                                  }}
+                                  placeholder="Inscrição Municipal"
+                                  className="vb-input w-48 font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            {/* fone */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                fone
+                              </label>
+                              <div className="col-span-9">
+                                <input
+                                  type="text"
+                                  value={editingCompany.emissaoConfig?.fone || ""}
+                                  onChange={(e) =>
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      emissaoConfig: {
+                                        ...editingCompany.emissaoConfig,
+                                        fone: e.target.value,
+                                      },
+                                    })
+                                  }
+                                  placeholder="DDD + número"
+                                  className="vb-input w-48 font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            {/* email */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                email
+                              </label>
+                              <div className="col-span-9">
+                                <input
+                                  type="email"
+                                  value={editingCompany.emissaoConfig?.email || ""}
+                                  onChange={(e) =>
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      emissaoConfig: {
+                                        ...editingCompany.emissaoConfig,
+                                        email: e.target.value,
+                                      },
+                                    })
+                                  }
+                                  placeholder="email@empresa.com.br"
+                                  className="vb-input w-72"
+                                />
+                              </div>
+                            </div>
+
+                            {/* pTotTrib */}
+                            <div className="grid grid-cols-12 items-center gap-2">
+                              <label className="col-span-3 text-right font-semibold text-[#333333]">
+                                {editingCompany.emissaoConfig?.opSimpNac === "2" || editingCompany.emissaoConfig?.opSimpNac === "3"
+                                  ? "pTotTribSN"
+                                  : "pTotTrib"}
+                              </label>
+                              <div className="col-span-9">
+                                {editingCompany.emissaoConfig?.opSimpNac === "2" || editingCompany.emissaoConfig?.opSimpNac === "3" ? (
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      value={editingCompany.emissaoConfig?.tipoTotTribSN || "Alíquota do Simples Nacional"}
+                                      onChange={(e) =>
+                                        setEditingCompany({
+                                          ...editingCompany,
+                                          emissaoConfig: {
+                                            ...editingCompany.emissaoConfig,
+                                            tipoTotTribSN: e.target.value,
+                                          },
+                                        })
+                                      }
+                                      className="vb-select w-56"
+                                    >
+                                      <option value="Alíquota do Simples Nacional">Alíquota do Simples Nacional</option>
+                                      <option value="Percentual Fixo">Percentual Fixo</option>
+                                    </select>
+                                    <input
+                                      type="text"
+                                      value={editingCompany.emissaoConfig?.pTotTribSN || "2,00"}
+                                      onChange={(e) =>
+                                        setEditingCompany({
+                                          ...editingCompany,
+                                          emissaoConfig: {
+                                            ...editingCompany.emissaoConfig,
+                                            pTotTribSN: e.target.value,
+                                          },
+                                        })
+                                      }
+                                      placeholder="2,00"
+                                      className="vb-input w-20 font-mono text-center"
+                                    />
+                                    <span className="font-bold text-[#444444]">%</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={editingCompany.emissaoConfig?.pTotTribFed || ""}
+                                      onChange={(e) =>
+                                        setEditingCompany({
+                                          ...editingCompany,
+                                          emissaoConfig: {
+                                            ...editingCompany.emissaoConfig,
+                                            pTotTribFed: e.target.value,
+                                          },
+                                        })
+                                      }
+                                      placeholder="13,45"
+                                      className="vb-input w-20 font-mono text-center"
+                                    />
+                                    <span className="text-[10px] text-[#555555]">% Fed</span>
+                                    <input
+                                      type="text"
+                                      value={editingCompany.emissaoConfig?.pTotTribMun || ""}
+                                      onChange={(e) =>
+                                        setEditingCompany({
+                                          ...editingCompany,
+                                          emissaoConfig: {
+                                            ...editingCompany.emissaoConfig,
+                                            pTotTribMun: e.target.value,
+                                          },
+                                        })
+                                      }
+                                      placeholder="5,00"
+                                      className="vb-input w-20 font-mono text-center ml-2"
+                                    />
+                                    <span className="text-[10px] text-[#555555]">% Mun</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        )}
+                        </fieldset>
 
-                        {testingStatus.error && (
-                          <div className="p-2 bg-[#fdeaea] border border-[#e57373] text-rose-900 text-[11px] flex items-center gap-2">
-                            <AlertTriangle size={15} className="text-rose-700 shrink-0" />
-                            <div>
-                              <strong>Falha na validação do certificado:</strong> {testingStatus.error}
+                        {/* Seção 2: Padrões de Emissão (Modelos NFS-e) */}
+                        <fieldset className="vb-groupbox bg-white">
+                          <legend className="vb-legend flex items-center gap-1.5">
+                            <Tag size={12} className="text-[#005a9e]" />
+                            <span>Padrões de Emissão (Modelos NFS-e)</span>
+                          </legend>
+                          <div className="flex flex-col gap-2">
+                            <div className="border border-[#b0b0b0] bg-white min-h-[140px] max-h-[220px] overflow-y-auto">
+                              <table className="w-full text-left border-collapse text-[11px]">
+                                <thead>
+                                  <tr className="bg-[#e8e8e8] border-b border-[#b0b0b0] text-[#333333] sticky top-0">
+                                    <th className="px-2 py-1 font-bold">Nome do Padrão</th>
+                                    <th className="px-2 py-1 font-bold w-24">cTribNac</th>
+                                    <th className="px-2 py-1 font-bold w-28">cNBS</th>
+                                    <th className="px-2 py-1 font-bold w-36">Tributação ISS</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(editingCompany.modelosNfse || []).length > 0 ? (
+                                    editingCompany.modelosNfse!.map((m) => (
+                                      <tr
+                                        key={m.id}
+                                        onClick={() => setSelectedModeloId(m.id)}
+                                        onDoubleClick={() => handleOpenEditModelo()}
+                                        className={`cursor-pointer border-b border-[#e5e5e5] hover:bg-[#f5f8fc] ${
+                                          selectedModeloId === m.id ? "bg-[#dbeafe] font-bold text-[#003366]" : ""
+                                        }`}
+                                      >
+                                        <td className="px-2 py-1">
+                                          <div>{m.nome}</div>
+                                          {m.descricao && (
+                                            <div className="text-[10px] text-[#666666] truncate max-w-sm">{m.descricao}</div>
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-1 font-mono text-[#005a9e]">{m.cTribNac || "-"}</td>
+                                        <td className="px-2 py-1 font-mono text-[#555555]">{m.cNBS || "-"}</td>
+                                        <td className="px-2 py-1 text-[10px] text-[#444444]">{m.tribISSQN || "-"}</td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={4} className="px-2 py-6 text-center text-[#777777] italic">
+                                        Nenhum padrão cadastrado. Clique em "+ Novo Padrão" abaixo para cadastrar modelos pré-definidos de nota.
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Botões dos Modelos (Adicionar, Editar, Duplicar, Remover) */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={handleOpenAddModelo}
+                                  className="vb-btn font-bold text-[#003366]"
+                                >
+                                  + Novo Padrão
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleOpenEditModelo}
+                                  disabled={!selectedModeloId}
+                                  className="vb-btn disabled:opacity-50"
+                                >
+                                  Ajustar / Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleDuplicateModelo}
+                                  disabled={!selectedModeloId}
+                                  className="vb-btn disabled:opacity-50"
+                                >
+                                  Duplicar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveModelo}
+                                  disabled={!selectedModeloId}
+                                  className="vb-btn text-red-700 disabled:opacity-50"
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+                              <span className="text-[10px] text-[#666666]">
+                                Duplo-clique para abrir o painel de ajuste.
+                              </span>
                             </div>
                           </div>
-                        )}
+                        </fieldset>
                       </div>
-                    </fieldset>
+                    )}
 
-                    {/* Grupo 3: Modelos Habilitados */}
-                    <fieldset className="vb-groupbox bg-white">
-                      <legend className="vb-legend">Modelos Fiscais Habilitados para Consulta Automática</legend>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={editingCompany.modelosHabilitados?.nfe !== false}
-                            onChange={(e) =>
-                              setEditingCompany({
-                                ...editingCompany,
-                                modelosHabilitados: {
-                                  ...editingCompany.modelosHabilitados,
-                                  nfe: e.target.checked,
-                                },
-                              })
-                            }
-                            className="accent-[#003366]"
-                          />
-                          <div>
-                            <div className="font-bold text-[11px] flex items-center gap-1">
-                              <FileText size={12} className="text-emerald-700" />
-                              <span>NF-e (Mod. 55)</span>
-                            </div>
-                            <div className="text-[10px] text-[#666666]">Entradas Fornecedores</div>
-                          </div>
-                        </label>
-
-                        <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={editingCompany.modelosHabilitados?.nfce === true}
-                            onChange={(e) =>
-                              setEditingCompany({
-                                ...editingCompany,
-                                modelosHabilitados: {
-                                  ...editingCompany.modelosHabilitados,
-                                  nfce: e.target.checked,
-                                },
-                              })
-                            }
-                            className="accent-[#003366]"
-                          />
-                          <div>
-                            <div className="font-bold text-[11px] flex items-center gap-1">
-                              <ShoppingBag size={12} className="text-blue-700" />
-                              <span>NFC-e (Mod. 65)</span>
-                            </div>
-                            <div className="text-[10px] text-[#666666]">Saídas Consumidor</div>
-                          </div>
-                        </label>
-
-                        <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={editingCompany.modelosHabilitados?.cte !== false}
-                            onChange={(e) =>
-                              setEditingCompany({
-                                ...editingCompany,
-                                modelosHabilitados: {
-                                  ...editingCompany.modelosHabilitados,
-                                  cte: e.target.checked,
-                                },
-                              })
-                            }
-                            className="accent-[#003366]"
-                          />
-                          <div>
-                            <div className="font-bold text-[11px] flex items-center gap-1">
-                              <Truck size={12} className="text-amber-700" />
-                              <span>CT-e (Mod. 57)</span>
-                            </div>
-                            <div className="text-[10px] text-[#666666]">Conhecimentos Frete</div>
-                          </div>
-                        </label>
-
-                        <label className="flex items-center gap-2 p-1.5 border border-[#cccccc] hover:bg-[#f0f0f0] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={editingCompany.modelosHabilitados?.nfse !== false}
-                            onChange={(e) =>
-                              setEditingCompany({
-                                ...editingCompany,
-                                modelosHabilitados: {
-                                  ...editingCompany.modelosHabilitados,
-                                  nfse: e.target.checked,
-                                },
-                              })
-                            }
-                            className="accent-[#003366]"
-                          />
-                          <div>
-                            <div className="font-bold text-[11px] flex items-center gap-1">
-                              <Landmark size={12} className="text-indigo-700" />
-                              <span>NFS-e (Serviços)</span>
-                            </div>
-                            <div className="text-[10px] text-[#666666]">Nacional & São Paulo</div>
-                          </div>
-                        </label>
-                      </div>
-                    </fieldset>
-
-                    {/* Botões do Formulário */}
-                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#d0d0d0]">
+                    {/* Botões do Formulário de Edição */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#d0d0d0]">
                       <button
                         type="button"
                         onClick={() => setEditingCompany(null)}
                         className="vb-btn"
                       >
-                        Voltar à Lista
+                        Cancelar
                       </button>
                       <button
                         type="button"
@@ -1086,7 +1864,7 @@ export default function UnifiedConfigModal({
                         className="vb-btn vb-btn-primary"
                       >
                         <Save size={12} />
-                        <span>Gravar Empresa</span>
+                        <span>Salvar</span>
                       </button>
                     </div>
                   </div>
@@ -1106,6 +1884,15 @@ export default function UnifiedConfigModal({
                       >
                         <Plus size={13} className="text-[#003366]" />
                         <span>Cadastrar Nova Empresa</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenInstalledCertsModal("batch_create")}
+                        className="vb-btn font-bold flex items-center gap-1.5 bg-[#f0f6fc] hover:bg-[#dbeafe] border-[#93c5fd] text-[#1e40af]"
+                        title="Cadastrar empresas automaticamente a partir dos certificados digitais instalados no Windows desta máquina"
+                      >
+                        <Laptop size={13} className="text-[#1e40af]" />
+                        <span>Importar do Windows</span>
                       </button>
                       <button
                         type="button"
@@ -1210,14 +1997,21 @@ export default function UnifiedConfigModal({
                                 <td className="text-center font-bold">{emp.uf}</td>
                                 <td>{emp.regime === "simples" ? "Simples Nac." : emp.regime === "normal" ? "Regime Normal" : "Outros"}</td>
                                 <td>
-                                  {emp.certInfo ? (
-                                    <span className="flex items-center gap-1.5">
-                                      <CertificateBadge certInfo={emp.certInfo} compact />
-                                      <span className="text-[10px] text-[#666666]">Até {formatDateBr(emp.certInfo.validTo)}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-[#888888] italic">Não testado</span>
-                                  )}
+                                  <div className="flex flex-col gap-0.5">
+                                    {(emp.certStore === "windows" || (!emp.certPath && emp.certThumbprint)) && (
+                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-[#0284c7] bg-[#e0f2fe] px-1 py-0.2 border border-[#bae6fd] w-fit">
+                                        <Laptop size={10} /> Windows Store
+                                      </span>
+                                    )}
+                                    {emp.certInfo ? (
+                                      <span className="flex items-center gap-1.5">
+                                        <CertificateBadge certInfo={emp.certInfo} compact />
+                                        <span className="text-[10px] text-[#666666]">Até {formatDateBr(emp.certInfo.validTo)}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-[#888888] italic">Não testado</span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="text-center">
                                   <div className="flex items-center justify-center gap-1">
@@ -1277,6 +2071,8 @@ export default function UnifiedConfigModal({
                                       type="button"
                                       onClick={() => {
                                         setEditingCompany(emp);
+                                        setEditCompanyTab("empresa");
+                                        setSelectedModeloId(null);
                                         setTestingStatus({ loading: false });
                                       }}
                                       className="vb-btn"
@@ -1537,6 +2333,74 @@ export default function UnifiedConfigModal({
               </fieldset>
 
               <fieldset className="vb-groupbox">
+                <legend className="vb-legend">Diretório de Certificados Digitais na Rede / Servidor</legend>
+                <p className="text-[11px] text-[#444444] mb-2">
+                  Pasta compartilhada da rede ou servidor corporativo onde ficam armazenados os certificados A1 (.pfx / .p12). O sistema busca arquivos recursivamente em até 3 níveis de subpastas para vincular automaticamente às empresas.
+                </p>
+
+                <div className="mb-2">
+                  <label className="block text-[10px] font-bold text-[#333333] mb-0.5">Caminho da Pasta do Servidor:</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={networkCertDir || settings?.customServerCertDir || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNetworkCertDir(val);
+                        setSettings((prev) => (prev ? { ...prev, customServerCertDir: val } : null));
+                      }}
+                      placeholder="Ex: \\servidor\certificados ou Z:\CERTIFICADOS"
+                      className="vb-input flex-1 font-mono font-bold bg-[#fafafa]"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const target = networkCertDir || settings?.customServerCertDir || "";
+                        await saveServerCertFolder(target);
+                        setSavedSuccessMsg("Caminho do servidor de certificados salvo com sucesso!");
+                        setTimeout(() => setSavedSuccessMsg(null), 4000);
+                      }}
+                      className="vb-btn"
+                      title="Salvar caminho informado"
+                    >
+                      <Save size={11} />
+                      <span>Salvar Caminho</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSelectServerCertFolder}
+                    className="vb-btn vb-btn-primary"
+                  >
+                    <FolderOpen size={12} />
+                    <span>Alterar Pasta do Servidor</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenServerCertFolder}
+                    className="vb-btn"
+                  >
+                    <Folder size={12} />
+                    <span>Abrir no Windows Explorer</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestServerCertDir}
+                    disabled={loadingNetworkCerts}
+                    className="vb-btn"
+                  >
+                    <RotateCw size={12} className={loadingNetworkCerts ? "animate-spin" : ""} />
+                    <span>Varrer e Contar Certificados</span>
+                  </button>
+                </div>
+              </fieldset>
+
+              <fieldset className="vb-groupbox">
                 <legend className="vb-legend">Recuperação de Histórico & Reinício de Ponteiros NSU</legend>
                 <p className="text-[11px] text-[#444444] mb-2">
                   Em caso de migração de servidor, formatação da máquina ou exclusão acidental de arquivos locais, reinicie os ponteiros NSU (marco zero) para forçar o reenvio de todos os documentos fiscais pela SEFAZ.
@@ -1586,7 +2450,7 @@ export default function UnifiedConfigModal({
         </div>
       </div>
 
-      {/* Modal Secundário: Busca de Certificados na Rede */}
+      {/* Modal Secundário: Busca de Certificados na Rede / Servidor */}
       {isNetworkModalOpen && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4 select-none">
           <div className="bg-[#f0f0f0] border-2 border-[#003366] shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] text-[11px] font-sans">
@@ -1603,31 +2467,66 @@ export default function UnifiedConfigModal({
               </button>
             </div>
 
-            <div className="p-2 border-b border-[#b0b0b0] bg-[#eaeaea]">
-              <input
-                type="text"
-                value={networkSearchTerm}
-                onChange={(e) => setNetworkSearchTerm(e.target.value)}
-                placeholder="Filtrar por nome do arquivo ou pasta..."
-                className="vb-input w-full"
-              />
+            {/* Barra de Pasta do Servidor Configurável */}
+            <div className="p-2 border-b border-[#b0b0b0] bg-[#eaeaea] flex flex-col gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <label className="text-[10px] font-bold text-[#333333] shrink-0">Pasta do Servidor:</label>
+                <input
+                  type="text"
+                  value={networkCertDir}
+                  onChange={(e) => setNetworkCertDir(e.target.value)}
+                  placeholder="Ex: \\servidor\certificados ou Z:\CERTIFICADOS"
+                  className="vb-input flex-1 font-mono text-[10px]"
+                />
+                <button
+                  type="button"
+                  onClick={handleSelectServerCertFolder}
+                  className="vb-btn shrink-0"
+                  title="Selecionar pasta no Windows Explorer"
+                >
+                  <FolderOpen size={11} />
+                  <span>Alterar Pasta</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRefreshNetworkCerts(networkCertDir)}
+                  disabled={loadingNetworkCerts}
+                  className="vb-btn vb-btn-primary shrink-0"
+                  title="Varrer subpastas da pasta configurada"
+                >
+                  <RotateCw size={11} className={loadingNetworkCerts ? "animate-spin" : ""} />
+                  <span>Recarregar</span>
+                </button>
+              </div>
+
+              <div className="relative">
+                <Search size={11} className="absolute left-2 top-2 text-[#777777] pointer-events-none" />
+                <input
+                  type="text"
+                  value={networkSearchTerm}
+                  onChange={(e) => setNetworkSearchTerm(e.target.value)}
+                  placeholder="Filtrar por nome do arquivo, empresa, subpasta ou CNPJ..."
+                  className="vb-input w-full !pl-6 text-[10px]"
+                />
+              </div>
             </div>
 
             <div className="p-2 overflow-y-auto custom-scrollbar flex-1 flex flex-col gap-1 bg-white">
               {loadingNetworkCerts ? (
                 <div className="p-6 text-center text-[#555555] text-[11px] flex items-center justify-center gap-2">
                   <RotateCw size={14} className="animate-spin text-[#003366]" />
-                  <span>Buscando certificados no diretório de rede...</span>
+                  <span>Buscando certificados recursivamente na pasta do servidor...</span>
                 </div>
               ) : networkCerts.length === 0 ? (
                 <div className="p-6 text-center text-[#888888] text-[11px]">
-                  Nenhum certificado A1 (.pfx/.p12) localizado na pasta de rede informada.
+                  Nenhum certificado A1 (.pfx/.p12) localizado na pasta de rede informada. Use o botão "Alterar Pasta" acima para apontar para o diretório correto.
                 </div>
               ) : (
                 networkCerts
                   .filter((c) =>
                     c.name.toLowerCase().includes(networkSearchTerm.toLowerCase()) ||
-                    c.dir.toLowerCase().includes(networkSearchTerm.toLowerCase())
+                    c.dir.toLowerCase().includes(networkSearchTerm.toLowerCase()) ||
+                    (c.relativePath || "").toLowerCase().includes(networkSearchTerm.toLowerCase())
                   )
                   .map((cert, idx) => (
                     <div
@@ -1635,11 +2534,20 @@ export default function UnifiedConfigModal({
                       onClick={() => handleSelectNetworkCert(cert)}
                       className="p-1.5 border border-[#cccccc] hover:border-[#005a9e] hover:bg-[#f0f7ff] cursor-pointer flex items-center justify-between gap-2"
                     >
-                      <div className="flex items-center gap-2 overflow-hidden">
+                      <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
                         <FileKey size={14} className="text-[#003366] shrink-0" />
-                        <div className="truncate">
-                          <div className="font-bold text-[#000000] truncate">{cert.name}</div>
-                          <div className="text-[10px] text-[#666666] truncate font-mono">{cert.dir}</div>
+                        <div className="truncate flex-1 min-w-0">
+                          <div className="font-bold text-[#000000] truncate flex items-center gap-2">
+                            <span>{cert.name}</span>
+                            {cert.extractedPassword && (
+                              <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1 py-0.2 border border-emerald-300 shrink-0">
+                                Senha Detectada
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-[#666666] truncate font-mono">
+                            {cert.relativePath ? `Subpasta: ${cert.relativePath}` : cert.dir}
+                          </div>
                         </div>
                       </div>
                       <button
@@ -1653,10 +2561,240 @@ export default function UnifiedConfigModal({
               )}
             </div>
 
-            <div className="bg-[#e4e4e4] border-t border-[#b0b0b0] px-3 py-1.5 flex justify-end">
+            <div className="bg-[#e4e4e4] border-t border-[#b0b0b0] px-3 py-1.5 flex justify-between items-center">
+              <span className="text-[10px] text-[#666666]">
+                Total de Certificados A1 Encontrados: <strong>{networkCerts.length}</strong>
+              </span>
               <button
                 type="button"
                 onClick={() => setIsNetworkModalOpen(false)}
+                className="vb-btn"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Certificados Digitais Instalados no Windows */}
+      {isInstalledCertsModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4 select-none">
+          <div className="bg-[#f0f0f0] border-2 border-[#003366] shadow-2xl w-full max-w-3xl flex flex-col max-h-[85vh] text-[11px] font-sans">
+            <div className="bg-gradient-to-r from-[#003366] via-[#004b87] to-[#005a9e] text-white px-3 py-1.5 flex items-center justify-between border-b border-[#002244]">
+              <div className="flex items-center gap-1.5">
+                <Laptop size={13} />
+                <span className="font-bold text-[11px]">
+                  {installedCertsMode === "batch_create"
+                    ? "Importar Empresas a partir dos Certificados Instalados no Windows"
+                    : "Certificados Digitais Instalados na Máquina (Windows Store)"}
+                </span>
+              </div>
+              <button
+                onClick={() => setIsInstalledCertsModalOpen(false)}
+                className="px-1.5 py-0.2 bg-blue-900/60 hover:bg-rose-700 text-white rounded text-[10px] font-sans border border-blue-400/40 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Barra de Filtros e Ações */}
+            <div className="p-2 border-b border-[#b0b0b0] bg-[#eaeaea] flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search size={11} className="absolute left-2 top-2 text-[#777777] pointer-events-none" />
+                <input
+                  type="text"
+                  value={installedCertsFilter}
+                  onChange={(e) => setInstalledCertsFilter(e.target.value)}
+                  placeholder="Filtrar por Razão Social, CNPJ ou Certificadora..."
+                  className="vb-input w-full !pl-6 text-[10px]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadInstalledCerts}
+                disabled={loadingInstalledCerts}
+                className="vb-btn flex items-center gap-1 shrink-0"
+              >
+                <RotateCw size={11} className={loadingInstalledCerts ? "animate-spin" : ""} />
+                <span>Atualizar</span>
+              </button>
+              {installedCertsMode === "batch_create" && (
+                <button
+                  type="button"
+                  onClick={handleBatchCreateCompanies}
+                  disabled={selectedInstalledCertsForBatch.length === 0}
+                  className="vb-btn vb-btn-primary flex items-center gap-1 shrink-0"
+                >
+                  <Plus size={11} />
+                  <span>Cadastrar ({selectedInstalledCertsForBatch.length}) Selecionadas</span>
+                </button>
+              )}
+            </div>
+
+            {/* Barra de Status / Ajuda */}
+            <div className="px-3 py-1 bg-[#f5f9fc] border-b border-[#d0e0ed] text-[10px] text-[#2c5282] flex items-center justify-between">
+              <span>
+                Total no Repositório do Windows: <strong>{installedCerts.length}</strong> certificados detectados
+              </span>
+              {installedCertsMode === "batch_create" && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedInstalledCertsForBatch.length === installedCerts.length) {
+                        setSelectedInstalledCertsForBatch([]);
+                      } else {
+                        setSelectedInstalledCertsForBatch(installedCerts.map((c) => c.Thumbprint));
+                      }
+                    }}
+                    className="text-[10px] text-[#003366] hover:underline font-bold cursor-pointer"
+                  >
+                    {selectedInstalledCertsForBatch.length === installedCerts.length ? "Desmarcar Todos" : "Selecionar Todos"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Lista dos Certificados */}
+            <div className="p-2 overflow-y-auto custom-scrollbar flex-1 flex flex-col gap-1.5 bg-white">
+              {loadingInstalledCerts ? (
+                <div className="p-8 text-center text-[#555555] text-[11px] flex items-center justify-center gap-2">
+                  <RotateCw size={15} className="animate-spin text-[#003366]" />
+                  <span>Consultando repositório de certificados do Windows...</span>
+                </div>
+              ) : installedCerts.length === 0 ? (
+                <div className="p-8 text-center text-[#888888] text-[11px]">
+                  Nenhum certificado digital com chave privada foi localizado no Windows Certificate Store.
+                </div>
+              ) : (
+                installedCerts
+                  .filter((c) => {
+                    const q = installedCertsFilter.toLowerCase();
+                    if (!q) return true;
+                    return (
+                      (c.CleanName || "").toLowerCase().includes(q) ||
+                      (c.Subject || "").toLowerCase().includes(q) ||
+                      (c.Documento || "").includes(q.replace(/\D/g, "")) ||
+                      (c.Issuer || "").toLowerCase().includes(q)
+                    );
+                  })
+                  .map((cert) => {
+                    const isSelected = selectedInstalledCertsForBatch.includes(cert.Thumbprint);
+                    const cleanDoc = (cert.Documento || "").replace(/\D/g, "");
+                    const isAlreadyRegistered = empresas.some((e) => e.cnpj.replace(/\D/g, "") === cleanDoc);
+
+                    return (
+                      <div
+                        key={cert.Thumbprint}
+                        onClick={() => {
+                          if (installedCertsMode === "batch_create") {
+                            setSelectedInstalledCertsForBatch((prev) =>
+                              prev.includes(cert.Thumbprint)
+                                ? prev.filter((t) => t !== cert.Thumbprint)
+                                : [...prev, cert.Thumbprint]
+                            );
+                          } else {
+                            handleSelectInstalledCert(cert);
+                          }
+                        }}
+                        className={`p-2 border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? "border-[#005a9e] bg-[#eef6ff]"
+                            : "border-[#d8d8d8] hover:border-[#005a9e] hover:bg-[#fafafa]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 overflow-hidden flex-1">
+                          {installedCertsMode === "batch_create" && (
+                            <div className="shrink-0 mr-1">
+                              {isSelected ? (
+                                <CheckSquare size={16} className="text-[#003366]" />
+                              ) : (
+                                <Square size={16} className="text-[#999999]" />
+                              )}
+                            </div>
+                          )}
+                          <Laptop size={15} className="text-[#003366] shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-[#000000] truncate text-[11px]">
+                                {cert.CleanName || cert.CommonName}
+                              </span>
+                              {isAlreadyRegistered && (
+                                <span className="text-[9px] bg-[#e2e8f0] text-[#475569] font-bold px-1 py-0.2 border border-[#cbd5e1] shrink-0">
+                                  JÁ CADASTRADA
+                                </span>
+                              )}
+                              {cert.IsExportable ? (
+                                <span className="text-[9px] bg-[#dcfce7] text-[#15803d] font-bold px-1 py-0.2 border border-[#bbf7d0] shrink-0">
+                                  CHAVE EXPORTÁVEL
+                                </span>
+                              ) : (
+                                <span className="text-[9px] bg-[#f1f5f9] text-[#475569] font-bold px-1 py-0.2 border border-[#e2e8f0] shrink-0" title="Chave privada protegida pelo Windows">
+                                  WINDOWS STORE
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-[#555555] flex items-center gap-3 mt-0.5">
+                              <span>
+                                <strong>CNPJ:</strong>{" "}
+                                <span className="font-mono">
+                                  {cert.Documento && cert.Documento.length === 14
+                                    ? cert.Documento.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+                                    : cert.Documento || "N/D"}
+                                </span>
+                              </span>
+                              <span className="truncate">
+                                <strong>Emissor:</strong> {cert.Issuer}
+                              </span>
+                              <span className="font-mono text-[#888888] text-[9px] truncate">
+                                Thumb: {cert.Thumbprint.slice(0, 12)}...
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Validade e Ação */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right">
+                            <div className="text-[10px] font-bold">
+                              {cert.isExpired ? (
+                                <span className="text-rose-700">EXPIRADO</span>
+                              ) : (
+                                <span className="text-emerald-700">{cert.daysRemaining} dias restantes</span>
+                              )}
+                            </div>
+                            <div className="text-[9px] text-[#777777]">
+                              Venc: {new Date(cert.NotAfter).toLocaleDateString("pt-BR")}
+                            </div>
+                          </div>
+
+                          {installedCertsMode === "select" && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectInstalledCert(cert);
+                              }}
+                              className="vb-btn vb-btn-primary"
+                            >
+                              Vincular
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            <div className="bg-[#e4e4e4] border-t border-[#b0b0b0] px-3 py-1.5 flex justify-between items-center">
+              <span className="text-[10px] text-[#666666]">
+                Os certificados são lidos diretamente do Windows Certificate Store (CurrentUser / LocalMachine).
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsInstalledCertsModalOpen(false)}
                 className="vb-btn"
               >
                 Fechar
@@ -1835,6 +2973,17 @@ export default function UnifiedConfigModal({
           </div>
         </div>
       )}
+
+      {/* Modal Clássico de Adicionar/Editar Padrões de Emissão NFS-e */}
+      <NfseModeloModal
+        isOpen={isModeloModalOpen}
+        onClose={() => setIsModeloModalOpen(false)}
+        initialData={editingModelo}
+        modelos={editingCompany?.modelosNfse || []}
+        onSaveModelos={(updated) => {
+          setEditingCompany((prev) => (prev ? { ...prev, modelosNfse: updated } : null));
+        }}
+      />
     </div>
   );
 }

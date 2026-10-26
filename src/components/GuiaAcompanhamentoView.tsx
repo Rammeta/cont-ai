@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { EmpresaSefaz, ParsedNfse, NotaAcompanhamentoItem } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
+import { useDebounce } from "../utils/useDebounce";
 import {
   Building2,
   Calendar,
@@ -83,6 +84,7 @@ export default function GuiaAcompanhamentoView({
   >("todas");
   const [extraFilter, setExtraFilter] = useState<"todos" | "canceladas">("todos");
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 250);
   const [displayLimit, setDisplayLimit] = useState<number>(100);
   const [sortColumn, setSortColumn] = useState<string>("emissao");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -550,8 +552,8 @@ export default function GuiaAcompanhamentoView({
 
       if (extraFilter === "canceladas" && !item.isCancelada) return false;
 
-      if (searchTerm.trim()) {
-        const term = searchTerm.trim().toLowerCase();
+      if (debouncedSearchTerm.trim()) {
+        const term = debouncedSearchTerm.trim().toLowerCase();
         const numQuery = term.replace(/^(n[º°o]?|nf(?:s?-?e)?|#)\s*/i, "").trim();
         const isShortNumeric = /^\d{1,10}$/.test(numQuery);
 
@@ -583,61 +585,62 @@ export default function GuiaAcompanhamentoView({
 
       return true;
     });
-  }, [itensConsolidados, activeTabFilter, extraFilter, searchTerm]);
+  }, [itensConsolidados, activeTabFilter, extraFilter, debouncedSearchTerm]);
 
   // Ordenação consolidada da grid (menor para maior / maior para menor)
   const itensOrdenados = useMemo(() => {
+    const dir = sortDirection === "asc" ? 1 : -1;
     return [...itensFiltrados].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
       switch (sortColumn) {
         case "modelo":
-          valA = a.origem || "";
-          valB = b.origem || "";
-          break;
-        case "numero":
-          valA = Number(String(a.numero || "0").replace(/\D/g, "")) || 0;
-          valB = Number(String(b.numero || "0").replace(/\D/g, "")) || 0;
-          break;
-        case "emissao":
-          valA = a.dataEmissao || "";
-          valB = b.dataEmissao || "";
-          break;
-        case "competencia":
-          valA = a.competencia || "";
-          valB = b.competencia || "";
-          break;
+          return (a.tipoBadge || a.origem || "").localeCompare(b.tipoBadge || b.origem || "", "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+        case "numero": {
+          const numA = Number(String(a.numero || "0").replace(/\D/g, "")) || 0;
+          const numB = Number(String(b.numero || "0").replace(/\D/g, "")) || 0;
+          return (numA - numB) * dir;
+        }
+        case "emissao": {
+          const tsA = parseDateToTimestamp(a.dataEmissao || a.competencia || "");
+          const tsB = parseDateToTimestamp(b.dataEmissao || b.competencia || "");
+          if (tsA !== tsB) return (tsA - tsB) * dir;
+          const numA = Number(String(a.numero || "0").replace(/\D/g, "")) || 0;
+          const numB = Number(String(b.numero || "0").replace(/\D/g, "")) || 0;
+          return (numA - numB) * dir;
+        }
+        case "competencia": {
+          const compA = normalizeCompetencia(a.competencia || a.dataEmissao || "").key;
+          const compB = normalizeCompetencia(b.competencia || b.dataEmissao || "").key;
+          if (compA !== compB) return compA.localeCompare(compB) * dir;
+          const tsA = parseDateToTimestamp(a.dataEmissao || "");
+          const tsB = parseDateToTimestamp(b.dataEmissao || "");
+          return (tsA - tsB) * dir;
+        }
         case "parceiro":
-          valA = (a.parceiroNome || "").toLowerCase();
-          valB = (b.parceiroNome || "").toLowerCase();
-          break;
-        case "cnpj":
-          valA = (a.parceiroCnpj || "").replace(/\D/g, "");
-          valB = (b.parceiroCnpj || "").replace(/\D/g, "");
-          break;
+          return (a.parceiroNome || "").localeCompare(b.parceiroNome || "", "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+        case "cnpj": {
+          const cA = (a.parceiroCnpj || "").replace(/\D/g, "");
+          const cB = (b.parceiroCnpj || "").replace(/\D/g, "");
+          return cA.localeCompare(cB, "pt-BR", { numeric: true }) * dir;
+        }
         case "papel":
-          valA = (a.papel || "").toLowerCase();
-          valB = (b.papel || "").toLowerCase();
-          break;
+          return (a.papelParceiro || "").localeCompare(b.papelParceiro || "", "pt-BR", { sensitivity: "base" }) * dir;
+        case "tributo": {
+          const tA = Number(a.valorTributoRecolher || a.valorDesconto || 0);
+          const tB = Number(b.valorTributoRecolher || b.valorDesconto || 0);
+          return (tA - tB) * dir;
+        }
         case "valorBruto":
-          valA = Number(a.valorTotal) || 0;
-          valB = Number(b.valorTotal) || 0;
-          break;
-        case "valorLiquido":
-          valA = Number(a.valorLiquido !== undefined ? a.valorLiquido : a.valorTotal) || 0;
-          valB = Number(b.valorLiquido !== undefined ? b.valorLiquido : b.valorTotal) || 0;
-          break;
+          return ((Number(a.valorTotal) || 0) - (Number(b.valorTotal) || 0)) * dir;
+        case "valorLiquido": {
+          const lA = Number(a.valorLiquido !== undefined ? a.valorLiquido : a.valorTotal) || 0;
+          const lB = Number(b.valorLiquido !== undefined ? b.valorLiquido : b.valorTotal) || 0;
+          return (lA - lB) * dir;
+        }
         case "situacao":
-          valA = a.isCancelada ? 1 : 0;
-          valB = b.isCancelada ? 1 : 0;
-          break;
+          return ((a.isCancelada ? 1 : 0) - (b.isCancelada ? 1 : 0)) * dir;
         default:
-          valA = "";
-          valB = "";
+          return 0;
       }
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
     });
   }, [itensFiltrados, sortColumn, sortDirection]);
 
@@ -1705,7 +1708,19 @@ export default function GuiaAcompanhamentoView({
                       </span>
                     </div>
                   </th>
-                  <th style={{ minWidth: "150px" }}>Tributação / Retenções / DIFAL</th>
+                  <th
+                    onClick={() => handleHeaderSort("tributo")}
+                    className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"
+                    style={{ minWidth: "150px" }}
+                    title="Clique para ordenar por tributação / retenções / DIFAL"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>Tributação / Retenções / DIFAL</span>
+                      <span className="text-[10px] text-[#005a9e] font-bold">
+                        {sortColumn === "tributo" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </div>
+                  </th>
                   <th
                     onClick={() => handleHeaderSort("valorBruto")}
                     className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"

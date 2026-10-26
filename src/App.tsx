@@ -24,7 +24,7 @@ import {
 } from "./utils/calc";
 import { calculateDaysRemaining } from "./utils/certUtils";
 import DifalView from "./components/DifalView";
-import { Calculator, FileText, Layers, RefreshCw, CheckCircle2, Building2, Building, Printer, HelpCircle, DownloadCloud, ShieldCheck, Landmark, ShoppingBag, AlertCircle, Truck, Settings, FolderOpen } from "lucide-react";
+import { Calculator, FileText, Layers, RefreshCw, CheckCircle2, Building2, Building, Printer, HelpCircle, DownloadCloud, ShieldCheck, Landmark, ShoppingBag, AlertCircle, Truck, Settings, FolderOpen, Home } from "lucide-react";
 import ReportPrintModal from "./components/ReportPrintModal";
 import OnboardingModal from "./components/OnboardingModal";
 import CaptacaoView from "./components/CaptacaoView";
@@ -35,6 +35,8 @@ import GuiaAcompanhamentoView from "./components/GuiaAcompanhamentoView";
 import EmpresasHubView from "./components/EmpresasHubView";
 import UnifiedConfigModal from "./components/UnifiedConfigModal";
 import SyncAllProgressModal from "./components/SyncAllProgressModal";
+import LauncherPortalView from "./components/LauncherPortalView";
+import NfseEmissorView from "./components/NfseEmissorView";
 import logoImg from "../assets/logo.png";
 
 const REGIME_STORAGE_KEY = "difal_emitente_regimes_v1";
@@ -44,6 +46,7 @@ const NCM_RATES_STORAGE_KEY = "difal_ncm_rates_v1";
 const TUTORIAL_STORAGE_KEY = "difal_has_seen_tutorial_v1";
 const EMPRESAS_STORAGE_KEY = "difal_empresas_sefaz_v1";
 const ACTIVE_EMPRESA_KEY = "difal_active_empresa_id_v1";
+const WORKSPACE_STORAGE_KEY = "cont_ai_default_workspace_v1";
 
 // Initial standard configurations
 const DEFAULT_CONFIG: AppConfig = {
@@ -73,6 +76,15 @@ export default function App() {
   const [recipientRegimes, setRecipientRegimes] = useState<RecipientRegimesMap>({});
   const [itemConsumerOverrides, setItemConsumerOverrides] = useState<ItemConsumerOverridesMap>({});
   const [ncmRateRules, setNcmRateRules] = useState<NcmRateRule[]>([]);
+
+  // Top-level Workspace: "launcher" | "gestor" | "emissor"
+  const [currentWorkspace, setCurrentWorkspace] = useState<"launcher" | "gestor" | "emissor">(() => {
+    try {
+      const saved = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+      if (saved === "gestor" || saved === "emissor") return saved;
+    } catch (_) {}
+    return "launcher";
+  });
 
   // Top-level Module: "hub" (Painel das Empresas) | "acompanhamento" (Guia Geral) | "captacao" | "nfce" | "cte" | "nfse" | "difal"
   const [appModule, setAppModule] = useState<"hub" | "acompanhamento" | "captacao" | "nfce" | "cte" | "nfse" | "difal">("hub");
@@ -170,7 +182,10 @@ export default function App() {
                 };
               }
             }
-            return { ...e, razaoSocial: rName || cleanC, certInfo };
+            const trimmedNotas = Array.isArray(e.notasEmitidasNfse) && e.notasEmitidasNfse.length > 50
+              ? e.notasEmitidasNfse.slice(0, 50)
+              : e.notasEmitidasNfse;
+            return { ...e, razaoSocial: rName || cleanC, certInfo, notasEmitidasNfse: trimmedNotas };
           })
           .sort((a: EmpresaSefaz, b: EmpresaSefaz) =>
             (a.razaoSocial || "").localeCompare(b.razaoSocial || "", "pt-BR", {
@@ -194,7 +209,7 @@ export default function App() {
 
     // Check if tutorial has been seen
     const rawSeenTutorial = localStorage.getItem(TUTORIAL_STORAGE_KEY);
-    if (!rawSeenTutorial) {
+    if (!rawSeenTutorial && currentWorkspace !== "launcher") {
       setIsTutorialOpen(true);
     }
   }, []);
@@ -833,6 +848,127 @@ export default function App() {
 
   const detectedCompanyName = notas.length > 0 ? notas[0].razaoDest : (localStorage.getItem("difal_company_name_v2") || "EMPRESA SOB AUDITORIA LTDA");
 
+  // 1. TELA INICIAL (LAUNCHER): Seleção entre Gestor Fiscal e Emissor NFS-e
+  if (currentWorkspace === "launcher") {
+    return (
+      <>
+        <LauncherPortalView
+          onSelectGestor={(remember) => {
+            if (remember) {
+              localStorage.setItem(WORKSPACE_STORAGE_KEY, "gestor");
+            } else {
+              localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+            }
+            setCurrentWorkspace("gestor");
+            setAppModule("hub");
+            if (!localStorage.getItem(TUTORIAL_STORAGE_KEY)) {
+              setIsTutorialOpen(true);
+            }
+          }}
+          onSelectEmissor={(remember) => {
+            if (remember) {
+              localStorage.setItem(WORKSPACE_STORAGE_KEY, "emissor");
+            } else {
+              localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+            }
+            setCurrentWorkspace("emissor");
+          }}
+          empresasCount={empresas.length}
+          activeEmpresa={activeEmpresa}
+          onOpenConfig={(tab) => {
+            setConfigModalTab(tab || "empresas");
+            setIsConfigModalOpen(true);
+          }}
+          onOpenHelp={() => setIsTutorialOpen(true)}
+        />
+
+        {isConfigModalOpen && (
+          <UnifiedConfigModal
+            isOpen={isConfigModalOpen}
+            initialTab={configModalTab}
+            empresas={empresas}
+            activeEmpresaId={activeEmpresaId}
+            onSelectEmpresa={handleSelectEmpresa}
+            onClose={() => setIsConfigModalOpen(false)}
+            onEmpresasChange={(updated) => {
+              setEmpresas(updated);
+              localStorage.setItem(EMPRESAS_STORAGE_KEY, JSON.stringify(updated));
+            }}
+            onNotify={alertStatus}
+          />
+        )}
+
+        {isTutorialOpen && (
+          <OnboardingModal
+            isOpen={isTutorialOpen}
+            onClose={() => setIsTutorialOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // 2. MODO EMISSOR DE NFS-E
+  if (currentWorkspace === "emissor") {
+    return (
+      <div className="h-screen overflow-hidden bg-[#e8e8e8] text-[#000000] flex flex-col font-sans select-none text-[11px]">
+        {/* Global Toast Notification */}
+        {notification && (
+          <div
+            className={`fixed bottom-8 right-4 z-50 flex items-center gap-2.5 px-3.5 py-2 rounded shadow-lg border transition-all duration-300 text-xs font-semibold max-w-md ${
+              notification.type === "success"
+                ? "bg-emerald-50 border-emerald-400 text-emerald-900"
+                : "bg-red-50 border-red-400 text-red-900"
+            }`}
+          >
+            <div>
+              {notification.type === "success" ? (
+                <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle size={15} className="text-red-600 shrink-0" />
+              )}
+            </div>
+            <div className="flex-1 font-semibold leading-snug">{notification.text}</div>
+            <button
+              onClick={() => setNotification(null)}
+              className="text-slate-500 hover:text-slate-800 ml-1 text-[11px] font-bold px-1 cursor-pointer"
+              title="Fechar notificação"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <NfseEmissorView
+          empresas={empresas}
+          activeEmpresa={activeEmpresa}
+          onSelectEmpresa={handleSelectEmpresa}
+          onNavigateLauncher={() => setCurrentWorkspace("launcher")}
+          onNavigateGestor={() => {
+            setCurrentWorkspace("gestor");
+            setAppModule("hub");
+          }}
+          onNotify={alertStatus}
+          onSaveEmpresas={handleSaveEmpresas}
+          onOpenConfig={(tab) => {
+            setConfigModalTab(tab || "empresas");
+            setIsConfigModalOpen(true);
+          }}
+        />
+
+        <UnifiedConfigModal
+          isOpen={isConfigModalOpen}
+          initialTab={configModalTab}
+          empresas={empresas}
+          activeEmpresaId={activeEmpresaId}
+          onSelectEmpresa={handleSelectEmpresa}
+          onClose={() => setIsConfigModalOpen(false)}
+          onSaveEmpresas={handleSaveEmpresas}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen overflow-hidden bg-[#e8e8e8] text-[#000000] flex flex-col font-sans select-none text-[11px]">
       <style>{`
@@ -894,6 +1030,23 @@ export default function App() {
                 v2.0
               </span>
             </div>
+
+            {/* Início / Launcher Button */}
+            <button
+              type="button"
+              onClick={() => setCurrentWorkspace("launcher")}
+              className="vb-top-btn"
+              style={{
+                background: "linear-gradient(180deg, #f0f6ff 0%, #dbeafe 100%)",
+                borderColor: "#60a5fa",
+                color: "#1e3a8a",
+                fontWeight: 600,
+              }}
+              title="Voltar para a Tela Inicial (Seleção entre Gestor Fiscal e Emissor NFS-e)"
+            >
+              <Home size={11} className="text-[#005a9e]" />
+              <span>Início</span>
+            </button>
 
             <div className="h-4 w-[1px] bg-[#b8b8b8] mx-0.5" />
 

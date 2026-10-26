@@ -50,8 +50,9 @@ import {
   onSchedulerTrigger
 } from "../utils/electronBridge";
 import CertificateBadge from "./CertificateBadge";
-import { formatBRL } from "../utils/calc";
+import { formatBRL, parseDateToTimestamp } from "../utils/calc";
 import logoImg from "../../assets/logo.png";
+import { useDebounce } from "../utils/useDebounce";
 
 interface NfseCaptacaoViewProps {
   empresas: EmpresaSefaz[];
@@ -80,6 +81,7 @@ export default function NfseCaptacaoView({
   const [statusFilter, setStatusFilter] = useState<"todas" | "Canceladas" | "Retencoes">("todas");
   const [reportTipo, setReportTipo] = useState<"Tomadas" | "Prestadas">("Tomadas");
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 250);
 
   // Dados
   const [notas, setNotas] = useState<ParsedNfse[]>([]);
@@ -276,23 +278,25 @@ export default function NfseCaptacaoView({
 
       if (listRes.success) {
         setNotas(listRes.notas || []);
+        if ((listRes as any).metricas) {
+          setMetricas((listRes as any).metricas);
+        } else {
+          const metRes = await getNfseMetrics(
+            targetCnpj,
+            targetRazao,
+            "todos",
+            "todos",
+            "todos"
+          );
+          if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
+          if (metRes.success && metRes.metricas) {
+            setMetricas(metRes.metricas);
+          }
+        }
       } else {
         if (listRes.error) {
           onNotify(`Aviso ao carregar NFS-e: ${listRes.error}`, "error");
         }
-      }
-
-      const metRes = await getNfseMetrics(
-        targetCnpj,
-        targetRazao,
-        "todos",
-        "todos",
-        "todos"
-      );
-      if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
-
-      if (metRes.success && metRes.metricas) {
-        setMetricas(metRes.metricas);
       }
     } catch (e: any) {
       if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
@@ -671,8 +675,8 @@ export default function NfseCaptacaoView({
       if (statusFilter === "Canceladas" && !isCancelada) return false;
       if (statusFilter === "Retencoes" && !temRet) return false;
 
-      if (!searchTerm.trim()) return true;
-      const term = searchTerm.trim().toLowerCase();
+      if (!debouncedSearchTerm.trim()) return true;
+      const term = debouncedSearchTerm.trim().toLowerCase();
       const numQuery = term.replace(/^(n[º°o]?|nf(?:s?-?e)?|rps|#)\s*/i, "").trim();
       const isShortNumeric = /^\d{1,10}$/.test(numQuery);
 
@@ -709,7 +713,7 @@ export default function NfseCaptacaoView({
       const portalMatch = portalLabel.includes(term);
       return numMatch || parcMatch || chaveMatch || portalMatch;
     });
-  }, [notasPeriodo, selectedTipo, statusFilter, searchTerm]);
+  }, [notasPeriodo, selectedTipo, statusFilter, debouncedSearchTerm]);
 
   const totalTomadasFiltrado = useMemo(() => {
     return filteredNotas
@@ -739,40 +743,42 @@ export default function NfseCaptacaoView({
 
   // Ordenação das notas filtradas (menor para o maior / maior para o menor)
   const sortedNotas = useMemo(() => {
+    const dir = sortDirection === "asc" ? 1 : -1;
     return [...filteredNotas].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
       switch (sortColumn) {
-        case "numero":
-          valA = Number(String(a.numeroNFe || a.dpsNumero || "0").replace(/\D/g, "")) || 0;
-          valB = Number(String(b.numeroNFe || b.dpsNumero || "0").replace(/\D/g, "")) || 0;
-          break;
-        case "dataEmissao":
-          valA = a.dataEmissao || a.competencia || "";
-          valB = b.dataEmissao || b.competencia || "";
-          break;
+        case "numero": {
+          const numA = Number(String(a.numeroNFe || "").replace(/\D/g, "")) || Number(String(a.dpsNumero || "").replace(/\D/g, "")) || 0;
+          const numB = Number(String(b.numeroNFe || "").replace(/\D/g, "")) || Number(String(b.dpsNumero || "").replace(/\D/g, "")) || 0;
+          return (numA - numB) * dir;
+        }
+        case "dataEmissao": {
+          const tsA = parseDateToTimestamp(a.dataGeracao || a.competencia || "");
+          const tsB = parseDateToTimestamp(b.dataGeracao || b.competencia || "");
+          if (tsA !== tsB) return (tsA - tsB) * dir;
+          const numA = Number(String(a.numeroNFe || "").replace(/\D/g, "")) || 0;
+          const numB = Number(String(b.numeroNFe || "").replace(/\D/g, "")) || 0;
+          return (numA - numB) * dir;
+        }
         case "parceiro": {
           const isPrestA = (a.tipo || "").toLowerCase().includes("prest") || (a.tipo || "").toLowerCase().includes("emit");
           const isPrestB = (b.tipo || "").toLowerCase().includes("prest") || (b.tipo || "").toLowerCase().includes("emit");
-          valA = ((isPrestA ? a.tomadorNome : a.prestadorNome) || "").toLowerCase();
-          valB = ((isPrestB ? b.tomadorNome : b.prestadorNome) || "").toLowerCase();
-          break;
+          const pA = (isPrestA ? a.tomadorNome : a.prestadorNome) || "";
+          const pB = (isPrestB ? b.tomadorNome : b.prestadorNome) || "";
+          return pA.localeCompare(pB, "pt-BR", { sensitivity: "base", numeric: true }) * dir;
         }
-        case "operacao":
-          valA = ((a.tipo || "") + (a.origemCaptacao || "")).toLowerCase();
-          valB = ((b.tipo || "") + (b.origemCaptacao || "")).toLowerCase();
-          break;
-        case "valor":
-          valA = Number(a.valorServicos) || 0;
-          valB = Number(b.valorServicos) || 0;
-          break;
+        case "operacao": {
+          const opA = `${a.tipo || ""} ${a.origemCaptacao || ""}`;
+          const opB = `${b.tipo || ""} ${b.origemCaptacao || ""}`;
+          return opA.localeCompare(opB, "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+        }
+        case "valor": {
+          const vA = Number(a.valorServicos) || 0;
+          const vB = Number(b.valorServicos) || 0;
+          return (vA - vB) * dir;
+        }
         default:
-          valA = "";
-          valB = "";
+          return 0;
       }
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
     });
   }, [filteredNotas, sortColumn, sortDirection]);
 

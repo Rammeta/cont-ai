@@ -1,4 +1,4 @@
-import { EmpresaSefaz, CnpjConsultaResult, ParsedNfse, NfseMetricas, ParsedNfce, ParsedCte, ModelSchedulersMap, EmpresaMetrics } from "../types";
+import { EmpresaSefaz, CnpjConsultaResult, ParsedNfse, NfseMetricas, ParsedNfce, ParsedCte, ModelSchedulersMap, EmpresaMetrics, InstalledCertItem } from "../types";
 
 // Helper seguro para obter ipcRenderer se estiver rodando dentro do Electron
 function getIpc() {
@@ -31,9 +31,10 @@ export interface NetworkCertItem {
   fullPath: string;
   extractedPassword?: string;
   dir: string;
+  relativePath?: string;
 }
 
-export const listNetworkCerts = async (): Promise<{
+export const listNetworkCerts = async (customDir?: string): Promise<{
   success: boolean;
   dir?: string;
   certs?: NetworkCertItem[];
@@ -41,13 +42,75 @@ export const listNetworkCerts = async (): Promise<{
 }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
-  return await ipc.invoke("sefaz:list-network-certs");
+  return await ipc.invoke("sefaz:list-network-certs", customDir);
 };
 
-export const testCert = async (certPath: string, password: string) => {
+export const listInstalledCerts = async (): Promise<{
+  success: boolean;
+  certs?: InstalledCertItem[];
+  error?: string;
+}> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
-  return await ipc.invoke("sefaz:test-cert", { certPath, password });
+  return await ipc.invoke("system:list-installed-certs");
+};
+
+export const exportInstalledCert = async (
+  thumbprint: string,
+  password?: string
+): Promise<{
+  success: boolean;
+  pfxPath?: string;
+  password?: string;
+  error?: string;
+}> => {
+  const ipc = getIpc();
+  if (!ipc) return { success: false, error: "Ambiente não é Electron." };
+  return await ipc.invoke("system:export-installed-cert", { thumbprint, password });
+};
+
+export const selectServerCertFolder = async (): Promise<{
+  success: boolean;
+  customServerCertDir?: string;
+  canceled?: boolean;
+  error?: string;
+}> => {
+  const ipc = getIpc();
+  if (!ipc) return { success: false, error: "Ambiente não é Electron." };
+  return await ipc.invoke("settings:select-server-cert-dir");
+};
+
+export const saveServerCertFolder = async (
+  dir: string
+): Promise<{ success: boolean; customServerCertDir?: string; error?: string }> => {
+  const ipc = getIpc();
+  if (!ipc) return { success: false, error: "Ambiente não é Electron." };
+  return await ipc.invoke("settings:save-server-cert-dir", dir);
+};
+
+export const openServerCertFolder = async (
+  dir?: string
+): Promise<{ success: boolean; error?: string }> => {
+  const ipc = getIpc();
+  if (!ipc) return { success: false, error: "Ambiente não é Electron." };
+  return await ipc.invoke("settings:open-server-cert-dir", dir);
+};
+
+export const testCert = async (
+  target: string | { certPath?: string; password?: string; certStore?: "windows" | "file"; thumbprint?: string; certThumbprint?: string },
+  password?: string
+) => {
+  const ipc = getIpc();
+  if (!ipc) return { success: false, error: "Ambiente não é Electron." };
+  if (typeof target === "string") {
+    return await ipc.invoke("sefaz:test-cert", { certPath: target, password: password || "" });
+  }
+  const norm = {
+    ...target,
+    thumbprint: target.thumbprint || target.certThumbprint || "",
+    certThumbprint: target.certThumbprint || target.thumbprint || ""
+  };
+  return await ipc.invoke("sefaz:test-cert", norm);
 };
 
 export const syncCompanySefaz = async (
@@ -67,6 +130,8 @@ export const syncCompanySefaz = async (
     certPath: String(company?.certPath || ""),
     password: company?.password ? String(company.password) : "",
     ambiente: Number(company?.ambiente || 1),
+    certStore: company?.certStore || (company?.certThumbprint ? "windows" : "file"),
+    certThumbprint: company?.certThumbprint ? String(company.certThumbprint) : "",
   };
 
   const safeOptions: any = {};
@@ -708,20 +773,22 @@ export const downloadNfseZip = async (
 
 export const openNfsePdf = async (
   pdfPath?: string,
-  xmlPath?: string
+  xmlPath?: string,
+  xmlContent?: string
 ): Promise<{ success: boolean; error?: string }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
-  return await ipc.invoke("nfse:open-pdf", { pdfPath, xmlPath });
+  return await ipc.invoke("nfse:open-pdf", { pdfPath, xmlPath, xmlContent });
 };
 
 export const saveNfseXml = async (
-  xmlPath: string,
-  defaultName?: string
+  xmlPath?: string,
+  defaultName?: string,
+  xmlContent?: string
 ): Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
-  return await ipc.invoke("nfse:save-xml", { xmlPath, defaultName });
+  return await ipc.invoke("nfse:save-xml", { xmlPath, defaultName, xmlContent });
 };
 
 export const openNfseFolder = async (
@@ -731,6 +798,60 @@ export const openNfseFolder = async (
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
   return await ipc.invoke("nfse:open-folder", { cnpj, razaoSocial });
+};
+
+export interface TransmitirDpsResult {
+  sucesso: boolean;
+  status: string;
+  numeroDps?: number;
+  serieDps?: string;
+  numeroNfse?: string;
+  codigoVerificacao?: string;
+  chaveAcesso?: string;
+  savedXmlPath?: string;
+  linkDanfse?: string;
+  mensagem?: string;
+  xmlEnvio?: string;
+  xmlRetorno?: string;
+  erros?: string[];
+}
+
+export const transmitirDpsNfse = async (
+  empresa: EmpresaSefaz,
+  dpsData: any
+): Promise<TransmitirDpsResult> => {
+  const ipc = getIpc();
+  if (!ipc) {
+    return { sucesso: false, status: "ERRO", mensagem: "Ambiente não é Electron." };
+  }
+  return await ipc.invoke("nfse:transmitir-dps", { empresa, dpsData });
+};
+
+export interface CancelarNfseResult {
+  sucesso: boolean;
+  status: string;
+  chaveAcesso?: string;
+  mensagem: string;
+  savedEventXmlPath?: string;
+  eventoXml?: string;
+  erros?: any[];
+}
+
+export const cancelarNfseNacional = async (
+  empresa: EmpresaSefaz,
+  cancelData: {
+    chaveAcesso: string;
+    motivo: string;
+    cMotivo?: string;
+    ambiente?: string | number;
+    caminhoXml?: string;
+  }
+): Promise<CancelarNfseResult> => {
+  const ipc = getIpc();
+  if (!ipc) {
+    return { sucesso: false, status: "ERRO", mensagem: "Ambiente não é Electron." };
+  }
+  return await ipc.invoke("nfse:cancelar-nota", { empresa, cancelData });
 };
 
 export const onNfseProgress = (callback: (info: NfseSyncProgressPayload) => void) => {

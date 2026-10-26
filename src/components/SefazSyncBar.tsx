@@ -97,8 +97,8 @@ export default function SefazSyncBar({
       alert("Selecione ou cadastre uma empresa primeiro.");
       return;
     }
-    if (!activeEmpresa.certPath) {
-      alert("A empresa selecionada não possui arquivo de certificado vinculado.");
+    if (!activeEmpresa.certPath && activeEmpresa.certStore !== "windows" && !activeEmpresa.certThumbprint) {
+      alert("A empresa selecionada não possui certificado vinculado (arquivo .pfx ou Windows).");
       return;
     }
 

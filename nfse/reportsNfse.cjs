@@ -4,6 +4,24 @@ const { DOMParser } = require('@xmldom/xmldom');
 const AdmZip = require('adm-zip');
 const { obterDetalhesServicoSP } = require('./danfseSP.cjs');
 
+// Cache em memória de notas NFS-e para aceleração extrema de listagem
+const memNfseCache = new Map();
+const memNfseResultCache = new Map();
+const NFSE_RESULT_TTL_MS = 120000;
+
+function invalidateNfseCache(cnpj) {
+    if (!cnpj) {
+        memNfseResultCache.clear();
+        return;
+    }
+    const clean = String(cnpj || '').replace(/\D/g, '');
+    for (const k of memNfseResultCache.keys()) {
+        if (k.startsWith(clean + '|')) {
+            memNfseResultCache.delete(k);
+        }
+    }
+}
+
 const UF_IBGE = {
     '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
     '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL',
@@ -485,6 +503,13 @@ function parseXmlNota(xmlContent, nomeArquivo = '') {
 function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro = 'todos', dataInicio = '', dataFim = '') {
     const sanitizeFolder = (name) => (name || '').replace(/[\/\\:*?"<>|]/g, '_').replace(/[\x00-\x1F]/g, '').replace(/\s+/g, ' ').trim().substring(0, 80).replace(/[. ]+$/, '') || 'sem-nome';
     const cleanCnpj = String(cnpj || '').replace(/\D/g, '');
+    const resultCacheKey = `${cleanCnpj}|${ano || 'todos'}|${mes || 'todos'}|${tipoFiltro || 'todos'}|${dataInicio || ''}|${dataFim || ''}`;
+    if (cleanCnpj) {
+        const cachedRes = memNfseResultCache.get(resultCacheKey);
+        if (cachedRes && (Date.now() - cachedRes.ts) < NFSE_RESULT_TTL_MS) {
+            return cachedRes.data;
+        }
+    }
     
     let pastaEmpresa = '';
     if (pastaOutput && fs.existsSync(pastaOutput)) {
@@ -532,25 +557,52 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
     const resultado = [];
     if (!pastaEmpresa || !fs.existsSync(pastaEmpresa)) return resultado;
 
-    function varrer(diretorio, tipoDocFolder = 'Geral') {
-        if (!fs.existsSync(diretorio)) return;
-        const itens = fs.readdirSync(diretorio);
-
-        for (const item of itens) {
-            const caminhoCompleto = path.join(diretorio, item);
-            let stat;
+    // Cache em memória e persistido de notas fiscais de serviço para evitar re-parse pesado de DOMParser
+    let companyCache = memNfseCache.get(cleanCnpj);
+    const cacheFilePath = path.join(pastaEmpresa, '.nfse_meta_cache.json');
+    if (!companyCache) {
+        companyCache = {};
+        if (fs.existsSync(cacheFilePath)) {
             try {
-                stat = fs.statSync(caminhoCompleto);
+                companyCache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
             } catch (_) {
-                continue;
+                companyCache = {};
             }
+        }
+        memNfseCache.set(cleanCnpj, companyCache);
+    }
+    let cacheDirty = false;
 
-            if (stat.isDirectory()) {
+    function varrer(diretorio, tipoDocFolder = 'Geral') {
+        let entries;
+        try {
+            entries = fs.readdirSync(diretorio, { withFileTypes: true });
+        } catch (_) {
+            return;
+        }
+
+        const fileSet = new Set();
+        for (const e of entries) {
+            if (!e.isDirectory()) {
+                fileSet.add(e.name);
+            }
+        }
+
+        for (const entry of entries) {
+            const item = entry.name;
+            const caminhoCompleto = path.join(diretorio, item);
+
+            if (entry.isDirectory()) {
                 const lowerItem = item.toLowerCase();
                 // Ignora pastas exclusivas de outros modelos fiscais
                 if (['cte', 'nfce', 'nfe entradas', 'danfes', 'xmls'].includes(lowerItem)) {
                     continue;
                 }
+                // Poda de diretórios por ano: se estiver na raiz da empresa e for um ano diferente do filtrado, pula
+                if (ano && ano !== 'todos' && diretorio === pastaEmpresa && /^\d{4}$/.test(item) && item !== String(ano)) {
+                    continue;
+                }
+
                 let proximoTipo = tipoDocFolder;
                 if (lowerItem.includes('são paulo') || lowerItem.includes('sao paulo')) proximoTipo = 'Tomadas - São Paulo';
                 else if (lowerItem.includes('serviços prestados') || lowerItem.includes('servicos prestados') || lowerItem.includes('prestadas') || lowerItem.includes('emitidas')) proximoTipo = 'Prestadas';
@@ -570,8 +622,27 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                 const relPath = path.relative(pastaEmpresa, caminhoCompleto).replace(/\\/g, '/');
 
                 try {
-                    const xmlContent = fs.readFileSync(caminhoCompleto, 'utf-8');
-                    const parsed = parseXmlNota(xmlContent, item);
+                    let cached = companyCache[caminhoCompleto];
+                    let parsed = null;
+                    let xmlContentHasRootOwner = false;
+
+                    if (cached && cached.parsed) {
+                        parsed = cached.parsed;
+                        xmlContentHasRootOwner = Boolean(cached.xmlContentHasRootOwner);
+                    } else {
+                        const xmlContent = fs.readFileSync(caminhoCompleto, 'utf-8');
+                        parsed = parseXmlNota(xmlContent, item);
+                        if (parsed) {
+                            xmlContentHasRootOwner = Boolean(cleanCnpj && cleanCnpj.length >= 8 && xmlContent.includes(cleanCnpj.slice(0, 8)));
+                            companyCache[caminhoCompleto] = {
+                                mtimeMs: Date.now(),
+                                parsed,
+                                xmlContentHasRootOwner
+                            };
+                            cacheDirty = true;
+                        }
+                    }
+
                     if (parsed) {
                         // Extração rigorosa da competência contábil (MM/AAAA)
                         let compAno = '';
@@ -641,7 +712,7 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                             const matchesEmit = cleanEmit && cleanEmit.slice(0, 8) === rootOwner;
                             const matchesToma = cleanToma && cleanToma.slice(0, 8) === rootOwner;
                             // Se ambos prestador e tomador estão preenchidos e nenhum pertence à empresa (nem consta no XML), ignora
-                            if (cleanEmit && cleanToma && !matchesEmit && !matchesToma && !xmlContent.includes(rootOwner)) {
+                            if (cleanEmit && cleanToma && !matchesEmit && !matchesToma && !xmlContentHasRootOwner) {
                                 continue;
                             }
                         }
@@ -668,11 +739,15 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                             if (normFiltro.includes('tom') && !normTipo.includes('tom') && !normTipo.includes('receb')) continue;
                         }
 
-                        const pdfPath = caminhoCompleto.replace(/\.xml$/i, '.pdf');
-                        const eventoPath = caminhoCompleto.replace(/\.xml$/i, ' - EVENTO_CANCELAMENTO.xml');
+                        const pdfFileName = item.replace(/\.xml$/i, '.pdf');
+                        const eventoFileName = item.replace(/\.xml$/i, ' - EVENTO_CANCELAMENTO.xml');
+                        const hasPdf = fileSet.has(pdfFileName);
+                        const hasEvento = fileSet.has(eventoFileName);
+                        const pdfPath = hasPdf ? path.join(diretorio, pdfFileName) : null;
+                        const eventoPath = hasEvento ? path.join(diretorio, eventoFileName) : null;
 
-                        // Se houver arquivo de evento de cancelamento associado, extrai os dados do evento
-                        if (fs.existsSync(eventoPath)) {
+                        // Se houver arquivo de evento de cancelamento associado, extrai os dados do evento (e cacheia no objeto)
+                        if (hasEvento && !parsed.evento) {
                             try {
                                 const evXml = fs.readFileSync(eventoPath, 'utf-8');
                                 const evDoc = new DOMParser().parseFromString(evXml, 'text/xml');
@@ -680,6 +755,7 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                                 parsed.autorEvento = evDoc.getElementsByTagName('CNPJAutor')[0]?.textContent?.trim() || '';
                                 parsed.dataEvento = formatarData(evDoc.getElementsByTagName('dhEvento')[0]?.textContent?.trim() || '');
                                 parsed.dataRegEvento = formatarData(evDoc.getElementsByTagName('dhProc')[0]?.textContent?.trim() || '');
+                                cacheDirty = true;
                             } catch (_) {}
                         }
 
@@ -687,8 +763,8 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                             ...parsed,
                             tipo: docTipo,
                             caminhoXml: caminhoCompleto,
-                            caminhoPdf: fs.existsSync(pdfPath) ? pdfPath : null,
-                            caminhoEventoXml: fs.existsSync(eventoPath) ? eventoPath : null,
+                            caminhoPdf: pdfPath,
+                            caminhoEventoXml: eventoPath,
                             nomeArquivoXml: item
                         });
                     }
@@ -699,31 +775,138 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
 
     varrer(pastaEmpresa);
 
-    // Deduplicação por (Número da Nota, CNPJ Prestador, CNPJ Tomador, Valor dos Serviços)
-    // Prioriza sempre a versão do Portal Nacional (melhor discriminação de itens e tributos) e/ou versão cancelada atualizada
-    const dedupMap = new Map();
+    if (cacheDirty) {
+        try {
+            fs.writeFileSync(cacheFilePath, JSON.stringify(companyCache), 'utf8');
+        } catch (_) {}
+    }
+
+    function mergeNotasNfse(existing, nota) {
+        // Se qualquer uma das instâncias do documento estiver cancelada, prevalece o evento mais recente (Cancelada)
+        const isCancelada = Boolean(existing.isCancelada || nota.isCancelada);
+        const preferNew = (
+            (nota.isCancelada && !existing.isCancelada) ||
+            (!existing.caminhoPdf && nota.caminhoPdf) ||
+            (nota.origemCaptacao === 'PORTAL_NACIONAL' && existing.origemCaptacao !== 'PORTAL_NACIONAL' && !existing.isCancelada) ||
+            ((!existing.numeroNFe || existing.numeroNFe === '0') && (nota.numeroNFe && nota.numeroNFe !== '0')) ||
+            ((!existing.chaveNotaNacional || existing.chaveNotaNacional.length !== 50) && (nota.chaveNotaNacional && nota.chaveNotaNacional.length === 50))
+        );
+
+        const base = preferNew ? { ...existing, ...nota } : { ...nota, ...existing };
+        base.isCancelada = isCancelada;
+        if (isCancelada) {
+            base.situacao = 'Cancelada';
+        }
+
+        // Preserva o número de NFS-e válido caso um dos arquivos seja apenas DPS bruto
+        const nfValido = (existing.numeroNFe && existing.numeroNFe !== '0') ? existing.numeroNFe : (nota.numeroNFe && nota.numeroNFe !== '0' ? nota.numeroNFe : base.numeroNFe);
+        base.numeroNFe = nfValido;
+
+        // Preserva chave nacional oficial de 50 dígitos
+        const chValida = (existing.chaveNotaNacional && existing.chaveNotaNacional.length === 50) ? existing.chaveNotaNacional : (nota.chaveNotaNacional && nota.chaveNotaNacional.length === 50 ? nota.chaveNotaNacional : base.chaveNotaNacional);
+        base.chaveNotaNacional = chValida;
+
+        // Preserva número e série da DPS
+        const dpsValido = (existing.dpsNumero && existing.dpsNumero !== '0') ? existing.dpsNumero : nota.dpsNumero;
+        const serieValida = existing.dpsSerie || nota.dpsSerie;
+        if (dpsValido) base.dpsNumero = dpsValido;
+        if (serieValida) base.dpsSerie = serieValida;
+
+        // Preserva caminhos de arquivos válidos
+        if (!base.caminhoPdf && (existing.caminhoPdf || nota.caminhoPdf)) {
+            base.caminhoPdf = existing.caminhoPdf || nota.caminhoPdf;
+        }
+        if (!base.caminhoEventoXml && (existing.caminhoEventoXml || nota.caminhoEventoXml)) {
+            base.caminhoEventoXml = existing.caminhoEventoXml || nota.caminhoEventoXml;
+        }
+        if (!base.evento && (existing.evento || nota.evento)) {
+            base.evento = existing.evento || nota.evento;
+        }
+        if (!base.dataEvento && (existing.dataEvento || nota.dataEvento)) {
+            base.dataEvento = existing.dataEvento || nota.dataEvento;
+        }
+
+        // Se uma das notas aponta para o XML oficial na pasta CANCELADAS ou PRESTADAS (ao invés de pasta temporária emitidas), usa o caminho oficial
+        const isOfficialPath = (p) => p && (p.includes('SERVIÇOS PRESTADOS') || p.includes('CANCELADAS'));
+        if (isOfficialPath(nota.caminhoXml) && !isOfficialPath(existing.caminhoXml)) {
+            base.caminhoXml = nota.caminhoXml;
+            base.nomeArquivoXml = nota.nomeArquivoXml;
+        } else if (isOfficialPath(existing.caminhoXml)) {
+            base.caminhoXml = existing.caminhoXml;
+            base.nomeArquivoXml = existing.nomeArquivoXml;
+        }
+
+        return base;
+    }
+
+    // Deduplicação O(N) via Hash Maps (substitui busca linear O(N²) para empresas com milhares de notas)
+    const dedupList = [];
+    const byChave = new Map();
+    const byDps = new Map();
+    const byNf = new Map();
+
     for (const nota of resultado) {
-        const key = gerarChaveDedupNfse({
-            numeroNFe: nota.numeroNFe,
-            prestadorCnpj: nota.prestadorCnpj,
-            tomadorCnpj: nota.tomadorCnpj || cleanCnpj,
-            valorServicos: nota.valorServicos
-        });
-        if (!dedupMap.has(key)) {
-            dedupMap.set(key, nota);
+        const cleanEmit = String(nota.prestadorCnpj || '').replace(/\D/g, '') || 'ANY';
+        const ch = String(nota.chaveNotaNacional || '').replace(/\D/g, '');
+        const s = String(nota.dpsSerie || '').trim();
+        const nDps = parseInt(String(nota.dpsNumero || '').replace(/\D/g, ''), 10) || 0;
+        const nf = parseInt(String(nota.numeroNFe || '').replace(/\D/g, ''), 10) || 0;
+        const cleanToma = String(nota.tomadorCnpj || '').replace(/\D/g, '');
+        const vServ = Number(nota.valorServicos || 0);
+
+        const kCh = ch.length === 50 ? `${cleanEmit}|${ch}` : '';
+        const kDps = (s && nDps > 0) ? `${cleanEmit}|${s}:${nDps}` : '';
+        const kNf = nf > 0 ? `${cleanEmit}|${nf}` : '';
+
+        let idx = -1;
+        if (kCh && byChave.has(kCh)) {
+            idx = byChave.get(kCh);
+        } else if (kDps && byDps.has(kDps)) {
+            idx = byDps.get(kDps);
+        } else if (kNf && byNf.has(kNf)) {
+            const candidates = byNf.get(kNf);
+            for (let i = 0; i < candidates.length; i++) {
+                const cIdx = candidates[i];
+                const cand = dedupList[cIdx];
+                const vCand = Number(cand.valorServicos || 0);
+                const tomaCand = String(cand.tomadorCnpj || '').replace(/\D/g, '');
+                if (Math.abs(vCand - vServ) < 0.05 || (cleanToma && tomaCand && cleanToma === tomaCand)) {
+                    idx = cIdx;
+                    break;
+                }
+            }
+        }
+
+        if (idx === -1) {
+            idx = dedupList.length;
+            dedupList.push({ ...nota });
         } else {
-            const existing = dedupMap.get(key);
-            const preferNew = (
-                (nota.isCancelada && !existing.isCancelada) ||
-                (nota.origemCaptacao === 'PORTAL_NACIONAL' && existing.origemCaptacao !== 'PORTAL_NACIONAL' && !existing.isCancelada)
-            );
-            if (preferNew) {
-                dedupMap.set(key, nota);
+            dedupList[idx] = mergeNotasNfse(dedupList[idx], nota);
+        }
+
+        // Atualiza índices com os dados mesclados
+        const merged = dedupList[idx];
+        const mEmit = String(merged.prestadorCnpj || '').replace(/\D/g, '') || cleanEmit;
+        const mCh = String(merged.chaveNotaNacional || '').replace(/\D/g, '');
+        const mS = String(merged.dpsSerie || '').trim();
+        const mDps = parseInt(String(merged.dpsNumero || '').replace(/\D/g, ''), 10) || 0;
+        const mNf = parseInt(String(merged.numeroNFe || '').replace(/\D/g, ''), 10) || 0;
+
+        if (mCh.length === 50) byChave.set(`${mEmit}|${mCh}`, idx);
+        if (mS && mDps > 0) byDps.set(`${mEmit}|${mS}:${mDps}`, idx);
+        if (mNf > 0) {
+            const nfKey = `${mEmit}|${mNf}`;
+            let list = byNf.get(nfKey);
+            if (!list) {
+                list = [idx];
+                byNf.set(nfKey, list);
+            } else if (!list.includes(idx)) {
+                list.push(idx);
             }
         }
     }
 
-    let listaDedup = Array.from(dedupMap.values());
+    let listaDedup = dedupList;
 
     if (dataInicio || dataFim) {
         listaDedup = listaDedup.filter(n => {
@@ -733,6 +916,10 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
             if (dataFim && iso > dataFim) return false;
             return true;
         });
+    }
+
+    if (cleanCnpj) {
+        memNfseResultCache.set(resultCacheKey, { ts: Date.now(), data: listaDedup });
     }
 
     return listaDedup;
@@ -763,6 +950,22 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
     const map = new Map();
     if (!pastaEmpresa || !fs.existsSync(pastaEmpresa)) return map;
 
+    const cleanCnpj = String(cleanOwnerCnpj || '').replace(/\D/g, '');
+    let companyCache = cleanCnpj ? memNfseCache.get(cleanCnpj) : null;
+    if (!companyCache) {
+        const cacheFilePath = path.join(pastaEmpresa, '.nfse_meta_cache.json');
+        if (fs.existsSync(cacheFilePath)) {
+            try {
+                companyCache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+                if (cleanCnpj) memNfseCache.set(cleanCnpj, companyCache);
+            } catch (_) {
+                companyCache = {};
+            }
+        } else {
+            companyCache = {};
+        }
+    }
+
     function walk(dir) {
         let entries = [];
         try {
@@ -770,6 +973,11 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
         } catch (_) {
             return;
         }
+        const fileSet = new Set();
+        for (const e of entries) {
+            if (!e.isDirectory()) fileSet.add(e.name);
+        }
+
         for (const entry of entries) {
             const full = path.join(dir, entry.name);
             if (entry.isDirectory()) {
@@ -779,8 +987,11 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
             } else if (entry.name.toLowerCase().endsWith('.xml')) {
                 if (entry.name.toUpperCase().includes('EVENTO')) continue;
                 try {
-                    const xmlContent = fs.readFileSync(full, 'utf-8');
-                    const parsed = parseXmlNota(xmlContent, entry.name);
+                    let parsed = companyCache[full]?.parsed;
+                    if (!parsed) {
+                        const xmlContent = fs.readFileSync(full, 'utf-8');
+                        parsed = parseXmlNota(xmlContent, entry.name);
+                    }
                     if (!parsed) continue;
                     const key = gerarChaveDedupNfse({
                         numeroNFe: parsed.numeroNFe,
@@ -788,12 +999,13 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
                         tomadorCnpj: parsed.tomadorCnpj || cleanOwnerCnpj,
                         valorServicos: parsed.valorServicos
                     });
-                    const pdfPath = full.replace(/\.xml$/i, '.pdf');
+                    const pdfFileName = entry.name.replace(/\.xml$/i, '.pdf');
+                    const pdfPath = path.join(dir, pdfFileName);
                     const info = {
                         key,
                         caminhoXml: full,
                         caminhoPdf: pdfPath,
-                        hasPdf: fs.existsSync(pdfPath),
+                        hasPdf: fileSet.has(pdfFileName),
                         isCancelada: parsed.isCancelada,
                         origemCaptacao: parsed.origemCaptacao
                     };
@@ -976,6 +1188,7 @@ function calcularMetricas(listaNotas) {
 
 module.exports = {
     scanNotasEmpresa,
+    invalidateNfseCache,
     gerarCsvRelatorio,
     gerarPacoteZip,
     calcularMetricas,

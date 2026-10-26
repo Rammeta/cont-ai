@@ -53,9 +53,10 @@ import {
   readXmlsContent,
   saveCsvFile,
 } from "../utils/electronBridge";
-import { formatBRL } from "../utils/calc";
+import { formatBRL, parseDateToTimestamp } from "../utils/calc";
 import CertificateBadge from "./CertificateBadge";
 import logoImg from "../../assets/logo.png";
+import { useDebounce } from "../utils/useDebounce";
 
 export interface CapturedNfe {
   name: string;
@@ -270,6 +271,7 @@ export default function CaptacaoView({
 
   // Filtros da tabela
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 250);
   const [routeFilter, setRouteFilter] = useState<"all" | "interestadual" | "interna">("all");
   const [tableMonthFilter, setTableMonthFilter] = useState<string>("all");
   const [dataInicioFilter, setDataInicioFilter] = useState<string>("");
@@ -342,7 +344,7 @@ export default function CaptacaoView({
           return;
         }
         onNotify(`Horário agendado atingido (${payload?.time || "diário"}): busca de NF-e disparada!`, "success");
-        if (activeEmpresa && activeEmpresa.certPath && !syncStatus.syncing) {
+        if (activeEmpresa && (activeEmpresa.certPath || activeEmpresa.certStore === "windows" || activeEmpresa.certThumbprint) && !syncStatus.syncing) {
           handleSyncSefaz();
         }
       }
@@ -535,8 +537,8 @@ export default function CaptacaoView({
       onNotify("Selecione ou cadastre uma empresa primeiro.", "error");
       return;
     }
-    if (!activeEmpresa.certPath) {
-      onNotify("A empresa selecionada não possui arquivo de certificado vinculado.", "error");
+    if (!activeEmpresa.certPath && activeEmpresa.certStore !== "windows" && !activeEmpresa.certThumbprint) {
+      onNotify("A empresa selecionada não possui certificado digital vinculado (arquivo .pfx ou Windows).", "error");
       return;
     }
 
@@ -978,9 +980,9 @@ export default function CaptacaoView({
       if (routeFilter === "interestadual" && !n.isInterestadual) return false;
       if (routeFilter === "interna" && n.isInterestadual) return false;
 
-      // Busca textual inteligente
-      if (searchTerm.trim()) {
-        const term = searchTerm.trim().toLowerCase();
+      // Busca textual inteligente (com debouncing para máxima fluidez na digitação)
+      if (debouncedSearchTerm.trim()) {
+        const term = debouncedSearchTerm.trim().toLowerCase();
         const numQuery = term.replace(/^(n[º°o]?|nf(?:-?e)?|#)\s*/i, "").trim();
         const isShortNumeric = /^\d{1,10}$/.test(numQuery);
         const cnpjDigits = String(n.cnpjEmitente || "").replace(/\D/g, "");
@@ -1012,7 +1014,7 @@ export default function CaptacaoView({
 
       return true;
     });
-  }, [notasPeriodo, routeFilter, searchTerm]);
+  }, [notasPeriodo, routeFilter, debouncedSearchTerm]);
 
   // Ação: Calcular DIFAL das interestaduais do período selecionado (carrega XMLs sob demanda)
   const handleCalculateDifal = async () => {
@@ -1236,47 +1238,54 @@ export default function CaptacaoView({
 
   // Ordenação das notas (menor para o maior / maior para o menor)
   const sortedNotas = useMemo(() => {
+    const dir = sortDirection === "asc" ? 1 : -1;
     return [...filteredNotas].sort((a, b) => {
-      let valA: any = "";
-      let valB: any = "";
       switch (sortColumn) {
-        case "numero":
-          valA = Number(String(a.nNF || "0").replace(/\D/g, "")) || 0;
-          valB = Number(String(b.nNF || "0").replace(/\D/g, "")) || 0;
-          break;
-        case "dataEmissao":
-          valA = a.dhEmi || a.formattedDate || "";
-          valB = b.dhEmi || b.formattedDate || "";
-          break;
+        case "numero": {
+          const valA = Number(String(a.nNF || "0").replace(/\D/g, "")) || 0;
+          const valB = Number(String(b.nNF || "0").replace(/\D/g, "")) || 0;
+          return (valA - valB) * dir;
+        }
+        case "dataEmissao": {
+          const tsA = parseDateToTimestamp(a.dhEmi || a.formattedDate || "");
+          const tsB = parseDateToTimestamp(b.dhEmi || b.formattedDate || "");
+          if (tsA !== tsB) return (tsA - tsB) * dir;
+          const numA = Number(String(a.nNF || "0").replace(/\D/g, "")) || 0;
+          const numB = Number(String(b.nNF || "0").replace(/\D/g, "")) || 0;
+          return (numA - numB) * dir;
+        }
         case "emitente":
-          valA = (a.emitente || "").toLowerCase();
-          valB = (b.emitente || "").toLowerCase();
-          break;
-        case "cnpj":
-          valA = (a.cnpjEmitente || "").replace(/\D/g, "");
-          valB = (b.cnpjEmitente || "").replace(/\D/g, "");
-          break;
-        case "rota":
-          valA = (a.ufEmitente || "").toLowerCase();
-          valB = (b.ufEmitente || "").toLowerCase();
-          break;
+          return (a.emitente || "").localeCompare(b.emitente || "", "pt-BR", { sensitivity: "base", numeric: true }) * dir;
+        case "cnpj": {
+          const cA = (a.cnpjEmitente || "").replace(/\D/g, "");
+          const cB = (b.cnpjEmitente || "").replace(/\D/g, "");
+          return cA.localeCompare(cB) * dir;
+        }
+        case "regime": {
+          const getRegimeLabel = (cnpj: string) => {
+            const clean = (cnpj || "").replace(/\D/g, "");
+            const info = cnpjDataMap[clean];
+            if (!info) return "zzz";
+            if (info.mei) return "1_mei";
+            if (info.simples) return "2_simples";
+            return "3_normal";
+          };
+          return getRegimeLabel(a.cnpjEmitente).localeCompare(getRegimeLabel(b.cnpjEmitente)) * dir;
+        }
+        case "rota": {
+          const rA = `${a.isInterestadual ? "1" : "0"}_${(a.ufRem || "").toUpperCase()}_${(a.ufDest || "").toUpperCase()}`;
+          const rB = `${b.isInterestadual ? "1" : "0"}_${(b.ufRem || "").toUpperCase()}_${(b.ufDest || "").toUpperCase()}`;
+          return rA.localeCompare(rB, "pt-BR", { sensitivity: "base" }) * dir;
+        }
         case "valorProd":
-          valA = Number(a.vProd) || 0;
-          valB = Number(b.vProd) || 0;
-          break;
+          return ((Number(a.vProd) || 0) - (Number(b.vProd) || 0)) * dir;
         case "valorTotal":
-          valA = Number(a.vNF) || 0;
-          valB = Number(b.vNF) || 0;
-          break;
+          return ((Number(a.vNF) || 0) - (Number(b.vNF) || 0)) * dir;
         default:
-          valA = "";
-          valB = "";
+          return 0;
       }
-      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
-      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
-      return 0;
     });
-  }, [filteredNotas, sortColumn, sortDirection]);
+  }, [filteredNotas, sortColumn, sortDirection, cnpjDataMap]);
 
   // Notas fatiadas com base no limite de exibição para máxima performance
   const displayedNotas = useMemo(() => {
@@ -1928,7 +1937,19 @@ export default function CaptacaoView({
                       </span>
                     </div>
                   </th>
-                  <th style={{ width: "120px" }}>Regime / SN</th>
+                  <th
+                    onClick={() => handleHeaderSort("regime")}
+                    className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"
+                    style={{ width: "120px" }}
+                    title="Clique para ordenar por regime tributário / Simples Nacional"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>Regime / SN</span>
+                      <span className="text-[10px] text-[#005a9e] font-bold">
+                        {sortColumn === "regime" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </div>
+                  </th>
                   <th
                     onClick={() => handleHeaderSort("rota")}
                     className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"

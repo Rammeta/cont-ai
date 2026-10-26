@@ -25,10 +25,14 @@ function sleep(ms) {
 
 class SefazManager {
   constructor(baseDataDir) {
-    this.baseDataDir = baseDataDir;
+    this.baseDataDir = baseDataDir || path.join(process.cwd(), 'data');
     this.stateDb = getStateDatabase();
-    if (!fs.existsSync(this.baseDataDir)) {
-      fs.mkdirSync(this.baseDataDir, { recursive: true });
+    this.nfceCache = new Map();
+    this.cteCache = new Map();
+    if (this.baseDataDir && !fs.existsSync(this.baseDataDir)) {
+      try {
+        fs.mkdirSync(this.baseDataDir, { recursive: true });
+      } catch (e) {}
     }
   }
 
@@ -185,8 +189,13 @@ class SefazManager {
     return fallbackDir;
   }
 
-  testCertificate({ certPath, password }) {
-    const manager = new CertManager(certPath, password);
+  testCertificate(target) {
+    const norm = typeof target === 'object' && target !== null ? {
+      ...target,
+      thumbprint: target.thumbprint || target.certThumbprint || '',
+      certThumbprint: target.certThumbprint || target.thumbprint || ''
+    } : target;
+    const manager = new CertManager(norm);
     const info = manager.load();
     return {
       valid: true,
@@ -341,7 +350,7 @@ class SefazManager {
     const danfe = new DanfeService();
 
     if (onProgress) onProgress({ status: 'info', message: 'Carregando certificado digital...' });
-    const certManager = new CertManager(company.certPath, company.password);
+    const certManager = new CertManager(company);
     const certInfo = certManager.load();
 
     if (certInfo.isExpired) {
@@ -351,7 +360,8 @@ class SefazManager {
     const soapClient = new SoapClient(
       certManager.getFullCertChainPem(),
       certManager.getKeyPem(),
-      certManager.getCaPems()
+      certManager.getCaPems(),
+      { thumbprint: certManager.thumbprint, useWindowsStore: certManager.isWindowsNative }
     );
     const xmlSigner = new XmlSigner(certManager.getKeyPem(), certManager.getCertPem());
 
@@ -635,9 +645,14 @@ class SefazManager {
     }
 
     const cache = this.loadMetadataCache(companyDir, cleanCnpj);
+    const dirtyRecords = {};
     let cacheDirty = false;
     const xmlList = [];
     const seenKeys = new Set();
+
+    const isFilteredMonth = Boolean(yearMonth && yearMonth !== 'all' && /^\d{4}-\d{2}$/.test(yearMonth));
+    const targetYear = isFilteredMonth ? yearMonth.substring(0, 4) : null;
+    const targetMonth = isFilteredMonth ? yearMonth.substring(5, 7) : null;
 
     const scan = (dir) => {
       let entries = [];
@@ -652,6 +667,23 @@ class SefazManager {
         if (entry.isDirectory()) {
           const lowerName = entry.name.toLowerCase();
           if (['danfes', 'saidas', 'transportes', 'servicos', 'nfce', 'cte', 'nfse'].includes(lowerName)) continue;
+
+          // Poda de diretórios inteligente: evita descer em anos/meses que não correspondem ao filtro
+          if (isFilteredMonth) {
+            if (dir === companyDir && /^\d{4}$/.test(entry.name) && entry.name !== targetYear) {
+              continue;
+            }
+            if (path.basename(dir) === targetYear) {
+              const mFolder = entry.name.match(/^(\d{2})/);
+              if (mFolder && mFolder[1] !== targetMonth) {
+                continue;
+              }
+            }
+            if (path.basename(dir).toLowerCase() === 'xmls' && /^\d{4}-\d{2}$/.test(entry.name) && entry.name !== yearMonth) {
+              continue;
+            }
+          }
+
           scan(fullPath);
         } else if (entry.isFile() && entry.name.endsWith('.xml')) {
           const lowerPath = fullPath.toLowerCase();
@@ -687,6 +719,7 @@ class SefazManager {
             const mPath = fullPath.match(/(\d{4})[\\/](\d{2})/);
             if (mPath && meta.folder !== `${mPath[1]}-${mPath[2]}`) {
               meta.folder = `${mPath[1]}-${mPath[2]}`;
+              dirtyRecords[chNFe] = meta;
               cacheDirty = true;
             }
           } else {
@@ -732,6 +765,7 @@ class SefazManager {
             meta = this.extractXmlMetadata(content, entry.name, fileYearMonth, fullPath);
             meta.mtimeMs = stat.mtimeMs;
             cache[chNFe] = meta;
+            dirtyRecords[chNFe] = meta;
             cacheDirty = true;
           }
 
@@ -753,8 +787,9 @@ class SefazManager {
 
     scan(companyDir);
 
+    // Salva apenas registros sujos/novos para economizar milissegundos e CPU
     if (cacheDirty) {
-      this.saveMetadataCache(companyDir, cache, cleanCnpj);
+      this.saveMetadataCache(companyDir, dirtyRecords, cleanCnpj);
     }
 
     return xmlList;
@@ -766,7 +801,7 @@ class SefazManager {
     const companyDir = this.getCompanyDir(cleanCnpj, company.razaoSocial);
 
     if (onProgress) onProgress({ status: 'info', message: 'Carregando certificado digital A1...' });
-    const certManager = new CertManager(company.certPath, company.password);
+    const certManager = new CertManager(company);
     const certInfo = certManager.load();
 
     if (certInfo.isExpired) {
@@ -776,7 +811,8 @@ class SefazManager {
     const soapClient = new SoapClient(
       certManager.getFullCertChainPem(),
       certManager.getKeyPem(),
-      certManager.getCaPems()
+      certManager.getCaPems(),
+      { thumbprint: certManager.thumbprint, useWindowsStore: certManager.isWindowsNative }
     );
 
     const nfceService = new SaeNfceService(soapClient, {
@@ -1017,8 +1053,17 @@ class SefazManager {
       return [];
     }
 
+    let companyNfceCache = this.nfceCache.get(cleanCnpj);
+    if (!companyNfceCache) {
+      companyNfceCache = new Map();
+      this.nfceCache.set(cleanCnpj, companyNfceCache);
+    }
+
     const nfceList = [];
     const seenKeys = new Set();
+    const isFilteredMonth = Boolean(yearMonth && yearMonth !== 'all' && /^\d{4}-\d{2}$/.test(yearMonth));
+    const targetYear = isFilteredMonth ? yearMonth.substring(0, 4) : null;
+    const targetMonth = isFilteredMonth ? yearMonth.substring(5, 7) : null;
 
     const scan = (dir) => {
       let entries = [];
@@ -1032,56 +1077,85 @@ class SefazManager {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           if (['NFE ENTRADAS', 'CTE', 'NFSE', 'danfes', 'transportes'].includes(entry.name)) continue;
+
+          // Poda de diretórios para NFC-e
+          if (isFilteredMonth) {
+            if (dir === companyDir && /^\d{4}$/.test(entry.name) && entry.name !== targetYear) {
+              continue;
+            }
+            if (path.basename(dir) === targetYear) {
+              const mFolder = entry.name.match(/^(\d{2})/);
+              if (mFolder && mFolder[1] !== targetMonth) {
+                continue;
+              }
+            }
+          }
+
           scan(fullPath);
         } else if (entry.isFile() && entry.name.endsWith('.xml') && (entry.name.endsWith('-nfce.xml') || fullPath.includes(path.sep + 'NFCE' + path.sep) || fullPath.includes(path.sep + 'nfce' + path.sep))) {
           const match = entry.name.match(/(\d{44})/);
           const chNFe = match ? match[1] : entry.name;
           if (seenKeys.has(chNFe)) continue;
 
-          let content = '';
+          let stat;
           try {
-            content = fs.readFileSync(fullPath, 'utf8');
+            stat = fs.statSync(fullPath);
           } catch (e) {
             continue;
           }
 
-          let fileYearMonth = 'indefinido';
-          const mPath = fullPath.match(/(\d{4})[\\/](\d{2})/);
-          if (mPath) {
-            fileYearMonth = `${mPath[1]}-${mPath[2]}`;
+          let meta = null;
+          const cached = companyNfceCache.get(chNFe);
+          if (cached && cached.mtimeMs === stat.mtimeMs) {
+            meta = cached.meta;
           } else {
-            const relFolder = path.basename(path.dirname(fullPath));
-            if (/^\d{4}-\d{2}$/.test(relFolder)) {
-              fileYearMonth = relFolder;
-            } else if (chNFe && chNFe.length === 44) {
-              const yy = chNFe.substring(2, 4);
-              const mm = chNFe.substring(4, 6);
-              if (/^\d{2}$/.test(yy) && /^(0[1-9]|1[0-2])$/.test(mm)) {
-                fileYearMonth = `20${yy}-${mm}`;
+            let content = '';
+            try {
+              content = fs.readFileSync(fullPath, 'utf8');
+            } catch (e) {
+              continue;
+            }
+
+            let fileYearMonth = 'indefinido';
+            const mPath = fullPath.match(/(\d{4})[\\/](\d{2})/);
+            if (mPath) {
+              fileYearMonth = `${mPath[1]}-${mPath[2]}`;
+            } else {
+              const relFolder = path.basename(path.dirname(fullPath));
+              if (/^\d{4}-\d{2}$/.test(relFolder)) {
+                fileYearMonth = relFolder;
+              } else if (chNFe && chNFe.length === 44) {
+                const yy = chNFe.substring(2, 4);
+                const mm = chNFe.substring(4, 6);
+                if (/^\d{2}$/.test(yy) && /^(0[1-9]|1[0-2])$/.test(mm)) {
+                  fileYearMonth = `20${yy}-${mm}`;
+                }
               }
             }
-          }
-          if (fileYearMonth === 'indefinido') {
-            const mDate = content.match(/<d[h]?Emi>(\d{4}-\d{2})/);
-            if (mDate) fileYearMonth = mDate[1];
-          }
+            if (fileYearMonth === 'indefinido') {
+              const mDate = content.match(/<d[h]?Emi>(\d{4}-\d{2})/);
+              if (mDate) fileYearMonth = mDate[1];
+            }
 
-          const meta = this.extractXmlMetadata(content, entry.name, fileYearMonth, fullPath);
-          meta.modelo = meta.modelo || '65';
+            meta = this.extractXmlMetadata(content, entry.name, fileYearMonth, fullPath);
+            meta.modelo = meta.modelo || '65';
 
-          // Procura o PDF na mesma pasta (prioritário) ou legado
-          const sameDirPdf = path.join(dir, `${chNFe}-nfce-danfe.pdf`);
-          const sameDirPdf2 = path.join(dir, `${chNFe}-danfe.pdf`);
-          const legacyPdf = fullPath
-            .replace(path.join('xmls', 'saidas', 'nfce'), path.join('danfes', 'saidas', 'nfce'))
-            .replace('.xml', '-danfe.pdf');
+            // Procura o PDF na mesma pasta (prioritário) ou legado
+            const sameDirPdf = path.join(dir, `${chNFe}-nfce-danfe.pdf`);
+            const sameDirPdf2 = path.join(dir, `${chNFe}-danfe.pdf`);
+            const legacyPdf = fullPath
+              .replace(path.join('xmls', 'saidas', 'nfce'), path.join('danfes', 'saidas', 'nfce'))
+              .replace('.xml', '-danfe.pdf');
 
-          if (fs.existsSync(sameDirPdf)) {
-            meta.pdfPath = sameDirPdf;
-          } else if (fs.existsSync(sameDirPdf2)) {
-            meta.pdfPath = sameDirPdf2;
-          } else if (fs.existsSync(legacyPdf)) {
-            meta.pdfPath = legacyPdf;
+            if (fs.existsSync(sameDirPdf)) {
+              meta.pdfPath = sameDirPdf;
+            } else if (fs.existsSync(sameDirPdf2)) {
+              meta.pdfPath = sameDirPdf2;
+            } else if (fs.existsSync(legacyPdf)) {
+              meta.pdfPath = legacyPdf;
+            }
+
+            companyNfceCache.set(chNFe, { mtimeMs: stat.mtimeMs, meta });
           }
 
           seenKeys.add(chNFe);
@@ -1443,7 +1517,7 @@ class SefazManager {
     const danfe = new DanfeService();
 
     if (onProgress) onProgress({ status: 'info', message: 'Validando certificado digital...' });
-    const certManager = new CertManager(company.certPath, company.password);
+    const certManager = new CertManager(company);
     const certInfo = certManager.load();
 
     if (certInfo.isExpired) {
@@ -1453,7 +1527,8 @@ class SefazManager {
     const soapClient = new SoapClient(
       certManager.getFullCertChainPem(),
       certManager.getKeyPem(),
-      certManager.getCaPems()
+      certManager.getCaPems(),
+      { thumbprint: certManager.thumbprint, useWindowsStore: certManager.isWindowsNative }
     );
     const xmlSigner = new XmlSigner(certManager.getKeyPem(), certManager.getCertPem());
 
@@ -2380,7 +2455,7 @@ class SefazManager {
     const companyDir = this.getCompanyDir(cleanCnpj, company.razaoSocial);
     if (!fs.existsSync(companyDir)) fs.mkdirSync(companyDir, { recursive: true });
 
-    const certManager = new CertManager(company.certPath, company.password);
+    const certManager = new CertManager(company);
     const certInfo = certManager.load();
     if (certInfo.isExpired) {
       throw new Error('Certificado digital da empresa está expirado.');
@@ -2389,7 +2464,8 @@ class SefazManager {
     const soapClient = new SoapClient(
       certManager.getFullCertChainPem(),
       certManager.getKeyPem(),
-      certManager.getCaPems()
+      certManager.getCaPems(),
+      { thumbprint: certManager.thumbprint, useWindowsStore: certManager.isWindowsNative }
     );
 
     const ufUpper = (company.uf || 'SP').toUpperCase();
@@ -2493,8 +2569,17 @@ class SefazManager {
     const companyDir = this.getCompanyDir(cleanCnpj, razaoSocial);
     if (!fs.existsSync(companyDir)) return [];
 
+    let companyCteCache = this.cteCache.get(cleanCnpj);
+    if (!companyCteCache) {
+      companyCteCache = new Map();
+      this.cteCache.set(cleanCnpj, companyCteCache);
+    }
+
     const cteList = [];
     const seenKeys = new Set();
+    const isFilteredMonth = Boolean(yearMonth && yearMonth !== 'all' && /^\d{4}-\d{2}$/.test(yearMonth));
+    const targetYear = isFilteredMonth ? yearMonth.substring(0, 4) : null;
+    const targetMonth = isFilteredMonth ? yearMonth.substring(5, 7) : null;
 
     const scan = (dir) => {
       let entries = [];
@@ -2508,57 +2593,86 @@ class SefazManager {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           if (['NFE ENTRADAS', 'NFCE', 'NFSE', 'danfes', 'saidas'].includes(entry.name)) continue;
+
+          // Poda de diretórios para CT-e
+          if (isFilteredMonth) {
+            if (dir === companyDir && /^\d{4}$/.test(entry.name) && entry.name !== targetYear) {
+              continue;
+            }
+            if (path.basename(dir) === targetYear) {
+              const mFolder = entry.name.match(/^(\d{2})/);
+              if (mFolder && mFolder[1] !== targetMonth) {
+                continue;
+              }
+            }
+          }
+
           scan(fullPath);
         } else if (entry.isFile() && entry.name.endsWith('.xml') && (entry.name.endsWith('-cte.xml') || fullPath.includes(path.sep + 'CTE' + path.sep) || fullPath.includes(path.sep + 'cte' + path.sep))) {
           const match = entry.name.match(/(\d{44})/);
           const chCTe = match ? match[1] : entry.name;
           if (seenKeys.has(chCTe)) continue;
 
-          let content = '';
+          let stat;
           try {
-            content = fs.readFileSync(fullPath, 'utf8');
+            stat = fs.statSync(fullPath);
           } catch (e) {
             continue;
           }
 
-          let fileYearMonth = 'indefinido';
-          const mPath = fullPath.match(/(\d{4})[\\/](\d{2})/);
-          if (mPath) {
-            fileYearMonth = `${mPath[1]}-${mPath[2]}`;
+          let meta = null;
+          const cached = companyCteCache.get(chCTe);
+          if (cached && cached.mtimeMs === stat.mtimeMs) {
+            meta = cached.meta;
           } else {
-            const relFolder = path.basename(path.dirname(fullPath));
-            if (/^\d{4}-\d{2}$/.test(relFolder)) {
-              fileYearMonth = relFolder;
-            } else if (chCTe && chCTe.length === 44) {
-              const yy = chCTe.substring(2, 4);
-              const mm = chCTe.substring(4, 6);
-              if (/^\d{2}$/.test(yy) && /^(0[1-9]|1[0-2])$/.test(mm)) {
-                fileYearMonth = `20${yy}-${mm}`;
+            let content = '';
+            try {
+              content = fs.readFileSync(fullPath, 'utf8');
+            } catch (e) {
+              continue;
+            }
+
+            let fileYearMonth = 'indefinido';
+            const mPath = fullPath.match(/(\d{4})[\\/](\d{2})/);
+            if (mPath) {
+              fileYearMonth = `${mPath[1]}-${mPath[2]}`;
+            } else {
+              const relFolder = path.basename(path.dirname(fullPath));
+              if (/^\d{4}-\d{2}$/.test(relFolder)) {
+                fileYearMonth = relFolder;
+              } else if (chCTe && chCTe.length === 44) {
+                const yy = chCTe.substring(2, 4);
+                const mm = chCTe.substring(4, 6);
+                if (/^\d{2}$/.test(yy) && /^(0[1-9]|1[0-2])$/.test(mm)) {
+                  fileYearMonth = `20${yy}-${mm}`;
+                }
               }
             }
-          }
-          if (fileYearMonth === 'indefinido') {
-            const mDate = content.match(/<dhEmi>(\d{4}-\d{2})/);
-            if (mDate) {
-              fileYearMonth = mDate[1];
+            if (fileYearMonth === 'indefinido') {
+              const mDate = content.match(/<dhEmi>(\d{4}-\d{2})/);
+              if (mDate) {
+                fileYearMonth = mDate[1];
+              }
             }
-          }
 
-          const meta = this.extractCteMetadata(content, entry.name, fileYearMonth, fullPath);
+            meta = this.extractCteMetadata(content, entry.name, fileYearMonth, fullPath);
 
-          // Procura o PDF na mesma pasta primeiro, depois no caminho legado
-          const sameDirPdf = path.join(dir, `${chCTe}-cte-danfe.pdf`);
-          const sameDirPdf2 = path.join(dir, `${chCTe}-danfe.pdf`);
-          const legacyPdf = fullPath
-            .replace(path.join('xmls', 'transportes', 'cte'), path.join('danfes', 'transportes', 'cte'))
-            .replace('.xml', '-danfe.pdf');
+            // Procura o PDF na mesma pasta primeiro, depois no caminho legado
+            const sameDirPdf = path.join(dir, `${chCTe}-cte-danfe.pdf`);
+            const sameDirPdf2 = path.join(dir, `${chCTe}-danfe.pdf`);
+            const legacyPdf = fullPath
+              .replace(path.join('xmls', 'transportes', 'cte'), path.join('danfes', 'transportes', 'cte'))
+              .replace('.xml', '-danfe.pdf');
 
-          if (fs.existsSync(sameDirPdf)) {
-            meta.pdfPath = sameDirPdf;
-          } else if (fs.existsSync(sameDirPdf2)) {
-            meta.pdfPath = sameDirPdf2;
-          } else if (fs.existsSync(legacyPdf)) {
-            meta.pdfPath = legacyPdf;
+            if (fs.existsSync(sameDirPdf)) {
+              meta.pdfPath = sameDirPdf;
+            } else if (fs.existsSync(sameDirPdf2)) {
+              meta.pdfPath = sameDirPdf2;
+            } else if (fs.existsSync(legacyPdf)) {
+              meta.pdfPath = legacyPdf;
+            }
+
+            companyCteCache.set(chCTe, { mtimeMs: stat.mtimeMs, meta });
           }
 
           seenKeys.add(chCTe);

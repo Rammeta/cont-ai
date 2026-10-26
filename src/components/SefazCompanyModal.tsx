@@ -167,6 +167,20 @@ export default function SefazCompanyModal({
   };
 
   const handleTestCert = async () => {
+    if (editingCompany?.certStore === "windows" && editingCompany?.certThumbprint) {
+      setTestingStatus({ loading: true });
+      try {
+        const res = await testCert({ certStore: "windows", thumbprint: editingCompany.certThumbprint });
+        if (res.success) {
+          setTestingStatus({ loading: false, success: true, info: res.info });
+        } else {
+          setTestingStatus({ loading: false, success: false, error: res.error });
+        }
+      } catch (e: any) {
+        setTestingStatus({ loading: false, success: false, error: e.message });
+      }
+      return;
+    }
     if (!editingCompany?.certPath) {
       alert("Selecione o arquivo do certificado primeiro.");
       return;
@@ -185,8 +199,9 @@ export default function SefazCompanyModal({
       alert("Informe a Razão Social da empresa.");
       return;
     }
-    if (!editingCompany.certPath) {
-      alert("Selecione o arquivo do certificado .pfx.");
+    const hasValidCert = Boolean((editingCompany.certStore === "windows" && editingCompany.certThumbprint) || editingCompany.certPath);
+    if (!hasValidCert) {
+      alert("Selecione o certificado digital A1 (Arquivo ou Windows).");
       return;
     }
 
@@ -201,9 +216,11 @@ export default function SefazCompanyModal({
       cnpj: cleanCnpj,
       uf: (editingCompany.uf || "SP").toUpperCase(),
       regime: (editingCompany.regime as RegimeDestinatario) || "simples",
-      certPath: editingCompany.certPath,
+      certPath: editingCompany.certPath || "",
       password: editingCompany.password || "",
       ambiente: Number(editingCompany.ambiente) || 1,
+      certStore: editingCompany.certStore || (editingCompany.certThumbprint ? "windows" : "file"),
+      certThumbprint: editingCompany.certThumbprint || "",
       certInfo: testingStatus.info ? {
         subject: testingStatus.info.subject,
         issuer: testingStatus.info.issuer,
@@ -450,7 +467,7 @@ export default function SefazCompanyModal({
                   <div className="flex items-end">
                     <button
                       type="button"
-                      disabled={!editingCompany.certPath || testingStatus.loading}
+                      disabled={(!editingCompany.certPath && (editingCompany.certStore !== "windows" || !editingCompany.certThumbprint)) || testingStatus.loading}
                       onClick={handleTestCert}
                       className="w-full px-4 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                     >

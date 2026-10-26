@@ -19,6 +19,7 @@
 
 Para instalar o **CONT-AI v2.0** diretamente no seu computador (Windows 10 / 11 x64) sem precisar compilar o código-fonte, clique no link abaixo:
 
+👉 **[🌐 Acessar Site Oficial de Download & Demonstração (GitHub Pages)](https://rammeta.github.io/cont-ai/)**  
 👉 **[⬇️ Baixar Instalador Oficial — CONT-AI-Setup-2.0.0.exe (Windows x64)](https://github.com/Rammeta/cont-ai/releases/download/v2.0.0/CONT-AI-Setup-2.0.0.exe)**  
 *(Ou acesse a página de [Releases Oficiais do Repositório](https://github.com/Rammeta/cont-ai/releases/latest))*
 
@@ -26,7 +27,7 @@ Para instalar o **CONT-AI v2.0** diretamente no seu computador (Windows 10 / 11 
 
 ## ☕ Apoie o Projeto (PIX)
 
-O **CONT-AI** é distribuído de forma aberta e gratuita para ajudar escritórios de contabilidade, analistas fiscais e empresas a automatizarem a captação de documentos fiscais e auditoria de DIFAL.
+O **CONT-AI** é distribuído de forma aberta e gratuita para ajudar escritórios de contabilidade, analistas fiscais e empresas a automatizarem a captação de documentos fiscais, emissão de NFS-e Nacional e auditoria de DIFAL.
 
 Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar a manutenção e evolução do projeto, faça uma contribuição voluntária de qualquer valor via **PIX**:
 
@@ -39,6 +40,7 @@ Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar 
     </td>
     <td valign="middle">
       <p><b>🏢 Recebedor:</b> <code>66.604.571 VAGNER GODOY D</code> <i>(Conta PJ — São Paulo/SP)</i></p>
+      <p><b>🔑 Chave PIX (CNPJ):</b> <code>66.604.571/0001-43</code></p>
       <p><b>🔑 Chave PIX Aleatória (EVP):</b> <code>ad834588-7fb9-45e7-8f01-7f7de3db757b</code></p>
       <p><b>📋 PIX Copia e Cola</b> <i>(clique no ícone de copiar no canto do bloco abaixo)</i>:</p>
     </td>
@@ -266,3 +268,23 @@ cont-ai/
 ```
 
 - **Privacidade Total (Zero-Cloud Storage):** Os certificados digitais A1 e XMLs fiscais permanecem exclusivamente no computador local do usuário, utilizando conexões diretas **TLS 1.2 / mTLS** com os servidores governamentais da Receita Federal / SEFAZ e Prefeituras.
+
+---
+
+## 👨‍💻 Autor & Contato
+
+Idealizado e desenvolvido por **Vagner Godoy de Melo**:
+- **LinkedIn:** [linkedin.com/in/vagnergmelo](https://www.linkedin.com/in/vagnergmelo/)
+- **GitHub:** [github.com/Rammeta/cont-ai](https://github.com/Rammeta/cont-ai)
+- **Site Oficial:** [rammeta.github.io/cont-ai](https://rammeta.github.io/cont-ai/)
+
+---
+
+## ⚖️ Licença de Uso (Código Aberto Não-Comercial)
+
+Copyright (c) 2026 **Vagner Godoy de Melo** — **CONT-AI Gestor de Movimento Fiscal**
+
+Este software é disponibilizado sob a **[Licença de Código Aberto Não-Comercial (Source-Available Non-Commercial License)](LICENSE)**:
+- **Permitido:** Uso gratuito pelo usuário final, visualização do código para estudo, auditoria de segurança e avaliação técnica individual.
+- **Estritamente Proibido:** Copiar, redistribuir, sublicenciar, vender, alugar, hospedar como serviço (SaaS), embutir em softwares comerciais de terceiros ou remover os créditos e marcas originais deste software sem autorização prévia, expressa e por escrito do autor.
+

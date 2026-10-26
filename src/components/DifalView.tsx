@@ -304,8 +304,8 @@ export default function DifalView({
       onNotify("Selecione uma empresa ativa.", "error");
       return;
     }
-    if (!activeEmpresa.certPath) {
-      onNotify("A empresa selecionada não possui arquivo de certificado A1 vinculado.", "error");
+    if (!activeEmpresa.certPath && activeEmpresa.certStore !== "windows" && !activeEmpresa.certThumbprint) {
+      onNotify("A empresa selecionada não possui arquivo de certificado A1 vinculado (arquivo .pfx ou Windows).", "error");
       return;
     }
 

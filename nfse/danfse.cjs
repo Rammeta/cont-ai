@@ -18,7 +18,147 @@
     }
   } catch (_) {}
 
-  function sanitizarDiscriminacao(texto) {
+  
+  // Correção de Mojibake (CP850 / CP437 / ISO-8859-1 decodificados erroneamente a partir de UTF-8)
+  function fixMojibake(str) {
+    if (!str || typeof str !== 'string') return str || '';
+
+    // 1. Mojibake decorrente de bytes UTF-8 lidos como CP850/CP437 (caracteres de desenho de caixa como ├, │, ─ etc.)
+    if (/[\u2500-\u257F]/.test(str)) {
+      let converted = false;
+      try {
+        if (typeof require === 'function') {
+          const iconv = require('iconv-lite');
+          const buf = iconv.encode(str, 'cp850');
+          const decoded = buf.toString('utf8');
+          if (decoded && !decoded.includes('\uFFFD')) {
+            str = decoded;
+            converted = true;
+          }
+        }
+      } catch (_) {}
+
+      // Fallback por dicionário caso iconv não esteja presente ou parcial
+      if (!converted && /[\u2500-\u257F]/.test(str)) {
+        str = str
+          .replace(/\u251C\u00BA/g, 'ç')
+          .replace(/\u251C\u00FA/g, 'ã')
+          .replace(/\u251C\u2502/g, 'ó')
+          .replace(/\u251C\u00AE/g, 'é')
+          .replace(/\u251C\u00AC/g, 'ê')
+          .replace(/\u251C\u00ED/g, 'á')
+          .replace(/\u251C\u00A1/g, 'í')
+          .replace(/\u251C\u2551/g, 'ú')
+          .replace(/\u251C\u00E1/g, 'à')
+          .replace(/\u251C\u00C7/g, 'Ç')
+          .replace(/\u251C\u00D5/g, 'õ')
+          .replace(/\u251C\u00D4/g, 'ô')
+          .replace(/\u251C\u00F5/g, 'õ')
+          .replace(/\u251C\u00F4/g, 'ô');
+      }
+    }
+
+    // 2. Mojibake decorrente de bytes UTF-8 lidos como Latin-1 / Windows-1252 (ex.: Ã© -> é, Ã§ -> ç)
+    if (/[\u00C2\u00C3]/.test(str)) {
+      try {
+        if (typeof Buffer !== 'undefined') {
+          const decoded = Buffer.from(str, 'latin1').toString('utf8');
+          if (decoded && !decoded.includes('\uFFFD')) {
+            str = decoded;
+          }
+        }
+      } catch (_) {}
+    }
+
+    return str;
+  }
+
+  // Tabela de caracteres especiais aceitos pelo WinAnsi (além de ASCII 32..126 e Latin-1 160..255)
+  const WIN_ANSI_SPECIALS = new Set([
+    0x20AC, // €
+    0x201A, // ‚
+    0x0192, // ƒ
+    0x201E, // „
+    0x2026, // …
+    0x2020, // †
+    0x2021, // ‡
+    0x02C6, // ˆ
+    0x2030, // ‰
+    0x0160, // Š
+    0x2039, // ‹
+    0x0152, // Œ
+    0x017D, // Ž
+    0x2018, // ‘
+    0x2019, // ’
+    0x201C, // “
+    0x201D, // ”
+    0x2022, // •
+    0x2013, // –
+    0x2014, // —
+    0x02DC, // ˜
+    0x2122, // ™
+    0x0161, // š
+    0x203A, // ›
+    0x0153, // œ
+    0x017E, // ž
+    0x0178  // Ÿ
+  ]);
+
+  let standardFontsEncoding = null;
+  try {
+    if (typeof require === 'function') {
+      standardFontsEncoding = require('@pdf-lib/standard-fonts/lib/Encoding.js');
+    }
+  } catch (_) {}
+
+  function canEncodeWinAnsi(cp) {
+    if (standardFontsEncoding && standardFontsEncoding.Encodings && standardFontsEncoding.Encodings.WinAnsi) {
+      return standardFontsEncoding.Encodings.WinAnsi.canEncodeUnicodeCodePoint(cp);
+    }
+    return (cp >= 32 && cp <= 126) || (cp >= 160 && cp <= 255) || WIN_ANSI_SPECIALS.has(cp);
+  }
+
+  // Sanitização estrita para nunca lançar "WinAnsi cannot encode"
+  function sanitizeWinAnsi(str) {
+    if (str == null) return '';
+    str = fixMojibake(String(str));
+    // Substituições prévias para símbolos comuns
+    str = str
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/[\u2500-\u257F]/g, '-')
+      .replace(/[•●]/g, '*')
+      .replace(/[–—]/g, '-')
+      .replace(/[‘’]/g, "'")
+      .replace(/[“”]/g, '"');
+
+    let res = '';
+    for (let i = 0; i < str.length; i++) {
+      const cp = str.codePointAt(i);
+      if (cp > 0xFFFF) {
+        i++; // surrogate pair
+        res += '?';
+        continue;
+      }
+      if (cp === 10 || cp === 13) {
+        res += str[i];
+        continue;
+      }
+      if (canEncodeWinAnsi(cp)) {
+        res += str[i];
+      } else {
+        const dec = str[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (dec && dec.length > 0 && canEncodeWinAnsi(dec.codePointAt(0))) {
+          res += dec;
+        } else {
+          res += ' ';
+        }
+      }
+    }
+    return res;
+  }
+
+function sanitizarDiscriminacao(texto) {
+    if (typeof texto === "string") texto = fixMojibake(texto);
     if (!texto || typeof texto !== 'string') return '';
     const trimmed = texto.trim();
     if (!trimmed) return '';
@@ -72,7 +212,7 @@
       }
       return null;
     };
-    const txt = (el, name) => { const c = child(el, name); return c ? c.textContent.trim() : ''; };
+    const txt = (el, name) => { const c = child(el, name); return c ? sanitizeWinAnsi(c.textContent.trim()) : ''; };
     const deepEl = (el, name) => {
       if (!el) return null;
       const st = [el];
@@ -95,21 +235,32 @@
       }
       return null;
     };
-    const deep = (el, name) => { const c = deepEl(el, name); return c ? c.textContent.trim() : ''; };
+    const deep = (el, name) => { const c = deepEl(el, name); return c ? sanitizeWinAnsi(c.textContent.trim()) : ''; };
 
-    const infNFSe = child(NFSe, 'infNFSe');
+    let infNFSe = child(NFSe, 'infNFSe');
+    let isRawDps = false;
+    let DPS = null;
+    let infDPS = null;
+
     if (!infNFSe) {
       const nfeSP = (NFSe.localName === 'NFe') ? NFSe : deepEl(NFSe, 'NFe');
       if (nfeSP) {
         return parseDanfseSP(nfeSP, deep, deepEl, txt);
       }
-      return null;
+      DPS = (NFSe.localName === 'DPS') ? NFSe : deepEl(NFSe, 'DPS');
+      infDPS = (NFSe.localName === 'infDPS') ? NFSe : (DPS ? child(DPS, 'infDPS') : deepEl(NFSe, 'infDPS'));
+      if (!infDPS) {
+        return null;
+      }
+      isRawDps = true;
+    } else {
+      DPS = child(infNFSe, 'DPS');
+      infDPS = DPS ? child(DPS, 'infDPS') : deepEl(infNFSe, 'infDPS');
     }
-    const emit = child(infNFSe, 'emit');
-    const emitEnd = child(emit, 'enderNac') || child(emit, 'enderExt');
-    const valNFSe = child(infNFSe, 'valores');
-    const DPS = child(infNFSe, 'DPS');
-    const infDPS = child(DPS, 'infDPS');
+
+    const emit = infNFSe ? child(infNFSe, 'emit') : (child(infDPS, 'prest') || null);
+    const emitEnd = emit ? (child(emit, 'enderNac') || child(emit, 'enderExt') || child(emit, 'end') || child(emit, 'endNac')) : null;
+    const valNFSe = infNFSe ? child(infNFSe, 'valores') : null;
     const prest = child(infDPS, 'prest');
     const regTrib = child(prest, 'regTrib');
     const toma = child(infDPS, 'toma');
@@ -150,8 +301,8 @@
       return p.join(', ');
     };
 
-    const idAttr = infNFSe.getAttribute('Id') || '';
-    const chave = idAttr.replace(/^NFS/, '').replace(/\D/g, '');
+    const idAttr = (infNFSe ? infNFSe.getAttribute('Id') : '') || (infDPS ? infDPS.getAttribute('Id') : '') || '';
+    const chave = idAttr.replace(/^NFS|^DPS/, '').replace(/\D/g, '');
 
     const opSimp = txt(regTrib, 'opSimpNac'); // 1=Não optante, 2=MEI, 3=ME/EPP
     const opSimpLabel = {
@@ -166,7 +317,7 @@
       deep(NFSe, 'infPedCanc') !== '' || 
       deep(NFSe, 'cancNFSe') !== ''
     );
-    let situacaoLabel = 'NFS-e Gerada';
+    let situacaoLabel = isRawDps ? 'DPS Transmitida' : 'NFS-e Gerada';
     if (isXmlCanc) {
       situacaoLabel = 'NFS-e Cancelada';
     } else if (cStat === '101') {
@@ -268,14 +419,14 @@
       chave,
       _tagInfo: { pairs: _tagPairs, leaves: _tagLeaves },
       // Cabeçalho
-      municipioEmit: txt(infNFSe, 'xLocEmi') || munNome(_cMunEmit),
-      ufEmit: munUF(_cMunEmit, txt(emitEnd, 'UF')),
-      ambGer: txt(infNFSe, 'ambGer'),       // 1=Sistema Próprio do Município, 2=Sefin Nacional NFS-e
-      tpAmb: txt(infDPS, 'tpAmb'),           // 1=Produção, 2=Homologação
+      municipioEmit: (infNFSe ? txt(infNFSe, 'xLocEmi') : '') || munNome(_cMunEmit),
+      ufEmit: munUF(_cMunEmit, emitEnd ? txt(emitEnd, 'UF') : ''),
+      ambGer: infNFSe ? txt(infNFSe, 'ambGer') : '2',
+      tpAmb: txt(infDPS, 'tpAmb'),
       // Dados da NFS-e
-      nNFSe: txt(infNFSe, 'nNFSe'),
+      nNFSe: (infNFSe ? txt(infNFSe, 'nNFSe') : '') || txt(infDPS, 'nDPS'),
       competencia: txt(infDPS, 'dCompet'),
-      dhEmiNFSe: txt(infNFSe, 'dhProc'),
+      dhEmiNFSe: (infNFSe ? txt(infNFSe, 'dhProc') : '') || txt(infDPS, 'dhEmi'),
       nDPS: txt(infDPS, 'nDPS'),
       serieDPS: txt(infDPS, 'serie'),
       dhEmiDPS: txt(infDPS, 'dhEmi'),
@@ -665,6 +816,30 @@
       fN = await pdf.embedFont(StandardFonts.Helvetica);
       fB = await pdf.embedFont(StandardFonts.HelveticaBold);
     }
+
+    const wrapFont = (f) => {
+      if (!f || f._wrappedWinAnsi) return f;
+      const origWidth = f.widthOfTextAtSize.bind(f);
+      f.widthOfTextAtSize = function(text, size) {
+        return origWidth(sanitizeWinAnsi(text), size);
+      };
+      f._wrappedWinAnsi = true;
+      return f;
+    };
+    if (fN) wrapFont(fN);
+    if (fB) wrapFont(fB);
+
+    const wrapPage = (p) => {
+      if (!p || p._wrappedWinAnsi) return p;
+      const origDraw = p.drawText.bind(p);
+      p.drawText = function(text, options) {
+        return origDraw(sanitizeWinAnsi(text), options);
+      };
+      p._wrappedWinAnsi = true;
+      return p;
+    };
+    wrapPage(page);
+
     let logo = null;
     try { if (logoBytes) logo = await pdf.embedPng(logoBytes); } catch (_) {}
 
@@ -901,7 +1076,7 @@
     // saber se o grupo cabe.
     const canhotoReserva = audit ? 0 : cm(1.0) + cm(0.3); // altura do canhoto + folga (só no normal)
     const yBottomLimit = mg + pad + cm(0.12) + canhotoReserva;
-    function novaPagina() { page = pdf.addPage([A4W, A4H]); pages.push(page); y = contentTop; }
+    function novaPagina() { page = pdf.addPage([A4W, A4H]); wrapPage(page); pages.push(page); y = contentTop; }
     function brk(need) { if (y - need < yBottomLimit) novaPagina(); } // quebra se o grupo não couber
     const tbH = (val, maxLines, minLines, labOrTag) => {
       const n = Math.max(minLines || 1, wrapMultiline(val, 118, maxLines).length);
@@ -1225,6 +1400,7 @@
     const wmFont = fB || fN;
     const wmSize = 70, wmTw = wmTxt ? wmFont.widthOfTextAtSize(wmTxt, wmSize) : 0;
     const a = Math.PI / 4, cs = Math.cos(a), sn = Math.sin(a);
+    pages.forEach(pg => wrapPage(pg));
     pages.forEach((pg, i) => {
       pg.drawRectangle({ x: mg, y: mg, width: A4W - 2 * mg, height: A4H - 2 * mg, borderWidth: 1.0, borderColor: K });
       if (wmTxt) pg.drawText(wmTxt, {
@@ -1315,6 +1491,7 @@
 
   // ───────────────────────── export ─────────────────────────
   async function gerarDanfse(xmlString, deps) {
+    if (typeof xmlString === "string") xmlString = fixMojibake(xmlString);
     const data = parseDanfse(xmlString);
     if (!data) throw new Error('XML inválido para DANFSe');
     if (deps && deps.marcaDagua) {
@@ -1323,7 +1500,7 @@
     return await buildDanfsePdf(data, deps);
   }
 
-  const api = { parseDanfse, parseEvento, buildDanfsePdf, gerarDanfse };
+  const api = { parseDanfse, parseEvento, buildDanfsePdf, gerarDanfse, fixMojibake, sanitizeWinAnsi };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DANFSe = api;
 
