@@ -273,7 +273,9 @@ cont-ai/
 
 ## 👨‍💻 Autor & Contato
 
-Idealizado e desenvolvido por **Vagner Godoy de Melo**:
+Idealizado e desenvolvido por **Vagner Godoy de Melo** — *Analista Fiscal Jr. | Análise de Dados | Automações*:
+- **Formação:** Bacharel em Ciências Contábeis (Universidade Cruzeiro do Sul) e Técnico em Informática (ETEC Machado de Assis).
+- **Vivência Prática:** Atuação direta na rotina fiscal, contábil e de operações integradas de escritórios contábeis, unindo a vivência dos gargalos tributários reais com o desenvolvimento de automações.
 - **LinkedIn:** [linkedin.com/in/vagnergmelo](https://www.linkedin.com/in/vagnergmelo/)
 - **GitHub:** [github.com/Rammeta/cont-ai](https://github.com/Rammeta/cont-ai)
 - **Site Oficial:** [rammeta.github.io/cont-ai](https://rammeta.github.io/cont-ai/)
