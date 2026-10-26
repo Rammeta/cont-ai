@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { EmpresaSefaz, RegimeDestinatario, ModelSchedulersMap, NfseConfigEmissao, NfseModeloNota } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
 import NfseModeloModal from "./NfseModeloModal";
@@ -139,6 +139,44 @@ export default function UnifiedConfigModal({
   const [installedCertsFilter, setInstalledCertsFilter] = useState("");
   const [installedCertsMode, setInstalledCertsMode] = useState<"select" | "batch_create">("select");
   const [selectedInstalledCertsForBatch, setSelectedInstalledCertsForBatch] = useState<string[]>([]);
+  const [installedCertsSortDirection, setInstalledCertsSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Filtro funcional inteligente e ordenação alfabética dos certificados do repositório do Windows
+  const filteredAndSortedInstalledCerts = useMemo(() => {
+    const q = installedCertsFilter.trim().toLowerCase();
+    const digitsOnly = q.replace(/\D/g, "");
+
+    return [...installedCerts]
+      .filter((c) => {
+        if (!q) return true;
+
+        const cleanName = (c.CleanName || "").toLowerCase();
+        const commonName = (c.CommonName || "").toLowerCase();
+        const subject = (c.Subject || "").toLowerCase();
+        const issuer = (c.Issuer || "").toLowerCase();
+        const thumbprint = (c.Thumbprint || "").toLowerCase();
+        const cleanDoc = (c.Documento || "").replace(/\D/g, "");
+
+        // Se o usuário digitou números de CNPJ/CPF, busca pelo documento
+        const docMatches = digitsOnly.length > 0 && cleanDoc.includes(digitsOnly);
+
+        // Se o usuário digitou texto, busca no Nome da Empresa, Razão Social, Certificadora ou Thumbprint
+        const textMatches =
+          cleanName.includes(q) ||
+          commonName.includes(q) ||
+          subject.includes(q) ||
+          issuer.includes(q) ||
+          thumbprint.includes(q);
+
+        return textMatches || docMatches;
+      })
+      .sort((a, b) => {
+        const nameA = (a.CleanName || a.CommonName || "").trim();
+        const nameB = (b.CleanName || b.CommonName || "").trim();
+        const comp = nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base", numeric: true });
+        return installedCertsSortDirection === "asc" ? comp : -comp;
+      });
+  }, [installedCerts, installedCertsFilter, installedCertsSortDirection]);
 
   // -------------------------------------------------------------
   // ESTADOS DA ABA DE AGENDADORES & ARMAZENAMENTO
@@ -605,7 +643,12 @@ export default function UnifiedConfigModal({
     try {
       const res = await listInstalledCerts();
       if (res.success && res.certs) {
-        setInstalledCerts(res.certs);
+        const sorted = [...(res.certs || [])].sort((a, b) => {
+          const nameA = (a.CleanName || a.CommonName || "").trim();
+          const nameB = (b.CleanName || b.CommonName || "").trim();
+          return nameA.localeCompare(nameB, "pt-BR", { sensitivity: "base", numeric: true });
+        });
+        setInstalledCerts(sorted);
       } else {
         alert("Erro ao consultar certificados do Windows: " + (res.error || "Falha desconhecida"));
       }
@@ -2607,9 +2650,27 @@ export default function UnifiedConfigModal({
                   value={installedCertsFilter}
                   onChange={(e) => setInstalledCertsFilter(e.target.value)}
                   placeholder="Filtrar por Razão Social, CNPJ ou Certificadora..."
-                  className="vb-input w-full !pl-6 text-[10px]"
+                  className="vb-input w-full !pl-6 !pr-6 text-[10px]"
                 />
+                {installedCertsFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setInstalledCertsFilter("")}
+                    className="absolute right-2 top-1.5 text-[10px] text-[#777777] hover:text-[#000000] cursor-pointer"
+                    title="Limpar filtro de pesquisa"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
+              <button
+                type="button"
+                onClick={() => setInstalledCertsSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
+                className="vb-btn flex items-center gap-1 shrink-0"
+                title={`Alternar ordenação alfabética (${installedCertsSortDirection === "asc" ? "A-Z" : "Z-A"})`}
+              >
+                <span>Ordem: {installedCertsSortDirection === "asc" ? "A-Z ▲" : "Z-A ▼"}</span>
+              </button>
               <button
                 type="button"
                 onClick={handleLoadInstalledCerts}
@@ -2636,21 +2697,34 @@ export default function UnifiedConfigModal({
             <div className="px-3 py-1 bg-[#f5f9fc] border-b border-[#d0e0ed] text-[10px] text-[#2c5282] flex items-center justify-between">
               <span>
                 Total no Repositório do Windows: <strong>{installedCerts.length}</strong> certificados detectados
+                {installedCertsFilter ? (
+                  <span className="text-[#003366] font-semibold ml-1">
+                    (Exibindo <strong>{filteredAndSortedInstalledCerts.length}</strong> filtrados)
+                  </span>
+                ) : (
+                  <span className="text-[#555555] ml-1">(Ordenados de A a Z)</span>
+                )}
               </span>
               {installedCertsMode === "batch_create" && (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
-                      if (selectedInstalledCertsForBatch.length === installedCerts.length) {
+                      if (
+                        selectedInstalledCertsForBatch.length === filteredAndSortedInstalledCerts.length &&
+                        filteredAndSortedInstalledCerts.length > 0
+                      ) {
                         setSelectedInstalledCertsForBatch([]);
                       } else {
-                        setSelectedInstalledCertsForBatch(installedCerts.map((c) => c.Thumbprint));
+                        setSelectedInstalledCertsForBatch(filteredAndSortedInstalledCerts.map((c) => c.Thumbprint));
                       }
                     }}
                     className="text-[10px] text-[#003366] hover:underline font-bold cursor-pointer"
                   >
-                    {selectedInstalledCertsForBatch.length === installedCerts.length ? "Desmarcar Todos" : "Selecionar Todos"}
+                    {selectedInstalledCertsForBatch.length === filteredAndSortedInstalledCerts.length &&
+                    filteredAndSortedInstalledCerts.length > 0
+                      ? "Desmarcar Todos"
+                      : "Selecionar Todos"}
                   </button>
                 </div>
               )}
@@ -2667,19 +2741,12 @@ export default function UnifiedConfigModal({
                 <div className="p-8 text-center text-[#888888] text-[11px]">
                   Nenhum certificado digital com chave privada foi localizado no Windows Certificate Store.
                 </div>
+              ) : filteredAndSortedInstalledCerts.length === 0 ? (
+                <div className="p-8 text-center text-[#888888] text-[11px]">
+                  Nenhum certificado digital encontrado para &quot;{installedCertsFilter}&quot;.
+                </div>
               ) : (
-                installedCerts
-                  .filter((c) => {
-                    const q = installedCertsFilter.toLowerCase();
-                    if (!q) return true;
-                    return (
-                      (c.CleanName || "").toLowerCase().includes(q) ||
-                      (c.Subject || "").toLowerCase().includes(q) ||
-                      (c.Documento || "").includes(q.replace(/\D/g, "")) ||
-                      (c.Issuer || "").toLowerCase().includes(q)
-                    );
-                  })
-                  .map((cert) => {
+                filteredAndSortedInstalledCerts.map((cert) => {
                     const isSelected = selectedInstalledCertsForBatch.includes(cert.Thumbprint);
                     const cleanDoc = (cert.Documento || "").replace(/\D/g, "");
                     const isAlreadyRegistered = empresas.some((e) => e.cnpj.replace(/\D/g, "") === cleanDoc);
