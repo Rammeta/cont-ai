@@ -1,8 +1,8 @@
 {
   "name": "cont-ai-entradas-difal-sn",
   "private": true,
-  "version": "1.0.0",
-  "description": "CONT-AI - Gestor de Movimento Fiscal (NF-e, NFC-e, CT-e, NFS-e e DIFAL)",
+  "version": "2.1.0",
+  "description": "CONT-AI - Gestor de Movimento Fiscal & Emissor NFS-e Nacional (NF-e, NFC-e, CT-e, NFS-e e DIFAL)",
   "author": "CONT-AI",
   "type": "module",
   "main": "main.cjs",

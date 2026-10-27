@@ -206,7 +206,7 @@ export default function ExecutiveDashboardModal({
             <div className="flex items-center gap-1.5 font-bold">
               <span>CONT-AI - Painel Executivo Fiscal & Apresentação Gerencial</span>
               <span className="text-[10px] bg-white/20 px-1 py-0.2 rounded-xs text-white font-mono font-normal">
-                v2.0
+                v2.1
               </span>
             </div>
           </div>

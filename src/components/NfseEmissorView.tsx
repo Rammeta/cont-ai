@@ -1427,7 +1427,7 @@ export default function NfseEmissorView({
                 CONT-AI
               </span>
               <span className="text-[9px] font-bold text-[#005a9e] bg-[#dbe8f8] border border-[#99bce8] px-1 rounded-xs">
-                v2.0
+                v2.1
               </span>
             </div>
 

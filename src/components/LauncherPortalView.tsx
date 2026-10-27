@@ -84,7 +84,7 @@ export default function LauncherPortalView({
             CONT-AI
           </span>
           <span className="text-[9px] font-bold text-[#005a9e] bg-[#dbe8f8] border border-[#99bce8] px-1 rounded-xs">
-            v2.0
+            v2.1
           </span>
           <div className="h-4 w-[1px] bg-[#b8b8b8] mx-1" />
           <span className="text-[11px] text-[#444444] font-medium">
@@ -136,7 +136,7 @@ export default function LauncherPortalView({
               <span>CONT-AI - Seleção do Ambiente de Trabalho</span>
             </div>
             <span className="text-[10px] text-sky-200 font-normal">
-              Versão 2.0.0
+              Versão 2.1.0
             </span>
           </div>
 
@@ -313,7 +313,7 @@ export default function LauncherPortalView({
       {/* Classic Windows-style Status Bar */}
       <footer className="shrink-0 h-6 bg-[#f0f0f0] border-t border-[#b0b0b0] px-3 flex items-center justify-between text-[11px] text-[#444444]">
         <div className="flex items-center gap-3">
-          <span>CONT-AI v2.0 • Gestor de Movimento Fiscal</span>
+          <span>CONT-AI v2.1 • Gestor de Movimento Fiscal & Emissor NFS-e</span>
           <span>|</span>
           <span>Zero-Cloud Storage (Conexão Direta mTLS)</span>
         </div>

@@ -107,7 +107,7 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
         <div className="bg-gradient-to-r from-[#003366] via-[#004b87] to-[#005a9e] text-white px-3 py-1.5 flex items-center justify-between border-b border-[#002244] shadow-xs">
           <div className="flex items-center gap-2">
             <img src={logoImg} alt="CONT-AI" className="h-4 w-4 rounded-xs object-contain bg-white p-[1px] border border-white/40" />
-            <strong className="tracking-wide text-[11px]">CONT-AI - Gestor de Movimento fiscal v2.0</strong>
+            <strong className="tracking-wide text-[11px]">CONT-AI - Gestor de Movimento fiscal v2.1</strong>
             <span className="text-[#cce2ff] text-[11px]">- [ Guia Geral de Utilização e Procedimentos Fiscais ]</span>
             <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded-xs font-mono font-normal">
               Passo {currentStep} de {totalSteps}
@@ -159,7 +159,7 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
               <fieldset className="vb-groupbox bg-[#ffffff]">
                 <legend className="vb-legend">Visão Unificada 360° - 6 Módulos Fiscais Integrados</legend>
                 <p className="text-[11px] text-[#333333] leading-relaxed mb-2.5">
-                  O <strong>CONT-AI - Gestor de Movimento fiscal v2.0</strong> automatiza a captura completa, gravação padronizada em disco, geração de DANFEs/DACTEs/DANFSes em PDF oficial e auditoria tributária para todas as empresas em 6 módulos integrados:
+                  O <strong>CONT-AI - Gestor de Movimento fiscal v2.1</strong> automatiza a captura completa, gravação padronizada em disco, geração de DANFEs/DACTEs/DANFSes em PDF oficial e auditoria tributária para todas as empresas em 6 módulos integrados:
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-[11px]">

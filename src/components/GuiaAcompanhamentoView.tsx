@@ -1987,7 +1987,7 @@ export default function GuiaAcompanhamentoView({
             alt="CONT-AI"
             className="h-3.5 w-3.5 rounded-xs object-contain bg-white p-[0.5px] border border-[#a0a0a0]"
           />
-          <strong className="text-[#003366] text-[11px]">CONT-AI v2.0</strong>
+          <strong className="text-[#003366] text-[11px]">CONT-AI v2.1</strong>
         </div>
 
         <div className="status-panel">

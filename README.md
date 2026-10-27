@@ -1,8 +1,8 @@
 <div align="center">
   <img src="assets/logo.png" alt="CONT-AI Logo" width="90" />
-  <h1>CONT-AI v2.0 — Gestor de Movimento Fiscal & Apuração de DIFAL</h1>
+  <h1>CONT-AI v2.1 — Gestor de Movimento Fiscal & Emissor de NFS-e Nacional</h1>
   <p>
-    <strong>Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais Eletrônicos (NF-e, NFC-e, CT-e e NFS-e) via Certificado Digital A1 (mTLS) e Auditoria/Apuração de DIFAL e Antecipação Tributária.</strong>
+    <strong>Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais Eletrônicos (NF-e, NFC-e, CT-e e NFS-e), Emissão de NFS-e Nacional (DPS / Sefin / ADN) via Certificado Digital A1 (mTLS) e Auditoria/Apuração de DIFAL e Antecipação Tributária.</strong>
   </p>
   <p>
     <img src="https://img.shields.io/badge/Electron-43.4-003366?style=flat-square&logo=electron" alt="Electron" />
@@ -17,10 +17,10 @@
 
 ## 📥 Download Direto do Instalador Windows (`.exe`)
 
-Para instalar o **CONT-AI v2.0** diretamente no seu computador (Windows 10 / 11 x64) sem precisar compilar o código-fonte, clique no link abaixo:
+Para instalar o **CONT-AI v2.1** diretamente no seu computador (Windows 10 / 11 x64) sem precisar compilar o código-fonte, clique no link abaixo:
 
 👉 **[🌐 Acessar Site Oficial de Download & Demonstração (GitHub Pages)](https://rammeta.github.io/cont-ai/)**  
-👉 **[⬇️ Baixar Instalador Oficial — CONT-AI-Setup-2.0.0.exe (Windows x64)](https://github.com/Rammeta/cont-ai/releases/download/v2.0.0/CONT-AI-Setup-2.0.0.exe)**  
+👉 **[⬇️ Baixar Instalador Oficial — CONT-AI-Setup-2.1.0.exe (Windows x64)](https://github.com/Rammeta/cont-ai/releases/download/v2.1.0/CONT-AI-Setup-2.1.0.exe)**  
 *(Ou acesse a página de [Releases Oficiais do Repositório](https://github.com/Rammeta/cont-ai/releases/latest))*
 
 ---
@@ -62,12 +62,13 @@ Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar 
    - [1. Painel de Empresas (Hub Multi-CNPJ)](#1-painel-de-empresas-hub-multi-cnpj)
    - [2. Busca e Seleção Rápida de Empresas em Ordem Alfabética (A-Z)](#2-busca-e-seleção-rápida-de-empresas-em-ordem-alfabética-a-z)
    - [3. Guia Geral de Notas (Consolidação Fiscal dos 4 Modelos)](#3-guia-geral-de-notas-consolidação-fiscal-dos-4-modelos)
-   - [4. NF-e Entradas (Modelo 55 — SEFAZ Nacional)](#4-nf-e-entradas-modelo-55--sefaz-nacional)
-   - [5. NFC-e (Modelo 65 — Cupons Fiscais Eletrônicos)](#5-nfc-e-modelo-65--cupons-fiscais-eletrônicos)
-   - [6. CT-e Fretes (Modelo 57 — Transporte de Cargas)](#6-ct-e-fretes-modelo-57--transporte-de-cargas)
-   - [7. NFS-e (Portal Nacional ADN & Prefeitura de São Paulo)](#7-nfs-e-portal-nacional-adn--prefeitura-de-são-paulo)
-   - [8. Cálculo e Auditoria de DIFAL / Antecipação Tributária](#8-cálculo-e-auditoria-de-difal--antecipação-tributária)
-   - [9. Central de Configurações, Empresas, Agendadores e Repositório](#9-central-de-configurações-empresas-agendadores-e-repositório)
+   - [4. Emissor NFS-e Nacional (Padrão ADN / SEFIN & Emissão Retroativa)](#4-emissor-nfs-e-nacional-padrão-adn--sefin--emissão-retroativa)
+   - [5. NF-e Entradas (Modelo 55 — SEFAZ Nacional)](#5-nf-e-entradas-modelo-55--sefaz-nacional)
+   - [6. NFC-e (Modelo 65 — Cupons Fiscais Eletrônicos)](#6-nfc-e-modelo-65--cupons-fiscais-eletrônicos)
+   - [7. CT-e Fretes (Modelo 57 — Transporte de Cargas)](#7-ct-e-fretes-modelo-57--transporte-de-cargas)
+   - [8. NFS-e (Portal Nacional ADN & Prefeitura de São Paulo)](#8-nfs-e-portal-nacional-adn--prefeitura-de-são-paulo)
+   - [9. Cálculo e Auditoria de DIFAL / Antecipação Tributária](#9-cálculo-e-auditoria-de-difal--antecipação-tributária)
+   - [10. Central de Configurações, Empresas, Agendadores e Repositório](#10-central-de-configurações-empresas-agendadores-e-repositório)
 5. [Tutorial Passo a Passo de Uso no Dia a Dia](#-tutorial-passo-a-passo-de-uso-no-dia-a-dia)
 6. [Tutorial de Instalação (Ambiente de Desenvolvimento)](#-tutorial-de-instalação-ambiente-de-desenvolvimento)
 7. [Tutorial para Gerar o Executável / Instalador Windows (`.exe`)](#-tutorial-para-gerar-o-executável--instalador-windows-exe)
@@ -77,7 +78,8 @@ Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar 
 
 ## 📌 Sobre o Projeto
 
-O **CONT-AI v2.0** foi projetado para resolver os principais gargalos operacionais de escritórios de contabilidade e departamentos fiscais:
+O **CONT-AI v2.1** foi projetado para resolver os principais gargalos operacionais de escritórios de contabilidade e departamentos fiscais:
+- **Emissor de NFS-e Nacional (ADN / SEFIN):** Emissão completa de Declaração de Prestação de Serviços (DPS) transmitida diretamente aos servidores da Receita Federal / Sefin Nacional via mTLS (Certificado A1 em arquivo `.pfx` ou Windows Store), com suporte a emissões normais e **retroativas**, retenções federais (IRRF, PIS, COFINS, CSLL, INSS), pré-visualização oficial do DANFSE e gestão de clientes frequentes.
 - **Captação descentralizada de XMLs:** Elimina a necessidade de acessar múltiplos portais estaduais e municipais manualmente, conectando-se diretamente via **Certificado Digital A1 (`.pfx` / `.p12`)** aos WebServices oficiais da **SEFAZ Nacional**, **Ambiente de Dados Nacional (ADN)** e **Prefeitura de São Paulo**.
 - **Controle de Certificados Digitais:** Monitora a validade de dezenas de certificados simultaneamente com alertas visuais de vencimento (`≤ 30 dias` e expirados).
 - **Apuração de DIFAL e Antecipação Tributária:** Audita automaticamente todas as notas fiscais interestaduais de entrada, consulta o enquadramento tributário dos fornecedores (Simples Nacional vs. Regime Normal) e gera a memória de cálculo completa por nota e por item/NCM.
@@ -116,7 +118,21 @@ Painel unificado para conferência de fechamento fiscal mensal por empresa:
 
 ---
 
-### 4. NF-e Entradas (Modelo 55 — SEFAZ Nacional)
+### 4. Emissor NFS-e Nacional (Padrão ADN / SEFIN & Emissão Retroativa)
+Módulo completo de faturamento e emissão de Notas Fiscais de Serviços Eletrônicas no Padrão Nacional:
+- **Transmissão Direta ADN / SEFIN:** Geração e envio do XML de DPS diretamente ao Ambiente de Dados Nacional da NFS-e via mTLS, utilizando o Certificado Digital A1 da empresa (arquivo `.pfx`/`.p12` ou repositório Windows Store).
+- **Emissão Retroativa Flexível:** Permite definir livremente a **Data de Emissão (DPS)** e a **Competência Fiscal** da nota fiscal, facilitando a regularização de serviços prestados em competências anteriores ou datas passadas com validação de segurança.
+- **Gestão de Clientes e Serviços Pré-configurados:** Cadastro automático de tomadores frequentes e modelos de serviços (alíquotas, código de tributação nacional e descrições padrão), preenchendo a nota em segundos sem redigitação.
+- **Cálculo Completo de Retenções Federais:** Apuração automática ou manual de **ISS Retido**, **PIS**, **COFINS**, **INSS**, **IRRF** e **CSLL**, com cálculo líquido imediato a receber.
+- **Espelho Oficial DANFSE & Validação de XML:** Pré-visualização idêntica ao Documento Auxiliar da NFS-e antes da transmissão oficial e arquivamento automático do XML e PDF em pastas por competência (`.../NFSE/SERVIÇOS PRESTADOS/`).
+
+![Emissor NFS-e Nacional](docs/screenshots/screen_12_emissor_nfse.png)
+
+![Espelho DANFSE e Validação](docs/screenshots/screen_18_preview_espelho_dps.png)
+
+---
+
+### 5. NF-e Entradas (Modelo 55 — SEFAZ Nacional)
 Módulo dedicado à captação e auditoria de Notas Fiscais Eletrônicas de Entrada:
 - **Integração Nativa `NFeDistribuicaoDFe`:** Consulta sequencial por NSU (`ultNSU` / `maxNSU`) diretamente no Ambiente Nacional da SEFAZ.
 - **Manifestação Automática do Destinatário (`210210`):** Registra automaticamente o evento de *Ciência da Operação* sobre os resumos (`resNFe`) encontrados para liberar o download do XML completo (`procNFe`).
@@ -129,7 +145,7 @@ Módulo dedicado à captação e auditoria de Notas Fiscais Eletrônicas de Entr
 
 ---
 
-### 5. NFC-e (Modelo 65 — Cupons Fiscais Eletrônicos)
+### 6. NFC-e (Modelo 65 — Cupons Fiscais Eletrônicos)
 Módulo voltado à gestão e captação de Notas Fiscais de Consumidor Eletrônicas:
 - **Consulta por Período e Competência:** Captação estruturada com controle de taxa de requisição (*Rate Limiter*) para evitar bloqueios na SEFAZ estadual.
 - **Importação e Organização Automática em Disco:** Leitura de XMLs de NFC-e com separação automática por CNPJ e competência (`AAAA-MM`), identificando documentos autorizados e cancelados.
@@ -139,7 +155,7 @@ Módulo voltado à gestão e captação de Notas Fiscais de Consumidor Eletrôni
 
 ---
 
-### 6. CT-e Fretes (Modelo 57 — Transporte de Cargas)
+### 7. CT-e Fretes (Modelo 57 — Transporte de Cargas)
 Módulo para controle de Conhecimentos de Transporte Eletrônicos:
 - **Integração `CTeDistribuicaoDFe`:** Captura automática de CT-es emitidos contra o CNPJ da empresa na condição de **Tomador do Serviço**, **Remetente**, **Destinatário** ou **Expedidor/Recebedor**.
 - **Auditoria de Frete e ICMS de Transporte:** Exibe remetente, destinatário, transportadora emitente, CFOP, rota (`UF Origem → UF Destino`), valor do frete e status do documento.
@@ -149,7 +165,7 @@ Módulo para controle de Conhecimentos de Transporte Eletrônicos:
 
 ---
 
-### 7. NFS-e (Portal Nacional ADN & Prefeitura de São Paulo)
+### 8. NFS-e (Portal Nacional ADN & Prefeitura de São Paulo)
 Módulo híbrido para captação de Notas Fiscais de Serviços Eletrônicas:
 - **Dupla Integração Automática:**
   1. **Portal Nacional de NFS-e (ADN / Sefin Nacional):** Consulta via API REST mTLS por NSU para municípios integrados ao padrão nacional.
@@ -161,7 +177,7 @@ Módulo híbrido para captação de Notas Fiscais de Serviços Eletrônicas:
 
 ---
 
-### 8. Cálculo e Auditoria de DIFAL / Antecipação Tributária
+### 9. Cálculo e Auditoria de DIFAL / Antecipação Tributária
 Motor especializado de auditoria fiscal para compras interestaduais:
 - **Filtro Automático de Operações Interestaduais:** Descarta automaticamente notas internas (`UF Origem === UF Destino`) e modelos não sujeitos ao cálculo na entrada, mantendo apenas as NF-es interestaduais (`UF Origem ≠ UF Destino`).
 - **Parametrização Fiscal Completa:**
@@ -175,7 +191,7 @@ Motor especializado de auditoria fiscal para compras interestaduais:
 
 ---
 
-### 9. Central de Configurações, Empresas, Agendadores e Repositório
+### 10. Central de Configurações, Empresas, Agendadores e Repositório
 Painel administrativo acessível pelo ícone de engrenagem no cabeçalho:
 - **Aba 1 — Empresas & Certificados A1:** Cadastro de empresas por leitura automática do arquivo `.pfx`/`.p12` (extrai Razão Social, CNPJ e validade automaticamente do certificado), busca em diretório de rede e ativação individual de quais modelos (`NFE`, `NFCE`, `CTE`, `NFSE`) cada empresa deve sincronizar.
 - **Aba 2 — Agendadores por Modelo:** Configuração de horários diários de busca automática em segundo plano (bandeja do sistema / *System Tray*).
@@ -226,7 +242,7 @@ npm run dev
 
 ## 📦 Tutorial para Gerar o Executável / Instalador Windows (`.exe`)
 
-Para compilar o código-fonte em produção e gerar o instalador completo do Windows (`CONT-AI - Gestor de Movimento Fiscal Setup 1.0.0.exe`):
+Para compilar o código-fonte em produção e gerar o instalador completo do Windows (`CONT-AI - Gestor de Movimento Fiscal Setup 2.1.0.exe`):
 
 ### Passo 1: Instalar dependências de empacotamento (caso ainda não estejam instaladas)
 ```bash
@@ -243,7 +259,7 @@ O comando acima executará duas etapas automaticamente:
 
 ### Passo 3: Localizar o Instalador Gerado
 Ao finalizar o processo, os arquivos estarão disponíveis na pasta `dist_electron/`:
-- **`dist_electron/CONT-AI - Gestor de Movimento Fiscal Setup 1.0.0.exe`**: Instalador oficial com assistente de instalação e criação de atalho na Área de Trabalho e Menu Iniciar.
+- **`dist_electron/CONT-AI - Gestor de Movimento Fiscal Setup 2.1.0.exe`**: Instalador oficial com assistente de instalação e criação de atalho na Área de Trabalho e Menu Iniciar.
 - **`dist_electron/win-unpacked/CONT-AI - Gestor de Movimento Fiscal.exe`**: Versão portátil (executável direto sem necessidade de instalação).
 
 ---

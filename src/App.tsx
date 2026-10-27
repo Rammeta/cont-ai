@@ -1023,7 +1023,7 @@ export default function App() {
             <div
               className="flex items-center gap-1 cursor-pointer"
               onClick={() => setAppModule("hub")}
-              title="CONT-AI - Gestor de Movimento Fiscal v2.0 (Clique para ir ao Painel de Empresas)"
+              title="CONT-AI - Gestor de Movimento Fiscal v2.1 (Clique para ir ao Painel de Empresas)"
             >
               <img
                 src={logoImg}
@@ -1034,7 +1034,7 @@ export default function App() {
                 CONT-AI
               </span>
               <span className="text-[9px] font-bold text-[#005a9e] bg-[#dbe8f8] border border-[#99bce8] px-1 rounded-xs">
-                v2.0
+                v2.1
               </span>
             </div>
 

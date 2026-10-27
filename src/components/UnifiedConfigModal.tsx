@@ -1060,7 +1060,7 @@ export default function UnifiedConfigModal({
           <div className="flex items-center gap-2">
             <img src={logoImg} alt="CONT-AI Logo" className="h-4 w-auto object-contain brightness-110 drop-shadow-xs" />
             <span className="font-bold tracking-wide text-[11px] drop-shadow-xs">
-              CONT-AI - Gestor de Movimento fiscal v2.0 - [ Central de Configurações, Empresas e Agendadores ]
+              CONT-AI - Gestor de Movimento fiscal v2.1 - [ Central de Configurações, Empresas e Agendadores ]
             </span>
           </div>
           <button

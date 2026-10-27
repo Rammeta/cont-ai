@@ -1,102 +1,118 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CONT-AI — Gestor de Movimento Fiscal & Apuração DIFAL | Vagner Godoy de Melo</title>
-  <meta name="description" content="Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais (NF-e, NFC-e, CT-e e NFS-e) e Auditoria de DIFAL." />
-  <link rel="icon" type="image/png" href="screenshots/logo.png" />
+  <title>CONT-AI v2.1 — Gestor de Movimento Fiscal & Emissor de NFS-e Nacional</title>
+  <meta name="description" content="CONT-AI v2.1: Software Desktop ERP gratuito para escritórios de contabilidade. Gestão de movimentação fiscal, emissão de NFS-e Nacional (ADN/SEFIN) com emissão retroativa, captação automática de NF-e, NFC-e, CT-e, NFS-e e cálculo de DIFAL." />
+  <meta name="author" content="Vagner Godoy de Melo" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="CONT-AI v2.1 — Gestor de Movimento Fiscal & Emissor de NFS-e Nacional" />
+  <meta property="og:description" content="Software Desktop ERP gratuito para contabilidade: Emissor NFS-e Nacional, captação automática SEFAZ/ADN e cálculo de DIFAL por item." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="screenshots/screen_01_painel_empresas.png" />
+
+  <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
-    html { scroll-behavior: smooth; }
+    /* Estilos Visuais Clássicos do CONT-AI (Identidade ERP Desktop / WinForms) */
     body {
-      background-color: #e9edf2;
-      color: #1e293b;
-      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-    }
-    
-    /* Botões no estilo clássico do CONT-AI */
-    .vb-btn {
-      background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 50%, #e4e4e4 100%);
-      border: 1px solid #707070;
-      border-radius: 3px;
-      padding: 6px 14px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #111827;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 2px rgba(0,0,0,0.08);
-      cursor: pointer;
-      transition: all 0.1s ease-in-out;
-      text-decoration: none;
-    }
-    .vb-btn:hover {
-      background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
-      border-color: #005a9e;
-      color: #003366;
-    }
-    .vb-btn-primary {
-      background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
-      border: 1px solid #004578;
-      color: #ffffff !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(0,90,158,0.25);
-    }
-    .vb-btn-primary:hover {
-      background: linear-gradient(180deg, #1084d8 0%, #004880 100%);
-      border-color: #003366;
-    }
-    .vb-btn-success {
-      background: linear-gradient(180deg, #16a34a 0%, #107c41 100%);
-      border: 1px solid #0e6837;
-      color: #ffffff !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 2px 4px rgba(16,124,65,0.25);
-    }
-    .vb-btn-success:hover {
-      background: linear-gradient(180deg, #22c55e 0%, #0d6334 100%);
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #222222;
+      margin: 0;
+      padding: 0;
     }
 
     /* Groupbox clássico do ERP */
     .vb-groupbox {
-      border: 1px solid #b8c2cc;
-      background: #ffffff;
-      padding: 14px 18px;
-      border-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      border: 1px solid #b0b0b0;
+      background-color: #ffffff;
+      padding: 12px 14px;
+      margin-bottom: 8px;
       position: relative;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     }
     .vb-legend {
-      font-weight: 700;
+      font-weight: bold;
       color: #003366;
-      padding: 0 8px;
-      font-size: 13px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0 6px;
       background: #ffffff;
-      margin-left: 8px;
+      display: inline-block;
+      margin-top: -20px;
+      margin-bottom: 6px;
     }
 
-    /* Abas da galeria */
-    .tab-btn {
-      background: #e2e8f0;
-      border: 1px solid #94a3b8;
-      color: #334155;
-      font-size: 12px;
+    /* Botão clássico com relevo tátil */
+    .vb-btn {
+      background: linear-gradient(180deg, #ffffff 0%, #e6e6e6 100%);
+      border: 1px solid #8c8c8c;
+      color: #111111;
+      padding: 5px 12px;
+      font-size: 11px;
       font-weight: 600;
-      border-radius: 3px 3px 0 0;
-      padding: 8px 14px;
       cursor: pointer;
-      transition: all 0.15s ease-in-out;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      transition: all 0.1s ease;
+      text-decoration: none;
+    }
+    .vb-btn:hover {
+      background: linear-gradient(180deg, #f7f7f7 0%, #dcdcdc 100%);
+      border-color: #005a9e;
+    }
+    .vb-btn:active {
+      background: #d4d4d4;
+      border-color: #003366;
+    }
+    .vb-btn-primary {
+      background: linear-gradient(180deg, #005a9e 0%, #003366 100%);
+      border-color: #002244;
+      color: #ffffff !important;
+    }
+    .vb-btn-primary:hover {
+      background: linear-gradient(180deg, #0066b3 0%, #003d7a 100%);
+      border-color: #001a33;
+    }
+    .vb-btn-success {
+      background: linear-gradient(180deg, #107c41 0%, #0b582e 100%);
+      border-color: #07381d;
+      color: #ffffff !important;
+    }
+    .vb-btn-success:hover {
+      background: linear-gradient(180deg, #138d4a 0%, #0d6837 100%);
+    }
+
+    /* Abas da galeria de telas */
+    .tab-btn {
+      padding: 7px 14px;
+      font-size: 11px;
+      font-weight: bold;
+      border: 1px solid #b0b0b0;
+      border-bottom: none;
+      background: #e4e4e4;
+      color: #555555;
+      cursor: pointer;
+      transition: all 0.15s;
     }
     .tab-btn:hover {
-      background: #cbd5e1;
-      color: #0f172a;
+      background: #f0f0f0;
+      color: #003366;
     }
     .tab-btn.active {
       background: #ffffff;
-      border-color: #005a9e;
-      border-bottom: 2px solid #005a9e;
-      color: #005a9e;
-      font-weight: 700;
+      color: #003366;
+      border-top: 2px solid #005a9e;
+      border-bottom: 1px solid #ffffff;
+      margin-bottom: -1px;
+      z-index: 10;
     }
   </style>
 </head>
@@ -115,9 +131,9 @@
         <div>
           <span class="font-bold text-[#003366] text-sm leading-none flex items-center gap-1.5">
             CONT-AI
-            <span class="text-[10px] bg-[#005a9e] text-white px-1.5 py-0.2 rounded font-mono font-normal">v2.0</span>
+            <span class="text-[10px] bg-[#005a9e] text-white px-1.5 py-0.2 rounded font-mono font-normal">v2.1</span>
           </span>
-          <span class="text-[10px] text-[#555555] block">Gestor de Movimento Fiscal & Apuração de DIFAL</span>
+          <span class="text-[10px] text-[#555555] block">Gestor de Movimento Fiscal & Emissor de NFS-e Nacional</span>
         </div>
       </div>
 
@@ -148,21 +164,25 @@
           <!-- Coluna Texto de Apresentação -->
           <div class="lg:col-span-6 space-y-4">
             <h1 class="text-2xl sm:text-4xl font-extrabold text-[#003366] leading-tight">
-              Gestão Fiscal Integrada & Auditoria de DIFAL
+              Gestão Fiscal Integrada & Emissor NFS-e Nacional
             </h1>
 
             <p class="text-sm sm:text-base text-[#444444] leading-relaxed">
-              Sistema Desktop ERP gratuito desenvolvido para escritórios de contabilidade e departamentos fiscais. Conexão direta via Certificado Digital A1 (mTLS) com a SEFAZ Nacional, Ambiente Nacional ADN e Prefeitura de São Paulo.
+              Sistema Desktop ERP gratuito desenvolvido para escritórios de contabilidade e departamentos fiscais. Emissão e captação direta via Certificado Digital A1 (mTLS) com a SEFAZ Nacional, Ambiente Nacional ADN e Prefeitura de São Paulo.
             </p>
 
             <!-- Painel de Badges Fiscais -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
               <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
                 <span class="block text-[10px] text-[#666666] font-semibold uppercase">NF-e (55)</span>
                 <span class="text-xs font-bold text-[#003366]">SEFAZ Nacional</span>
               </div>
+              <div class="bg-white border border-[#005a9e] bg-[#f0f6ff] p-2 text-center rounded">
+                <span class="block text-[10px] text-[#005a9e] font-semibold uppercase">Emissor NFS-e</span>
+                <span class="text-xs font-bold text-[#003366]">Padrão SEFIN</span>
+              </div>
               <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
-                <span class="block text-[10px] text-[#666666] font-semibold uppercase">NFS-e</span>
+                <span class="block text-[10px] text-[#666666] font-semibold uppercase">Captação NFS-e</span>
                 <span class="text-xs font-bold text-[#107c41]">Portal ADN + SP</span>
               </div>
               <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
@@ -171,14 +191,14 @@
               </div>
               <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
                 <span class="block text-[10px] text-[#666666] font-semibold uppercase">DIFAL / SN</span>
-                <span class="text-xs font-bold text-[#c0392b]">Memória Item a Item</span>
+                <span class="text-xs font-bold text-[#c0392b]">Memória por Item</span>
               </div>
             </div>
 
             <!-- Botões de Ação -->
             <div class="pt-3 flex flex-wrap items-center gap-3">
               <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener" class="vb-btn vb-btn-primary py-2.5 px-5 text-sm shadow">
-                <span>Baixar Instalador Oficial Windows (.exe)</span>
+                <span>Baixar Instalador Oficial Windows v2.1 (.exe)</span>
               </a>
               <a href="#apoiar" class="vb-btn vb-btn-success py-2.5 px-4 text-sm shadow">
                 <span>Apoiar via PIX</span>
@@ -200,7 +220,7 @@
               <div class="bg-gradient-to-r from-[#003366] to-[#005a9e] text-white px-3 py-1.5 flex items-center justify-between text-xs font-semibold select-none">
                 <div class="flex items-center gap-2">
                   <img src="screenshots/logo.png" alt="" class="w-3.5 h-3.5 bg-white rounded-xs p-0.5" />
-                  <span>CONT-AI | Gestor de Movimento Fiscal — [Hub Multi-CNPJ]</span>
+                  <span>CONT-AI v2.1 | Gestor Fiscal & Emissor NFS-e — [Hub Multi-CNPJ]</span>
                 </div>
                 <div class="flex items-center gap-2 text-[10px] opacity-80">
                   <span>_</span>
@@ -213,10 +233,11 @@
               <div class="bg-[#f0f0f0] border-b border-[#c0c0c0] px-3 py-1 flex items-center gap-4 text-[11px] text-[#333333]">
                 <span class="font-semibold text-[#003366]">Arquivo</span>
                 <span>Empresas</span>
+                <span>Emissor NFS-e</span>
                 <span>Sincronização</span>
                 <span>Relatórios</span>
                 <span>Configurações</span>
-                <span class="ml-auto text-[10px] font-mono text-[#107c41] font-bold">SEFAZ Online</span>
+                <span class="ml-auto text-[10px] font-mono text-[#107c41] font-bold">SEFAZ & ADN Online</span>
               </div>
 
               <!-- Print Principal em Destaque -->
@@ -227,7 +248,7 @@
               <!-- Rodapé da Janela do ERP -->
               <div class="bg-[#f0f0f0] px-3 py-1 text-[11px] text-[#555555] flex items-center justify-between">
                 <span>Status: Pronto para operação</span>
-                <span class="font-mono">Versão 2.0.0 • Motor mTLS Ativo</span>
+                <span class="font-mono">Versão 2.1.0 • Motor mTLS Ativo</span>
               </div>
             </div>
           </div>
@@ -240,15 +261,23 @@
     <section id="funcionalidades" class="py-12 bg-[#f0f2f5] border-b border-[#c0c0c0]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6">
         <div class="text-center max-w-3xl mx-auto mb-8">
-          <h2 class="text-xl sm:text-3xl font-bold text-[#003366]">Módulos do CONT-AI Gestor Fiscal</h2>
-          <p class="text-xs sm:text-sm text-[#555555] mt-1">Ferramentas de alta densidade desenvolvidas com foco na produtividade da rotina fiscal contábil.</p>
+          <h2 class="text-xl sm:text-3xl font-bold text-[#003366]">Módulos Fiscais Integrados do CONT-AI v2.1</h2>
+          <p class="text-xs sm:text-sm text-[#555555] mt-1">Ferramentas de alta densidade desenvolvidas com foco na produtividade da rotina fiscal e contábil.</p>
         </div>
 
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div class="vb-groupbox">
-            <span class="vb-legend">Hub Multi-Empresas</span>
+          <!-- Emissor NFS-e Nacional -->
+          <div class="vb-groupbox border-[#005a9e] bg-[#f8fbff]">
+            <span class="vb-legend text-[#003366] font-bold">Emissor NFS-e Nacional (ADN / SEFIN)</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Gestão visual de toda a carteira de clientes, monitoramento de validade dos Certificados Digitais A1 (avisos de 30 dias e expirados) e botão de sincronização em lote de todas as empresas em 1 clique.
+              Emissão oficial de DPS no Padrão Nacional via mTLS (arquivo .pfx ou Windows Store). Suporte completo a emissões normais e retroativas, retenções federais (IRRF, PIS, COFINS, CSLL, INSS), pré-visualização oficial do DANFSE em PDF e arquivamento em disco por competência.
+            </p>
+          </div>
+
+          <div class="vb-groupbox">
+            <span class="vb-legend">Hub Multi-Empresas & Cache Rápido</span>
+            <p class="text-xs text-[#444444] mt-2 leading-relaxed">
+              Gestão visual de toda a carteira de clientes, monitoramento de validade dos Certificados A1 (com avisos de expiração), busca rápida ordenada e sincronização unificada em 1 clique com cache inteligente persistente.
             </p>
           </div>
 
@@ -279,13 +308,6 @@
               Filtro automático de notas interestaduais, consulta se o fornecedor é Simples Nacional ou Regime Normal e cálculo com memória item a item por NCM/CFOP.
             </p>
           </div>
-
-          <div class="vb-groupbox">
-            <span class="vb-legend">Guia Geral & Exportações</span>
-            <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Consolidação de todos os 4 modelos fiscais em uma única grade de auditoria, conferência de retenções federais (IRRF, PIS, COFINS, CSLL, INSS) e exportação em CSV/Excel.
-            </p>
-          </div>
         </div>
       </div>
     </section>
@@ -304,6 +326,14 @@
             <button onclick="showScreen('screenshots/screen_01_painel_empresas.png', 'Painel Hub de Empresas: contadores de documentos fiscais por modelo e alerta de validade dos Certificados A1.', this)"
                     class="tab-btn active">
               Hub de Empresas
+            </button>
+            <button onclick="showScreen('screenshots/screen_12_emissor_nfse.png', 'Emissor NFS-e Nacional: emissão oficial no padrão ADN / SEFIN com suporte a emissão retroativa, gestão de clientes e padrões salvos.', this)"
+                    class="tab-btn">
+              Emissor NFS-e (ADN)
+            </button>
+            <button onclick="showScreen('screenshots/screen_18_preview_espelho_dps.png', 'Pré-visualização Oficial da DPS / DANFSE: espelho fiel com conferência tributária e código de barras antes da transmissão.', this)"
+                    class="tab-btn">
+              Espelho DANFSE
             </button>
             <button onclick="showScreen('screenshots/screen_02_guia_notas.png', 'Guia Geral de Notas: consolidação mensal unificada de NF-e, NFC-e, CT-e e NFS-e com retenções federais.', this)"
                     class="tab-btn">
@@ -418,7 +448,7 @@
   <footer class="bg-[#e0e0e0] border-t border-[#b0b0b0] py-4 text-center text-[11px] text-[#555555]">
     <div class="max-w-7xl mx-auto px-4 space-y-1">
       <p class="font-semibold text-[#333333]">
-        CONT-AI Gestor de Movimento Fiscal — Copyright © 2026 Vagner Godoy de Melo
+        CONT-AI v2.1 — Gestor de Movimento Fiscal & Emissor NFS-e — Copyright © 2026 Vagner Godoy de Melo
       </p>
       <p class="text-[10px] text-[#666666]">
         Distribuído sob Licença de Código Aberto Não-Comercial (Source-Available). É proibida a revenda ou comercialização por terceiros sem autorização prévia.

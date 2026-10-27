@@ -211,7 +211,7 @@ function buildDpsXml(empresa, dpsData) {
   <infDPS Id="${dpsId}">
     <tpAmb>${tpAmb}</tpAmb>
     <dhEmi>${dhEmi}</dhEmi>
-    <verAplic>CONT-AI 2.0</verAplic>
+    <verAplic>CONT-AI 2.1</verAplic>
     <serie>${serieDps}</serie>
     <nDPS>${numeroDps}</nDPS>
     <dCompet>${dCompet}</dCompet>
@@ -550,7 +550,7 @@ function montarXmlNfseCompleto({ chaveAcesso, numeroNfse, codVerif, empresa, dps
   const xLocEmi = 'Taubaté';
   const cleanSignedDps = signedDpsXml.replace(/^<\?xml[^>]*\?>\s*/, '');
 
-  return `<?xml version="1.0" encoding="utf-8"?><NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe Id="NFS${chaveAcesso}"><xLocEmi>${xLocEmi}</xLocEmi><xLocPrestacao>${xLocEmi}</xLocPrestacao><nNFSe>${numeroNfse}</nNFSe><cLocIncid>${cLocEmi}</cLocIncid><xLocIncid>${xLocEmi}</xLocIncid><verAplic>CONT-AI_2.0</verAplic><ambGer>2</ambGer><tpEmis>1</tpEmis><procEmi>2</procEmi><cStat>100</cStat><dhProc>${nowIso}</dhProc><emit><CNPJ>${cleanCnpj}</CNPJ><xNome>${empresa.razaoSocial}</xNome><enderNac><cMun>${cLocEmi}</cMun><UF>${empresa.uf || 'SP'}</UF></enderNac></emit><valores><vLiq>${Number(dpsData.valorLiquido || dpsData.valorServicos || 0).toFixed(2)}</vLiq></valores>${cleanSignedDps}</infNFSe></NFSe>`;
+  return `<?xml version="1.0" encoding="utf-8"?><NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe Id="NFS${chaveAcesso}"><xLocEmi>${xLocEmi}</xLocEmi><xLocPrestacao>${xLocEmi}</xLocPrestacao><nNFSe>${numeroNfse}</nNFSe><cLocIncid>${cLocEmi}</cLocIncid><xLocIncid>${xLocEmi}</xLocIncid><verAplic>CONT-AI_2.1</verAplic><ambGer>2</ambGer><tpEmis>1</tpEmis><procEmi>2</procEmi><cStat>100</cStat><dhProc>${nowIso}</dhProc><emit><CNPJ>${cleanCnpj}</CNPJ><xNome>${empresa.razaoSocial}</xNome><enderNac><cMun>${cLocEmi}</cMun><UF>${empresa.uf || 'SP'}</UF></enderNac></emit><valores><vLiq>${Number(dpsData.valorLiquido || dpsData.valorServicos || 0).toFixed(2)}</vLiq></valores>${cleanSignedDps}</infNFSe></NFSe>`;
 }
 
 async function salvarXmlEmitida(companyDir, empresa, dpsData, serie, numeroDps, numeroNfse, chaveAcesso, codVerif, xmlCompleto) {
