@@ -27,7 +27,9 @@ import {
   OPCOES_CTRIB_MUN,
   OPCOES_CINDOP,
   OPCOES_CCLASSTRIB,
-  ComboboxOption
+  ComboboxOption,
+  TABELA_SERVICOS_PORTAL_NACIONAL,
+  type ServicoPortalNacional
 } from "../data/tabelaCorrelacaoNbs";
 import { NfseComboboxField } from "./NfseComboboxField";
 
@@ -104,6 +106,40 @@ export default function NfsePadroesManager({
   const [cIndOp, setCIndOp] = useState("010101");
   const [cClassTrib, setCClassTrib] = useState("000001");
   const [isAtividadesModalOpen, setIsAtividadesModalOpen] = useState(false);
+  const [atividadesModalTab, setAtividadesModalTab] = useState<"nacional" | "nbs">("nacional");
+
+  const handleOpenModalNacional = () => {
+    setAtividadesModalTab("nacional");
+    setIsAtividadesModalOpen(true);
+  };
+
+  const handleOpenModalNbs = () => {
+    setAtividadesModalTab("nbs");
+    setIsAtividadesModalOpen(true);
+  };
+
+  const handleSelectServicoNacional = (servico: ServicoPortalNacional) => {
+    setCTribNac(servico.codigo);
+    if (!descricao.trim()) {
+      setDescricao(`PRESTAÇÃO DE SERVIÇOS: ${servico.descricao.toUpperCase()}`);
+    }
+    if (!nome.trim() || nome === "Novo Padrão") {
+      setNome(servico.descricao);
+    }
+    const found = TABELA_CORRELACAO_NBS.find((item) => {
+      const raw = (item.itemLc116 || "").replace(/\D/g, "");
+      return servico.codigo.startsWith(raw);
+    });
+    if (found) {
+      if (!cNBS.trim() && found.nbsCodigo) setCNBS(found.nbsCodigo);
+      setTemIbsCbs(true);
+      if (found.cIndOp) setCIndOp(found.cIndOp);
+      if (found.cClassTrib) setCClassTrib(found.cClassTrib);
+    }
+    if (onNotify) {
+      onNotify(`Serviço oficial do Portal Nacional "${servico.codigo} - ${servico.descricao}" selecionado!`, "success");
+    }
+  };
 
   const handleSelectAtividade = (atv: AtividadeNbsCorrelacao) => {
     setCNBS(atv.nbsCodigo);
@@ -112,8 +148,13 @@ export default function NfsePadroesManager({
     if (atv.cClassTrib) setCClassTrib(atv.cClassTrib);
 
     const rawLc = atv.itemLc116.replace(/\D/g, "");
-    if (rawLc && rawLc.length <= 4) {
-      setCTribNac(rawLc.padEnd(6, "0"));
+    if (rawLc) {
+      const servicoOficial = TABELA_SERVICOS_PORTAL_NACIONAL.find((s) => s.codigo.startsWith(rawLc));
+      if (servicoOficial) {
+        setCTribNac(servicoOficial.codigo);
+      } else if (rawLc.length <= 4) {
+        setCTribNac(rawLc.padEnd(6, "0"));
+      }
     }
 
     if (!descricao.trim()) {
@@ -630,11 +671,11 @@ export default function NfsePadroesManager({
                   helpButton={
                     <button
                       type="button"
-                      onClick={() => setIsAtividadesModalOpen(true)}
+                      onClick={handleOpenModalNacional}
                       className="text-[10px] text-[#005a9e] hover:underline font-bold flex items-center gap-0.5"
-                      title="Consultar Tabela Completa de Atividades"
+                      title="Consultar Catálogo Oficial de Serviços do Portal Nacional (335 Códigos de 6 Dígitos)"
                     >
-                      Tabela
+                      Tabela (335)
                     </button>
                   }
                 />
@@ -650,11 +691,11 @@ export default function NfsePadroesManager({
                   helpButton={
                     <button
                       type="button"
-                      onClick={() => setIsAtividadesModalOpen(true)}
+                      onClick={handleOpenModalNbs}
                       className="text-[10px] text-[#005a9e] hover:underline font-bold flex items-center gap-0.5"
                       title="Consultar Tabela NBS Oficial"
                     >
-                      Ver Tabela
+                      Ver Tabela NBS
                     </button>
                   }
                 />
@@ -925,12 +966,15 @@ export default function NfsePadroesManager({
         </main>
       </div>
 
-      {/* Modal de Busca na Tabela Oficial de Atividades & NBS */}
+      {/* Modal de Catálogo Oficial de Serviços & NBS */}
       <NfseAtividadesModal
         isOpen={isAtividadesModalOpen}
         onClose={() => setIsAtividadesModalOpen(false)}
         onSelectAtividade={handleSelectAtividade}
+        onSelectServicoNacional={handleSelectServicoNacional}
         currentNbs={cNBS}
+        currentCodNac={cTribNac}
+        initialTab={atividadesModalTab}
       />
     </div>
   );

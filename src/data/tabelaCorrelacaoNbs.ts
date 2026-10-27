@@ -1,6 +1,13 @@
 // Tabela de Correlação Oficial LC 116 x NBS x IBS/CBS (NT 004 / Reforma Tributária) x CNAE
 // Gerada a partir da base nacional de serviços
 
+import {
+  TABELA_SERVICOS_PORTAL_NACIONAL,
+  type ServicoPortalNacional
+} from "./tabelaServicosPortalNacional";
+
+export { TABELA_SERVICOS_PORTAL_NACIONAL, type ServicoPortalNacional };
+
 export interface AtividadeNbsCorrelacao {
   id: string;
   itemLc116: string;
@@ -7274,24 +7281,24 @@ export interface ComboboxOption {
   isRecommended?: boolean;
 }
 
-// 1. Todas as opções de cTribNac (LC 116 / Código de Tributação Nacional de 6 dígitos)
-export const OPCOES_CTRIB_NAC: ComboboxOption[] = (() => {
-  const map = new Map<string, ComboboxOption>();
-  for (const item of TABELA_CORRELACAO_NBS) {
-    const rawLc = (item.itemLc116 || '').replace(/\D/g, '');
-    const code6 = rawLc.length <= 4 ? rawLc.padEnd(6, '0') : rawLc.substring(0, 6);
-    if (!map.has(code6)) {
-      map.set(code6, {
-        code: code6,
-        label: `${code6} - LC ${item.itemLc116}`,
-        desc: item.descricaoNbs,
-        badge: `LC ${item.itemLc116}`,
-        group: item.grupoDescricao
-      });
-    }
-  }
-  return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
-})();
+// 1. Todas as opções de cTribNac (Código de Tributação Nacional Oficial de 6 dígitos - Portal Nacional ADN/SEFIN)
+export const OPCOES_CTRIB_NAC: ComboboxOption[] = TABELA_SERVICOS_PORTAL_NACIONAL.map((s) => ({
+  code: s.codigo,
+  label: `${s.codigo} - ${s.descricao}`,
+  desc: s.descricao,
+  badge: `LC ${s.itemLc116}`,
+  group: s.grupoDescricao
+}));
+
+export function obterServicoPorCodigo(codigo: string): ServicoPortalNacional | undefined {
+  const clean = (codigo || "").replace(/\D/g, "");
+  return TABELA_SERVICOS_PORTAL_NACIONAL.find((s) => s.codigo === clean);
+}
+
+export function obterServicoPorLc116(itemLc116: string): ServicoPortalNacional | undefined {
+  const rawLc = (itemLc116 || "").replace(/\D/g, "");
+  return TABELA_SERVICOS_PORTAL_NACIONAL.find((s) => s.codigo.startsWith(rawLc));
+}
 
 // 2. Todas as opções de NBS (Nomenclatura Brasileira de Serviços - 9 dígitos)
 export const OPCOES_NBS: ComboboxOption[] = (() => {

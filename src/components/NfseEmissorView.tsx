@@ -49,7 +49,9 @@ import {
   OPCOES_CTRIB_MUN,
   OPCOES_CINDOP,
   OPCOES_CCLASSTRIB,
-  ComboboxOption
+  ComboboxOption,
+  TABELA_SERVICOS_PORTAL_NACIONAL,
+  type ServicoPortalNacional
 } from "../data/tabelaCorrelacaoNbs";
 import { NfseComboboxField } from "./NfseComboboxField";
 import { testCert, transmitirDpsNfse, openNfsePdf, saveNfseXml, cancelarNfseNacional, listNfseNotas, syncCompanyNfse, onNfseProgress } from "../utils/electronBridge";
@@ -357,16 +359,62 @@ export default function NfseEmissorView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [emissorTab, selectedNota]);
 
-  // Modal de Atividades & Correlação NBS
+  // Modal de Atividades & Catálogo Oficial de Serviços
   const [isAtividadesModalOpen, setIsAtividadesModalOpen] = useState(false);
+  const [atividadesModalTab, setAtividadesModalTab] = useState<"nacional" | "nbs">("nacional");
+
+  const handleOpenModalNacional = () => {
+    setAtividadesModalTab("nacional");
+    setIsAtividadesModalOpen(true);
+  };
+
+  const handleOpenModalNbs = () => {
+    setAtividadesModalTab("nbs");
+    setIsAtividadesModalOpen(true);
+  };
+
+  const handleSelectServicoNacional = (servico: ServicoPortalNacional) => {
+    setCTribNac(servico.codigo);
+    setItemLc116(servico.itemLc116);
+
+    if (!discriminacao.trim()) {
+      setDiscriminacao(`PRESTAÇÃO DE SERVIÇOS: ${servico.descricao.toUpperCase()}`);
+    }
+
+    const rawLc = servico.itemLc116.replace(/\D/g, "");
+    const found = TABELA_CORRELACAO_NBS.find((item) => {
+      const itemRaw = (item.itemLc116 || "").replace(/\D/g, "");
+      return servico.codigo.startsWith(itemRaw);
+    });
+
+    if (found) {
+      if (!cNBS.trim() && found.nbsCodigo) {
+        setCNBS(found.nbsCodigo);
+      }
+      setTemIbsCbs(true);
+      if (found.cIndOp && (!cIndOp || cIndOp === "010101" || cIndOp === "100301")) {
+        setCIndOp(found.cIndOp);
+      }
+      if (found.cClassTrib && (!cClassTrib || cClassTrib === "000001")) {
+        setCClassTrib(found.cClassTrib);
+      }
+    }
+
+    onNotify(`Serviço oficial do Portal Nacional "${servico.codigo} - ${servico.descricao}" selecionado!`, "success");
+  };
 
   const handleSelectAtividade = (atv: AtividadeNbsCorrelacao) => {
     setCNBS(atv.nbsCodigo);
     setItemLc116(atv.itemLc116);
 
     const rawLc = atv.itemLc116.replace(/\D/g, "");
-    if (rawLc && rawLc.length <= 4) {
-      setCTribNac(rawLc.padEnd(6, "0"));
+    if (rawLc) {
+      const servicoOficial = TABELA_SERVICOS_PORTAL_NACIONAL.find((s) => s.codigo.startsWith(rawLc));
+      if (servicoOficial) {
+        setCTribNac(servicoOficial.codigo);
+      } else if (rawLc.length <= 4) {
+        setCTribNac(rawLc.padEnd(6, "0"));
+      }
     }
 
     setTemIbsCbs(true);
@@ -406,6 +454,13 @@ export default function NfseEmissorView({
 
   const handleSelectCTribNac = (code: string, opt?: ComboboxOption) => {
     setCTribNac(code);
+    const servicoOficial = TABELA_SERVICOS_PORTAL_NACIONAL.find((s) => s.codigo === code.replace(/\D/g, ""));
+    if (servicoOficial) {
+      setItemLc116(servicoOficial.itemLc116);
+      if (opt?.desc && !discriminacao.trim()) {
+        setDiscriminacao(`PRESTAÇÃO DE SERVIÇOS: ${servicoOficial.descricao.toUpperCase()}`);
+      }
+    }
     const found = TABELA_CORRELACAO_NBS.find((item) => {
       const raw = (item.itemLc116 || "").replace(/\D/g, "");
       return code.replace(/\D/g, "").startsWith(raw);
@@ -2073,11 +2128,11 @@ export default function NfseEmissorView({
                         helpButton={
                           <button
                             type="button"
-                            onClick={() => setIsAtividadesModalOpen(true)}
+                            onClick={handleOpenModalNacional}
                             className="text-[10px] text-[#005a9e] hover:underline font-bold flex items-center gap-0.5"
-                            title="Consultar Tabela Completa de Atividades"
+                            title="Consultar Catálogo Oficial de Serviços do Portal Nacional (335 Códigos de 6 Dígitos)"
                           >
-                            <Sparkles size={9} className="text-amber-600" /> Tabela Completa
+                            <Sparkles size={9} className="text-amber-600" /> Tabela Completa (335)
                           </button>
                         }
                       />
@@ -2093,11 +2148,11 @@ export default function NfseEmissorView({
                         helpButton={
                           <button
                             type="button"
-                            onClick={() => setIsAtividadesModalOpen(true)}
+                            onClick={handleOpenModalNbs}
                             className="text-[10px] text-[#005a9e] hover:underline font-bold flex items-center gap-0.5"
-                            title="Consultar Tabela NBS Oficial"
+                            title="Consultar Tabela de Correlação NBS Oficial"
                           >
-                            <Sparkles size={9} className="text-amber-600" /> Ver Tabela
+                            <Sparkles size={9} className="text-amber-600" /> Ver Tabela NBS
                           </button>
                         }
                       />
@@ -2169,7 +2224,7 @@ export default function NfseEmissorView({
                           <span className="font-bold text-[#003366] text-[11px]">Reforma Tributária (IBS / CBS - NT 004):</span>
                           <button
                             type="button"
-                            onClick={() => setIsAtividadesModalOpen(true)}
+                            onClick={handleOpenModalNbs}
                             className="text-[10px] text-[#005a9e] hover:underline font-bold flex items-center gap-0.5"
                             title="Auto-preencher cIndOp e cClassTrib selecionando na tabela de correlação"
                           >
@@ -3002,13 +3057,16 @@ export default function NfseEmissorView({
         isCancelling={isCancellingNota}
       />
 
-      {/* Modal de Tabela Oficial de Atividades & NBS */}
+      {/* Modal de Catálogo Oficial de Serviços & Correlação NBS */}
       <NfseAtividadesModal
         isOpen={isAtividadesModalOpen}
         onClose={() => setIsAtividadesModalOpen(false)}
         onSelectAtividade={handleSelectAtividade}
+        onSelectServicoNacional={handleSelectServicoNacional}
         currentNbs={cNBS}
         currentItemLc116={itemLc116}
+        currentCodNac={cTribNac}
+        initialTab={atividadesModalTab}
       />
 
       {/* Classic Windows Status Bar */}
