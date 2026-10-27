@@ -53,7 +53,7 @@ import {
 } from "../data/tabelaCorrelacaoNbs";
 import { NfseComboboxField } from "./NfseComboboxField";
 import { testCert, transmitirDpsNfse, openNfsePdf, saveNfseXml, cancelarNfseNacional, listNfseNotas, syncCompanyNfse, onNfseProgress } from "../utils/electronBridge";
-import { calculateDaysRemaining } from "../utils/certUtils";
+import { calculateDaysRemaining, formatDateBr } from "../utils/certUtils";
 import { parseDateToTimestamp } from "../utils/calc";
 import logoImg from "../assets/logo.png";
 
@@ -262,6 +262,38 @@ export default function NfseEmissorView({
   // Estados de Numeração e Série da DPS
   const [numeroDpsInput, setNumeroDpsInput] = useState<string>("");
   const [serieDpsInput, setSerieDpsInput] = useState<string>("2");
+
+  // Estados de Data de Emissão e Competência (suporte oficial a notas retroativas)
+  const hojeIso = React.useMemo(() => {
+    const d = new Date();
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+    const dia = String(d.getDate()).padStart(2, "0");
+    return `${ano}-${mes}-${dia}`;
+  }, []);
+
+  const [dataEmissaoInput, setDataEmissaoInput] = useState<string>(() => {
+    const d = new Date();
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+    const dia = String(d.getDate()).padStart(2, "0");
+    return `${ano}-${mes}-${dia}`;
+  });
+
+  const [dataCompetenciaInput, setDataCompetenciaInput] = useState<string>(() => {
+    const d = new Date();
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+    const dia = String(d.getDate()).padStart(2, "0");
+    return `${ano}-${mes}-${dia}`;
+  });
+
+  const handleDataEmissaoChange = (novaData: string) => {
+    setDataEmissaoInput(novaData);
+    if (!dataCompetenciaInput || dataCompetenciaInput === dataEmissaoInput) {
+      setDataCompetenciaInput(novaData);
+    }
+  };
 
   // Estados de Gerenciamento de Modelos / Padrões
   const [selectedModeloRowId, setSelectedModeloRowId] = useState<string | null>(null);
@@ -880,10 +912,24 @@ export default function NfseEmissorView({
       return;
     }
 
+    const emissaoPreview = dataEmissaoInput === hojeIso
+      ? new Date().toLocaleString("pt-BR")
+      : (() => {
+          const [ano, mes, dia] = dataEmissaoInput.split("-");
+          const horaMin = new Date().toLocaleTimeString("pt-BR");
+          return `${dia}/${mes}/${ano} ${horaMin}`;
+        })();
+
+    const competenciaPreview = (() => {
+      const [ano, mes] = (dataCompetenciaInput || dataEmissaoInput).split("-");
+      return `${mes}/${ano}`;
+    })();
+
     const dpsPreview: Partial<NfseNotaEmitida> = {
       numeroDps: String(proximoNumero).padStart(6, "0"),
       serieDps: currentSerie,
-      dataEmissao: new Date().toLocaleString("pt-BR"),
+      dataEmissao: emissaoPreview,
+      competencia: competenciaPreview,
       tomadorDoc,
       tomadorNome,
       tomadorEmail,
@@ -967,6 +1013,8 @@ export default function NfseEmissorView({
         serieDps: currentSerie,
         cLocEmi: defaultCLocEmi,
         ambiente: "1",
+        dataEmissao: dataEmissaoInput,
+        dataCompetencia: dataCompetenciaInput,
         tomadorDoc: tomadorDoc.trim(),
         tomadorNome: tomadorNome.trim(),
         tomadorEmail: tomadorEmail.trim(),
@@ -1004,6 +1052,19 @@ export default function NfseEmissorView({
       const finalChave = res.chaveAcesso || `352601${cleanCnpj}0000000000000000${formattedDpsNum}`;
       const finalNumNfse = res.numeroNfse || formattedDpsNum;
 
+      const emissaoFinal = dataEmissaoInput === hojeIso
+        ? new Date().toLocaleString("pt-BR")
+        : (() => {
+            const [ano, mes, dia] = dataEmissaoInput.split("-");
+            const horaMin = new Date().toLocaleTimeString("pt-BR");
+            return `${dia}/${mes}/${ano} ${horaMin}`;
+          })();
+
+      const competenciaFinal = (() => {
+        const [ano, mes] = (dataCompetenciaInput || dataEmissaoInput).split("-");
+        return `${mes}/${ano}`;
+      })();
+
       const novaNota: NfseNotaEmitida = {
         id: "dps_" + Date.now(),
         numeroDps: formattedDpsNum,
@@ -1012,8 +1073,8 @@ export default function NfseEmissorView({
         chaveAcesso: finalChave,
         codigoVerificacao: res.codigoVerificacao,
         caminhoXml: res.savedXmlPath,
-        dataEmissao: new Date().toLocaleString("pt-BR"),
-        competencia: new Date().toLocaleDateString("pt-BR", { month: "2-digit", year: "numeric" }),
+        dataEmissao: emissaoFinal,
+        competencia: competenciaFinal,
         tomadorDoc: tomadorDoc.trim(),
         tomadorNome: tomadorNome.trim(),
         tomadorEmail: tomadorEmail.trim() || undefined,
@@ -1714,6 +1775,59 @@ export default function NfseEmissorView({
                       </button>
                     </div>
 
+                    {/* Linha de Data de Emissão e Competência Fiscal (Emissão Retroativa) */}
+                    <div className="sm:col-span-12 pt-1 border-t border-[#e5e5e5] flex flex-wrap items-center justify-between text-[10.5px] gap-2 bg-[#f4f8fc] px-2 py-1 -mx-2 rounded-xs border-b border-[#d8e5f0]">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <label className="font-bold text-[#003366] flex items-center gap-1 text-[10.5px]">
+                            <Calendar size={12} className="text-[#005a9e]" />
+                            <span>Data de Emissão (DPS):</span>
+                          </label>
+                          <input
+                            type="date"
+                            max={hojeIso}
+                            value={dataEmissaoInput}
+                            onChange={(e) => handleDataEmissaoChange(e.target.value)}
+                            className="vb-input py-0.5 px-1.5 font-mono font-bold text-[#003366] text-[11px] bg-white cursor-pointer"
+                            title="Data oficial de emissão da DPS (permite emissão retroativa)"
+                          />
+                          {dataEmissaoInput !== hojeIso && (
+                            <button
+                              type="button"
+                              onClick={() => handleDataEmissaoChange(hojeIso)}
+                              className="text-[10px] text-[#005a9e] underline hover:text-[#003366] font-semibold cursor-pointer"
+                              title="Restaurar data de hoje"
+                            >
+                              Hoje
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <label className="font-bold text-[#003366] text-[10.5px]">
+                            <span>Competência Fiscal:</span>
+                          </label>
+                          <input
+                            type="date"
+                            value={dataCompetenciaInput}
+                            onChange={(e) => setDataCompetenciaInput(e.target.value)}
+                            className="vb-input py-0.5 px-1.5 font-mono font-semibold text-[#333333] text-[11px] bg-white cursor-pointer"
+                            title="Data da prestação do serviço / fato gerador do ISSQN (dCompet no Padrão Nacional)"
+                          />
+                        </div>
+
+                        {dataEmissaoInput < hojeIso && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">
+                            <span>⏱ Emissão Retroativa ({formatDateBr(dataEmissaoInput)})</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-[10px] text-[#666666]">
+                        Fuso horário oficial: <strong>Brasília (UTC-3)</strong>
+                      </span>
+                    </div>
+
                     {/* Barra de Status da Linha Sequencial de Emissão NFS-e */}
                     <div className="sm:col-span-12 pt-1 border-t border-[#e5e5e5] flex flex-wrap items-center justify-between text-[10.5px] gap-2">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -1798,33 +1912,39 @@ export default function NfseEmissorView({
               <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-2 min-w-0 w-full">
                 
                 {/* Box 2: Tomador */}
-                <fieldset className="vb-groupbox">
-                  <legend className="vb-legend flex items-center justify-between w-full">
-                    <span className="flex items-center gap-1.5">
-                      <Users size={12} />
-                      <span>2. Dados do Tomador / Cliente</span>
-                    </span>
-                    {(activeEmpresa?.clientesNfse || []).length > 0 && (
-                      <span className="flex items-center gap-1 font-normal normal-case">
-                        <span className="text-[#666666] text-[10px]">Carregar Cliente:</span>
+                <fieldset className="vb-groupbox min-w-0 w-full overflow-hidden">
+                  <legend className="vb-legend flex items-center gap-1.5">
+                    <Users size={12} />
+                    <span>2. Dados do Tomador / Cliente</span>
+                  </legend>
+
+                  {/* Barra de Seleção Rápida de Cliente Salvo */}
+                  {(activeEmpresa?.clientesNfse || []).length > 0 && (
+                    <div className="bg-[#f0f6ff] border border-[#b8d4f6] px-2.5 py-1 mb-2 flex items-center justify-between gap-2 flex-wrap min-w-0">
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px] max-w-full">
+                        <span className="font-bold text-[#003366] shrink-0 text-[10.5px]">Carregar Cliente:</span>
                         <select
                           onChange={(e) => {
                             const found = activeEmpresa?.clientesNfse?.find((c) => c.id === e.target.value);
                             if (found) handleApplyCliente(found);
                           }}
-                          className="vb-select text-[10px] py-0 px-1 font-semibold"
+                          className="vb-select flex-1 min-w-0 max-w-full font-semibold text-[10.5px] truncate"
                           defaultValue=""
+                          title="Selecione um cliente salvo nos cadastros para preencher automaticamente"
                         >
-                          <option value="" disabled>-- Selecionar Salvo --</option>
+                          <option value="" disabled>-- Selecionar Cliente Salvo --</option>
                           {activeEmpresa!.clientesNfse!.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.razaoSocial} ({c.cnpjCpf})
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <span className="text-[10px] text-[#555555] shrink-0">
+                        {activeEmpresa!.clientesNfse!.length} cliente(s) salvo(s)
                       </span>
-                    )}
-                  </legend>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-[#ffffff] border border-[#c0c0c0] p-2 min-w-0">
                     <div className="min-w-0">

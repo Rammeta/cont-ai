@@ -90,8 +90,30 @@ function buildDpsXml(empresa, dpsData) {
   const min = String(safeDate.getMinutes()).padStart(2, '0');
   const seg = String(safeDate.getSeconds()).padStart(2, '0');
 
-  const dhEmi = `${ano}-${mes}-${dia}T${hora}:${min}:${seg}-03:00`;
-  const dCompet = `${ano}-${mes}-${dia}`;
+  const hojeStr = `${ano}-${mes}-${dia}`;
+  let dhEmi = `${ano}-${mes}-${dia}T${hora}:${min}:${seg}-03:00`;
+  let dCompet = hojeStr;
+
+  // Suporte a Emissão Retroativa e Competência Personalizada:
+  if (dpsData.dataEmissao && /^\d{4}-\d{2}-\d{2}$/.test(String(dpsData.dataEmissao).trim())) {
+    const rawDate = String(dpsData.dataEmissao).trim();
+    if (rawDate === hojeStr) {
+      // Se for a data de hoje, mantém o recuo seguro de 2 minutos para evitar rejeição E0008 (clock skew)
+      dhEmi = `${ano}-${mes}-${dia}T${hora}:${min}:${seg}-03:00`;
+      dCompet = hojeStr;
+    } else {
+      // Data de emissão retroativa definida pelo usuário
+      dhEmi = `${rawDate}T${hora}:${min}:${seg}-03:00`;
+      dCompet = rawDate;
+    }
+  }
+
+  // Competência explícita definida pelo usuário (se fornecida)
+  if (dpsData.dataCompetencia && /^\d{4}-\d{2}-\d{2}$/.test(String(dpsData.dataCompetencia).trim())) {
+    dCompet = String(dpsData.dataCompetencia).trim();
+  } else if (dpsData.dataCompetencia && /^\d{4}-\d{2}$/.test(String(dpsData.dataCompetencia).trim())) {
+    dCompet = `${String(dpsData.dataCompetencia).trim()}-01`;
+  }
   const tpAmb = (dpsData.ambiente === 'producao' || dpsData.ambiente === '1') ? '1' : '2';
 
   const isSimples = empresa.regime === 'SIMPLES_NACIONAL' ||
@@ -517,7 +539,9 @@ async function transmitirDpsNacional(empresa, dpsData, companyDir) {
 
 function montarXmlNfseCompleto({ chaveAcesso, numeroNfse, codVerif, empresa, dpsData, signedDpsXml }) {
   const cleanCnpj = cleanNumber(empresa.cnpj);
-  const nowIso = new Date().toISOString();
+  const nowIso = (dpsData.dataEmissao && /^\d{4}-\d{2}-\d{2}$/.test(dpsData.dataEmissao))
+    ? `${dpsData.dataEmissao}T12:00:00.000Z`
+    : new Date().toISOString();
   const vServ = Number(dpsData.valorServicos || 0).toFixed(2);
   const vIss = Number(dpsData.valorIss || 0).toFixed(2);
   const pAliq = Number(dpsData.aliquotaIss || 0).toFixed(2);
@@ -533,8 +557,16 @@ async function salvarXmlEmitida(companyDir, empresa, dpsData, serie, numeroDps, 
   try {
     if (!companyDir) return null;
     const now = new Date();
-    const ano = String(now.getFullYear());
-    const mes = String(now.getMonth() + 1).padStart(2, '0');
+    let ano = String(now.getFullYear());
+    let mes = String(now.getMonth() + 1).padStart(2, '0');
+
+    // Se for emissão retroativa, organiza o arquivo na pasta da competência/emissão correspondente
+    const targetDateStr = dpsData.dataCompetencia || dpsData.dataEmissao;
+    if (targetDateStr && /^\d{4}-\d{2}/.test(String(targetDateStr))) {
+      const parts = String(targetDateStr).split('-');
+      ano = parts[0];
+      mes = parts[1];
+    }
     const MONTH_NAMES = {
       '01': '01 - Janeiro', '02': '02 - Fevereiro', '03': '03 - Março', '04': '04 - Abril',
       '05': '05 - Maio', '06': '06 - Junho', '07': '07 - Julho', '08': '08 - Agosto',
