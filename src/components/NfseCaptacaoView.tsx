@@ -1424,7 +1424,7 @@ export default function NfseCaptacaoView({
         <div className="border border-[#999999] bg-white flex flex-col flex-1 min-h-[280px] overflow-hidden">
           <div className="overflow-auto flex-1 relative">
             <LoadingGearOverlay
-              isLoading={loading && capturedNotas.length > 0}
+              isLoading={loading && filteredNotas.length > 0}
               title="Sincronizando Notas Fiscais de Serviço (NFS-e)..."
               subtitle="Lendo e validando notas de serviço da empresa no disco..."
             />
@@ -1499,7 +1499,7 @@ export default function NfseCaptacaoView({
                 </tr>
               </thead>
               <tbody>
-                {loading && capturedNotas.length === 0 ? (
+                {loading && filteredNotas.length === 0 ? (
                   <LoadingGearOverlay
                     isLoading={true}
                     variant="table"

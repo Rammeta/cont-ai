@@ -1062,7 +1062,7 @@ export default function CteCaptacaoView({
         <div className="border border-[#999999] bg-white flex flex-col flex-1 min-h-[280px] overflow-hidden">
           <div className="overflow-auto flex-1 relative">
             <LoadingGearOverlay
-              isLoading={loading && capturedCtes.length > 0}
+              isLoading={loading && filteredCtes.length > 0}
               title="Sincronizando Conhecimentos de Transporte (CT-e)..."
               subtitle="Lendo e validando arquivos CT-e da empresa no disco..."
             />
@@ -1149,7 +1149,7 @@ export default function CteCaptacaoView({
                 </tr>
               </thead>
               <tbody>
-                {loading && capturedCtes.length === 0 ? (
+                {loading && filteredCtes.length === 0 ? (
                   <LoadingGearOverlay
                     isLoading={true}
                     variant="table"

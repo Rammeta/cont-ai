@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   Building2,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Settings
 } from "lucide-react";
 import { NfseModeloNota } from "../types";
 import NfseAtividadesModal from "./NfseAtividadesModal";

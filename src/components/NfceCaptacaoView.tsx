@@ -1056,7 +1056,7 @@ export default function NfceCaptacaoView({
 
           <div className="overflow-auto flex-1 custom-scrollbar relative">
             <LoadingGearOverlay
-              isLoading={loading && capturedNfces.length > 0}
+              isLoading={loading && filteredNotas.length > 0}
               title="Sincronizando Cupons Fiscais (NFC-e)..."
               subtitle="Lendo cupons fiscais da empresa no disco..."
             />
@@ -1144,7 +1144,7 @@ export default function NfceCaptacaoView({
                 </tr>
               </thead>
               <tbody>
-                {loading && capturedNfces.length === 0 ? (
+                {loading && filteredNotas.length === 0 ? (
                   <LoadingGearOverlay
                     isLoading={true}
                     variant="table"
