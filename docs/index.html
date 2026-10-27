@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CONT-AI v2.1 — Gestor de Movimento Fiscal & Emissor de NFS-e Nacional</title>
-  <meta name="description" content="CONT-AI v2.1: Software Desktop ERP gratuito para escritórios de contabilidade. Gestão de movimentação fiscal, emissão de NFS-e Nacional (ADN/SEFIN) com emissão retroativa, captação automática de NF-e, NFC-e, CT-e, NFS-e e cálculo de DIFAL." />
+  <meta name="description" content="CONT-AI v2.1: Software Desktop ERP gratuito para escritórios de contabilidade e empresas. Gestão de movimentação fiscal, emissão de NFS-e Nacional (ADN/SEFIN) com emissão retroativa, catálogo dos 335 serviços da LC 116, correlação NBS/NT004, captação automática de NF-e, NFC-e, CT-e, NFS-e e cálculo de DIFAL por item." />
   <meta name="author" content="Vagner Godoy de Melo" />
 
   <!-- Open Graph -->
   <meta property="og:title" content="CONT-AI v2.1 — Gestor de Movimento Fiscal & Emissor de NFS-e Nacional" />
-  <meta property="og:description" content="Software Desktop ERP gratuito para contabilidade: Emissor NFS-e Nacional, captação automática SEFAZ/ADN e cálculo de DIFAL por item." />
+  <meta property="og:description" content="Software Desktop ERP gratuito para contabilidade: Emissor NFS-e Nacional com emissão retroativa, captação automática SEFAZ/ADN e cálculo de DIFAL por item." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="screenshots/screen_01_painel_empresas.png" />
 
@@ -92,27 +92,83 @@
 
     /* Abas da galeria de telas */
     .tab-btn {
-      padding: 7px 14px;
+      padding: 6px 11px;
       font-size: 11px;
-      font-weight: bold;
+      font-weight: 600;
       border: 1px solid #b0b0b0;
-      border-bottom: none;
-      background: #e4e4e4;
-      color: #555555;
+      background: #e9ecef;
+      color: #495057;
       cursor: pointer;
       transition: all 0.15s;
+      border-radius: 2px;
+      white-space: nowrap;
     }
     .tab-btn:hover {
-      background: #f0f0f0;
+      background: #dee2e6;
       color: #003366;
+      border-color: #005a9e;
     }
     .tab-btn.active {
-      background: #ffffff;
-      color: #003366;
-      border-top: 2px solid #005a9e;
-      border-bottom: 1px solid #ffffff;
-      margin-bottom: -1px;
-      z-index: 10;
+      background: #003366;
+      color: #ffffff;
+      border-color: #002244;
+      font-weight: bold;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    /* Tabelas de mapeamento */
+    .erp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .erp-table th {
+      background-color: #003366;
+      color: #ffffff;
+      text-align: left;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: bold;
+      border: 1px solid #002244;
+    }
+    .erp-table td {
+      padding: 6px 10px;
+      border: 1px solid #d0d0d0;
+      vertical-align: top;
+    }
+    .erp-table tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+    .erp-table tr:hover {
+      background-color: #eef4fc;
+    }
+    .btn-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      font-weight: bold;
+      font-size: 10.5px;
+      border-radius: 2px;
+      background: #e9ecef;
+      border: 1px solid #b0b0b0;
+      color: #212529;
+      font-family: monospace;
+    }
+    .btn-badge-primary {
+      background: #e6f0fa;
+      border-color: #99c2eb;
+      color: #004085;
+    }
+    .btn-badge-success {
+      background: #e2f0d9;
+      border-color: #a9d18e;
+      color: #1e4620;
+    }
+    .btn-badge-danger {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
     }
   </style>
 </head>
@@ -137,9 +193,10 @@
         </div>
       </div>
 
-      <nav class="hidden md:flex items-center gap-5 text-xs font-semibold text-[#333333]">
+      <nav class="hidden lg:flex items-center gap-4 text-xs font-semibold text-[#333333]">
         <a href="#funcionalidades" class="hover:text-[#005a9e] transition">Módulos Fiscais</a>
-        <a href="#telas" class="hover:text-[#005a9e] transition">Demonstração das Telas</a>
+        <a href="#telas" class="hover:text-[#005a9e] transition">Demonstração das 17 Telas</a>
+        <a href="#mapeamento" class="hover:text-[#005a9e] text-[#003366] font-bold transition">Mapeamento de Funções & Botões</a>
         <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition">Apoiar (PIX)</a>
         <a href="#autor" class="hover:text-[#005a9e] transition">Autor</a>
       </nav>
@@ -168,48 +225,48 @@
             </h1>
 
             <p class="text-sm sm:text-base text-[#444444] leading-relaxed">
-              Sistema Desktop ERP gratuito desenvolvido para escritórios de contabilidade e departamentos fiscais. Emissão e captação direta via Certificado Digital A1 (mTLS) com a SEFAZ Nacional, Ambiente Nacional ADN e Prefeitura de São Paulo.
+              O <strong>CONT-AI v2.1</strong> é uma plataforma desktop corporativa desenvolvida para contadores, escritórios e departamentos fiscais. Reúne em uma única ferramenta a <strong>emissão oficial de NFS-e Nacional (ADN / SEFIN) com suporte a emissão retroativa</strong>, o <strong>catálogo completo dos 335 serviços da LC 116 (6 dígitos)</strong>, correlação <strong>NBS / NT 004 (Reforma Tributária)</strong>, a captação direta de <strong>NF-e (55), NFC-e (65), CT-e (57) e NFS-e</strong> via Certificado Digital A1 (mTLS) e a <strong>auditoria automatizada de DIFAL e Antecipação Tributária</strong> com memória por item.
             </p>
 
             <!-- Painel de Badges Fiscais -->
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
-              <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
-                <span class="block text-[10px] text-[#666666] font-semibold uppercase">NF-e (55)</span>
-                <span class="text-xs font-bold text-[#003366]">SEFAZ Nacional</span>
+              <div class="bg-white border border-[#b0b0b0] p-2 text-center rounded-xs shadow-xs">
+                <span class="block text-[10px] text-[#666666] font-bold">EMISSOR OFICIAL</span>
+                <strong class="text-xs text-[#003366]">NFS-e ADN</strong>
               </div>
-              <div class="bg-white border border-[#005a9e] bg-[#f0f6ff] p-2 text-center rounded">
-                <span class="block text-[10px] text-[#005a9e] font-semibold uppercase">Emissor NFS-e</span>
-                <span class="text-xs font-bold text-[#003366]">Padrão SEFIN</span>
+              <div class="bg-white border border-[#b0b0b0] p-2 text-center rounded-xs shadow-xs">
+                <span class="block text-[10px] text-[#666666] font-bold">CATÁLOGO OFICIAL</span>
+                <strong class="text-xs text-[#005a9e]">335 Serviços</strong>
               </div>
-              <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
-                <span class="block text-[10px] text-[#666666] font-semibold uppercase">Captação NFS-e</span>
-                <span class="text-xs font-bold text-[#107c41]">Portal ADN + SP</span>
+              <div class="bg-white border border-[#b0b0b0] p-2 text-center rounded-xs shadow-xs">
+                <span class="block text-[10px] text-[#666666] font-bold">REFORMA TRIBUTÁRIA</span>
+                <strong class="text-xs text-[#107c41]">NBS & NT 004</strong>
               </div>
-              <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
-                <span class="block text-[10px] text-[#666666] font-semibold uppercase">CT-e / NFC-e</span>
-                <span class="text-xs font-bold text-[#b7791f]">Fretes & Cupons</span>
+              <div class="bg-white border border-[#b0b0b0] p-2 text-center rounded-xs shadow-xs">
+                <span class="block text-[10px] text-[#666666] font-bold">CAPTAÇÃO SEFAZ</span>
+                <strong class="text-xs text-[#d83b01]">4 Modelos XML</strong>
               </div>
-              <div class="bg-white border border-[#c0c0c0] p-2 text-center rounded">
-                <span class="block text-[10px] text-[#666666] font-semibold uppercase">DIFAL / SN</span>
-                <span class="text-xs font-bold text-[#c0392b]">Memória por Item</span>
+              <div class="bg-white border border-[#b0b0b0] p-2 text-center rounded-xs shadow-xs">
+                <span class="block text-[10px] text-[#666666] font-bold">AUDITORIA FISCAL</span>
+                <strong class="text-xs text-[#003366]">DIFAL por Item</strong>
               </div>
             </div>
 
             <!-- Botões de Ação -->
             <div class="pt-3 flex flex-wrap items-center gap-3">
-              <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener" class="vb-btn vb-btn-primary py-2.5 px-5 text-sm shadow">
+              <a href="https://github.com/Rammeta/cont-ai/releases/download/v2.1.0/CONT-AI-Setup-2.1.0.exe" class="vb-btn vb-btn-primary py-2.5 px-4 text-sm shadow">
                 <span>Baixar Instalador Oficial Windows v2.1 (.exe)</span>
               </a>
-              <a href="#apoiar" class="vb-btn vb-btn-success py-2.5 px-4 text-sm shadow">
-                <span>Apoiar via PIX</span>
+              <a href="#mapeamento" class="vb-btn py-2.5 px-3.5 text-sm">
+                <span>Ver Mapeamento de Funções</span>
               </a>
-              <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener" class="vb-btn py-2.5 px-3.5 text-sm">
-                <span>Repositório GitHub</span>
+              <a href="#apoiar" class="vb-btn vb-btn-success py-2.5 px-3.5 text-sm shadow">
+                <span>Apoiar via PIX</span>
               </a>
             </div>
 
             <p class="text-[11px] text-[#666666]">
-              Compatível com Windows 10 e 11 (x64) • Código aberto para uso gratuito (não-comercial) • Certificados salvos localmente.
+              Compatível com Windows 10 e 11 (x64) • Código aberto para uso gratuito (não-comercial) • Certificados salvos localmente e seguros via mTLS.
             </p>
           </div>
 
@@ -270,42 +327,42 @@
           <div class="vb-groupbox border-[#005a9e] bg-[#f8fbff]">
             <span class="vb-legend text-[#003366] font-bold">Emissor NFS-e Nacional (ADN / SEFIN)</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Emissão oficial de DPS no Padrão Nacional via mTLS (arquivo .pfx ou Windows Store). Suporte completo a emissões normais e retroativas, retenções federais (IRRF, PIS, COFINS, CSLL, INSS), pré-visualização oficial do DANFSE em PDF e arquivamento em disco por competência.
+              Emissão oficial de DPS no Padrão Nacional via mTLS (arquivo .pfx ou Windows Store). Suporte completo a emissões normais e retroativas, catálogo oficial dos 335 serviços da LC 116 com código de 6 dígitos (<code class="text-[#003366] font-bold">cTribNac</code>), correlação NBS e Reforma Tributária (NT 004), retenções federais (IRRF, PIS, COFINS, CSLL, INSS), pré-visualização oficial do DANFSE em PDF e arquivamento em disco.
             </p>
           </div>
 
           <div class="vb-groupbox">
-            <span class="vb-legend">Hub Multi-Empresas & Cache Rápido</span>
+            <span class="vb-legend">Hub Multi-Empresas & Busca Alfabética (A-Z)</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Gestão visual de toda a carteira de clientes, monitoramento de validade dos Certificados A1 (com avisos de expiração), busca rápida ordenada e sincronização unificada em 1 clique com cache inteligente persistente.
+              Gestão visual de toda a carteira de clientes, monitoramento de validade dos Certificados A1 (alertas de expiração), busca rápida em tempo real por Razão Social ou CNPJ em ordem alfabética e sincronização unificada em 1 clique com cache inteligente persistente.
             </p>
           </div>
 
           <div class="vb-groupbox">
             <span class="vb-legend">NF-e Entradas (Modelo 55)</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Sincronização nativa direta via SEFAZ Nacional (<code class="text-[#005a9e]">NFeDistribuicaoDFe</code>), manifestação automática de Ciência da Operação e download dos XMLs completos.
+              Sincronização nativa direta via SEFAZ Nacional (<code class="text-[#005a9e]">NFeDistribuicaoDFe</code>), manifestação automática de Ciência da Operação (evento 210210), consulta de enquadramento no Simples Nacional do emitente e download dos XMLs completos.
             </p>
           </div>
 
           <div class="vb-groupbox">
             <span class="vb-legend">NFS-e Tomadas e Prestadas</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Integração com o Ambiente de Dados Nacional (ADN) e Prefeitura de São Paulo, capturando automaticamente serviços tomados e prestados com espelho DANFSE em PDF.
+              Integração híbrida com o Ambiente de Dados Nacional (ADN) e Prefeitura de São Paulo (Paulistana), capturando automaticamente serviços tomados e prestados com espelho DANFSE em PDF e auditoria de retenções na fonte.
             </p>
           </div>
 
           <div class="vb-groupbox">
             <span class="vb-legend">CT-e Fretes & NFC-e Cupons</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Consulta de Conhecimentos de Transporte Eletrônicos com geração instantânea de DACTE e separação de cupons fiscais NFC-e (Modelo 65) por competência.
+              Consulta de Conhecimentos de Transporte Eletrônicos (Modelo 57) com geração instantânea de DACTE e separação de cupons fiscais NFC-e (Modelo 65) por competência, separando autorizadas e canceladas.
             </p>
           </div>
 
           <div class="vb-groupbox">
             <span class="vb-legend">Auditoria e Memória de DIFAL</span>
             <p class="text-xs text-[#444444] mt-2 leading-relaxed">
-              Filtro automático de notas interestaduais, consulta se o fornecedor é Simples Nacional ou Regime Normal e cálculo com memória item a item por NCM/CFOP.
+              Filtro automático de notas interestaduais, consulta se o fornecedor é Simples Nacional ou Regime Normal e cálculo com memória item a item por NCM/CFOP, suportando Base Dupla ("Por Dentro") e Base Simples ("Por Fora").
             </p>
           </div>
         </div>
@@ -315,46 +372,104 @@
     <!-- Galeria de Telas do Sistema (Estilo Guia de Abas do ERP) -->
     <section id="telas" class="py-12 bg-[#ffffff] border-b border-[#c0c0c0]">
       <div class="max-w-7xl mx-auto px-4 sm:px-6">
-        <div class="text-center max-w-2xl mx-auto mb-6">
-          <h2 class="text-xl sm:text-2xl font-bold text-[#003366]">Demonstração Visual dos Módulos</h2>
-          <p class="text-xs text-[#555555]">Clique nas abas abaixo para conferir a interface real do software:</p>
+        <div class="text-center max-w-3xl mx-auto mb-6">
+          <h2 class="text-xl sm:text-2xl font-bold text-[#003366]">Demonstração Visual Completa — 17 Telas Mapeadas</h2>
+          <p class="text-xs text-[#555555]">Explore todas as telas e modais reais do CONT-AI v2.1 navegando pelas categorias e abas abaixo:</p>
         </div>
 
         <div class="max-w-5xl mx-auto">
-          <!-- Abas Superiores -->
-          <div class="flex flex-wrap items-center gap-1 border-b border-[#005a9e]">
-            <button onclick="showScreen('screenshots/screen_01_painel_empresas.png', 'Painel Hub de Empresas: contadores de documentos fiscais por modelo e alerta de validade dos Certificados A1.', this)"
-                    class="tab-btn active">
-              Hub de Empresas
-            </button>
-            <button onclick="showScreen('screenshots/screen_12_emissor_nfse.png', 'Emissor NFS-e Nacional: emissão oficial no padrão ADN / SEFIN com suporte a emissão retroativa, gestão de clientes e padrões salvos.', this)"
-                    class="tab-btn">
-              Emissor NFS-e (ADN)
-            </button>
-            <button onclick="showScreen('screenshots/screen_18_preview_espelho_dps.png', 'Pré-visualização Oficial da DPS / DANFSE: espelho fiel com conferência tributária e código de barras antes da transmissão.', this)"
-                    class="tab-btn">
-              Espelho DANFSE
-            </button>
-            <button onclick="showScreen('screenshots/screen_02_guia_notas.png', 'Guia Geral de Notas: consolidação mensal unificada de NF-e, NFC-e, CT-e e NFS-e com retenções federais.', this)"
-                    class="tab-btn">
-              Guia Geral de Notas
-            </button>
-            <button onclick="showScreen('screenshots/screen_03_nfe_entradas.png', 'Captação NF-e Entradas: consulta automática SEFAZ com verificação de Simples Nacional do emitente.', this)"
-                    class="tab-btn">
-              NF-e Entradas (55)
-            </button>
-            <button onclick="showScreen('screenshots/screen_06_nfse.png', 'NFS-e Tomadas e Prestadas: captação automatizada no Portal Nacional ADN e Prefeitura de SP.', this)"
-                    class="tab-btn">
-              Captação NFS-e
-            </button>
-            <button onclick="showScreen('screenshots/screen_07_calculo_difal.png', 'Cálculo de DIFAL / Antecipação: memória completa de cálculo por item, base dupla e alíquota interna.', this)"
-                    class="tab-btn">
-              Cálculo de DIFAL
-            </button>
+          
+          <!-- Grupo 1: Gestão & Painéis -->
+          <div class="mb-2">
+            <span class="text-[10px] font-bold text-[#003366] uppercase tracking-wide block mb-1">Painéis & Gestão Central:</span>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button onclick="showScreen('screenshots/screen_01_painel_empresas.png', 'Painel Hub de Empresas: contadores de documentos fiscais por modelo e alerta de validade dos Certificados A1.', this)"
+                      class="tab-btn active">
+                Hub de Empresas
+              </button>
+              <button onclick="showScreen('screenshots/screen_09_busca_empresa.png', 'Busca Alfabética de Empresas (A-Z): seletor rápido com filtro em tempo real por Razão Social, CNPJ ou UF.', this)"
+                      class="tab-btn">
+                Busca Rápida A-Z
+              </button>
+              <button onclick="showScreen('screenshots/screen_11_launcher_portal.png', 'Launcher Portal CONT-AI: central inicial de navegação com seleção direta de módulos fiscais.', this)"
+                      class="tab-btn">
+                Portal Launcher
+              </button>
+              <button onclick="showScreen('screenshots/screen_08_configuracoes.png', 'Central de Configurações: gestão de empresas, repositório de certificados A1, agendadores diários e pastas de XML.', this)"
+                      class="tab-btn">
+                Configurações & Certificados
+              </button>
+            </div>
+          </div>
+
+          <!-- Grupo 2: Emissor NFS-e Nacional -->
+          <div class="mb-2">
+            <span class="text-[10px] font-bold text-[#005a9e] uppercase tracking-wide block mb-1">Emissor NFS-e Nacional (Padrão ADN / SEFIN):</span>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button onclick="showScreen('screenshots/screen_12_emissor_nfse.png', 'Emissor NFS-e Nacional: emissão oficial no padrão ADN / SEFIN com suporte a emissão retroativa, tomadores e padrões salvos.', this)"
+                      class="tab-btn">
+                Emissor NFS-e (ADN)
+              </button>
+              <button onclick="showScreen('screenshots/screen_13_catalogo_servicos_modal.png', 'Catálogo Oficial dos 335 Serviços (6 Dígitos - LC 116): busca instantânea e seleção com preenchimento de cTribNac.', this)"
+                      class="tab-btn">
+                Catálogo 335 Serviços (6 Dígitos)
+              </button>
+              <button onclick="showScreen('screenshots/screen_14_correlacao_nbs_modal.png', 'Correlação Atividades x NBS (9 Dígitos) x Reforma Tributária (NT 004): alíquotas IBS/CBS, cIndOp e cClassTrib.', this)"
+                      class="tab-btn">
+                Correlação NBS & NT 004
+              </button>
+              <button onclick="showScreen('screenshots/screen_15_gerenciador_padroes.png', 'Gerenciador Master-Detail de Padrões de Emissão: modelos frequentes de serviços com alíquotas e discriminação padrão.', this)"
+                      class="tab-btn">
+                Padrões de Emissão
+              </button>
+              <button onclick="showScreen('screenshots/screen_18_preview_espelho_dps.png', 'Pré-visualização Oficial da DPS / DANFSE: espelho com código de barras e conferência fiscal antes da transmissão.', this)"
+                      class="tab-btn">
+                Espelho DANFSE Preview
+              </button>
+              <button onclick="showScreen('screenshots/screen_19_notas_emitidas_tab.png', 'Histórico de Notas Emitidas: lista de DPS transmitidas, impressão de DANFSE PDF, download de XML e cancelamento.', this)"
+                      class="tab-btn">
+                Histórico de Emitidas
+              </button>
+              <button onclick="showScreen('screenshots/screen_20_meus_clientes_tab.png', 'Aba Meus Clientes: cadastro de tomadores frequentes para emissão rápida com 1 clique.', this)"
+                      class="tab-btn">
+                Meus Clientes
+              </button>
+            </div>
+          </div>
+
+          <!-- Grupo 3: Captação & Auditoria Fiscal -->
+          <div class="mb-3">
+            <span class="text-[10px] font-bold text-[#107c41] uppercase tracking-wide block mb-1">Captação Fiscal & Auditoria de Tributos:</span>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button onclick="showScreen('screenshots/screen_02_guia_notas.png', 'Guia Geral de Notas: consolidação mensal unificada de NF-e, NFC-e, CT-e e NFS-e com retenções federais.', this)"
+                      class="tab-btn">
+                Guia Geral 4 Modelos
+              </button>
+              <button onclick="showScreen('screenshots/screen_03_nfe_entradas.png', 'Captação NF-e Entradas: consulta direta SEFAZ (NSU), Ciência da Operação e verificação do Simples Nacional.', this)"
+                      class="tab-btn">
+                NF-e Entradas (55)
+              </button>
+              <button onclick="showScreen('screenshots/screen_04_nfce.png', 'NFC-e Cupons Eletrônicos (Modelo 65): captação por competência com separação de autorizadas e canceladas.', this)"
+                      class="tab-btn">
+                NFC-e Cupons (65)
+              </button>
+              <button onclick="showScreen('screenshots/screen_05_cte.png', 'CT-e Fretes (Modelo 57): controle de transportes de cargas, auditoria de frete e DACTE nativo em PDF.', this)"
+                      class="tab-btn">
+                CT-e Fretes (57)
+              </button>
+              <button onclick="showScreen('screenshots/screen_06_nfse.png', 'NFS-e Tomadas e Prestadas: captação automatizada no Portal Nacional ADN e Prefeitura de SP.', this)"
+                      class="tab-btn">
+                Captação NFS-e (ADN & SP)
+              </button>
+              <button onclick="showScreen('screenshots/screen_07_calculo_difal.png', 'Cálculo de DIFAL / Antecipação: memória completa de cálculo por item, base dupla e alíquota interna.', this)"
+                      class="tab-btn">
+                Cálculo de DIFAL
+              </button>
+            </div>
           </div>
 
           <!-- Moldura da Janela com o Print Selecionado -->
-          <div class="border border-t-0 border-[#b0b0b0] bg-[#f8f9fa] p-2 shadow-md">
+          <div class="border border-[#b0b0b0] bg-[#f8f9fa] p-2 shadow-md">
             <div class="border border-[#c0c0c0] bg-white">
               <img id="gallery-img" src="screenshots/screen_01_painel_empresas.png" alt="Tela do Sistema CONT-AI" class="w-full h-auto object-contain max-h-[580px] mx-auto" />
             </div>
@@ -362,6 +477,589 @@
               Painel Hub de Empresas: contadores de documentos fiscais por modelo e alerta de validade dos Certificados A1.
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Seção de Mapeamento Completo de Funções & Botões -->
+    <section id="mapeamento" class="py-12 bg-[#f0f2f5] border-b border-[#c0c0c0]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="text-center max-w-3xl mx-auto mb-10">
+          <span class="text-xs font-bold text-[#005a9e] uppercase tracking-wider">Referência Operacional Oficial</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-[#003366] mt-1">Mapeamento Completo de Funções & Botões</h2>
+          <p class="text-xs sm:text-sm text-[#555555] mt-1">Todas as funcionalidades, botões, modais e parâmetros fiscais do CONT-AI v2.1 catalogados detalhadamente.</p>
+        </div>
+
+        <div class="space-y-6">
+
+          <!-- 1. Barra Superior & Seletor de Empresas -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">1. Barra Superior Global & Seletor de Empresas (A-Z)</span>
+            <p class="text-xs text-[#555555] mb-3">Controles globais presentes em todas as telas para alternância de empresa, sincronização geral e acesso às configurações.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">Empresa Ativa</span></td>
+                    <td>Combobox com busca rápida</td>
+                    <td>Filtra e seleciona instantaneamente a empresa de trabalho. Digite Razão Social, CNPJ ou UF.</td>
+                    <td>Exibição estritamente em <strong>ordem alfabética (A-Z)</strong>. Suporta navegação por setas (↑ / ↓) e Enter.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">🔄 Sincronizar Tudo</span></td>
+                    <td>Botão Ribbon</td>
+                    <td>Dispara a rotina de sincronização em lote para todas as empresas cadastradas que possuem certificado ativo.</td>
+                    <td>Varre os WebServices da SEFAZ Nacional e Portal ADN sequencialmente sem travar a interface.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">⚙️ Configurações</span></td>
+                    <td>Botão com Ícone</td>
+                    <td>Abre o modal unificado de configurações do sistema (Empresas, Agendadores e Diretórios).</td>
+                    <td>Permite cadastrar certificados digitais A1 (.pfx / Windows Store) e definir rotas de armazenamento.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Portal Launcher / Gestor</span></td>
+                    <td>Botão de Alternância</td>
+                    <td>Alterna entre o Portal Launcher de Módulos e a tela de trabalho operacional atual.</td>
+                    <td>Facilita a transição rápida entre o Emissor NFS-e Nacional e o Gestor de Movimento Fiscal.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2. Hub de Empresas (Multi-CNPJ) -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">2. Hub de Empresas (Multi-CNPJ)</span>
+            <p class="text-xs text-[#555555] mb-3">Painel de controle central para monitoramento da carteira de clientes e volumetria de XMLs.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-success">+ Cadastrar Nova Empresa</span></td>
+                    <td>Botão de Ação</td>
+                    <td>Abre o assistente para adicionar novo CNPJ via certificado digital A1 (.pfx ou Windows Store).</td>
+                    <td>Lê automaticamente a Razão Social, CNPJ e data de validade sem digitação manual.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Filtro de Regime Tributário</span></td>
+                    <td>Seletor Dropdown</td>
+                    <td>Filtra a visualização entre "Todos", "Simples Nacional" ou "Regime Normal".</td>
+                    <td>Permite isolar empresas do Simples para apuração simplificada ou do Lucro Presumido/Real.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Filtro de Certificados A1</span></td>
+                    <td>Pills de Status</td>
+                    <td>Filtra empresas por status do Certificado: "Regulares (>30d)", "A Vencer (≤30d)" ou "Expirados".</td>
+                    <td>Evita a interrupção da captura fiscal identificando certificados que precisam de renovação urgente.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">📊 Exportar CSV Geral</span></td>
+                    <td>Botão de Ação</td>
+                    <td>Exporta a relação completa de empresas, status de certificados e volumetria em planilha CSV.</td>
+                    <td>Gera relatório gerencial para coordenação do escritório com o total de notas por cliente.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">🔄 Sincronizar (Por Linha)</span></td>
+                    <td>Ação na Grid</td>
+                    <td>Dispara a sincronização individual dos modelos ativos da empresa selecionada na tabela.</td>
+                    <td>Permite atualizar com prioridade uma empresa específica que aguarda fechamento fiscal.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3. Emissor NFS-e Nacional -->
+          <div class="vb-groupbox border-[#005a9e]">
+            <span class="vb-legend text-[#003366]">3. Emissor NFS-e Nacional (Padrão ADN / SEFIN) & Emissão Retroativa</span>
+            <p class="text-xs text-[#555555] mb-3">Módulo de emissão oficial de DPS/NFS-e integrado aos servidores nacionais da Receita Federal.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">Data de Emissão (DPS)</span></td>
+                    <td>Campo Datepicker</td>
+                    <td>Permite definir a data exata da emissão da DPS, incluindo <strong>emissões retroativas</strong>.</td>
+                    <td>Possibilita regularizar serviços de competências ou dias anteriores. Exibe badge de alerta visual retroativo.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Competência Fiscal</span></td>
+                    <td>Campo Datepicker</td>
+                    <td>Define a data de ocorrência do fato gerador do ISSQN (tag <code class="font-bold text-[#003366]">dCompet</code> da DPS).</td>
+                    <td>Determina em qual mês/ano o imposto municipal será apurado no PGDAS-D ou guia do município.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Série e Número da DPS</span></td>
+                    <td>Campos Numéricos + Atalhos</td>
+                    <td>Controla a numeração sequencial de emissão da empresa por série (ex: Série 2 ou 100).</td>
+                    <td>Alerta automaticamente se a DPS já foi emitida anteriormente e sugere o próximo número sequencial válido.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Carregar Cliente Salvo</span></td>
+                    <td>Combobox Tomador</td>
+                    <td>Preenche automaticamente CNPJ/CPF, Razão Social, E-mail e Município do tomador cadastrado.</td>
+                    <td>Possui proteção contra quebra de layout quando o tomador possui Razão Social muito extensa.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">cTribNac (6 Dígitos)</span></td>
+                    <td>Campo Autocomplete</td>
+                    <td>Código de Tributação Nacional com base nos 335 subitens oficiais da Lei Complementar 116/2003.</td>
+                    <td>Possui atalho direto para a <strong>Tabela Completa (335 Itens)</strong> com filtro por grupo.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">cNBS (9 Dígitos)</span></td>
+                    <td>Campo Autocomplete</td>
+                    <td>Nomenclatura Brasileira de Serviços com busca por código ou palavra-chave.</td>
+                    <td>Possui atalho para a <strong>Tabela de Correlação NBS x LC 116 x Reforma Tributária</strong>.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Reforma Tributária (IBS/CBS)</span></td>
+                    <td>Alternador Sim / Não</td>
+                    <td>Habilita o preenchimento dos campos <code class="font-bold text-[#003366]">cIndOp</code> e <code class="font-bold text-[#003366]">cClassTrib</code> da Nota Técnica 004.</td>
+                    <td>Prepara a empresa para o regime de transição do IBS e da CBS da Reforma Tributária Nacional.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Retenções Federais</span></td>
+                    <td>Checkbox Expansível</td>
+                    <td>Abre os campos para cálculo e destaque de PIS, COFINS, IRRF, CSLL e INSS retidos na fonte.</td>
+                    <td>Calcula automaticamente o Líquido a Receber subtraindo as retenções do valor bruto dos serviços.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">👁️ Pré-visualizar Espelho DANFSE</span></td>
+                    <td>Botão de Ação</td>
+                    <td>Renderiza o espelho fiel do DANFSE com brasão oficial, código de barras e conferência fiscal.</td>
+                    <td>Permite ao analista fiscal conferir todos os tributos antes de transmitir para os servidores da SEFIN.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-success">🚀 Transmitir DPS para SEFIN</span></td>
+                    <td>Botão Principal</td>
+                    <td>Assina digitalmente o XML da DPS com o certificado A1 da empresa e envia via mTLS para o ADN.</td>
+                    <td>Recebe o protocolo de autorização, armazena o XML na pasta de emitidas e gera o DANFSE oficial em PDF.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 4. Catálogo dos 335 Serviços & Correlação NBS -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">4. Catálogo Oficial dos 335 Serviços (6 Dígitos) & Tabela NBS / NT 004</span>
+            <p class="text-xs text-[#555555] mb-3">Modais de pesquisa inteligente para correta classificação tributária da prestação de serviços.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge">Filtro por Grupo LC 116</span></td>
+                    <td>Seletor de Grupos</td>
+                    <td>Filtra os 335 serviços pelos 41 grupos da LC 116 (ex: Informática, Saúde, Engenharia, Locação).</td>
+                    <td>Permite ao usuário localizar com extrema rapidez o código oficial exato de 6 dígitos da sua atividade.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Busca em Tempo Real</span></td>
+                    <td>Campo de Pesquisa</td>
+                    <td>Filtra a grade por qualquer trecho do código numérico ou das palavras da descrição do serviço.</td>
+                    <td>Executa busca instantânea sem recarregar a página, destacando os termos correspondentes.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">Selecionar Serviço</span></td>
+                    <td>Ação na Grid</td>
+                    <td>Transfere o código de 6 dígitos e a descrição oficial diretamente para o formulário da DPS.</td>
+                    <td>Garante que o <code class="font-bold text-[#003366]">cTribNac</code> transmitido seja 100% aceito sem rejeições no SEFIN Nacional.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Aba Correlação NBS x NT 004</span></td>
+                    <td>Aba do Modal</td>
+                    <td>Apresenta o cruzamento oficial entre atividades, NBS (9 dígitos) e alíquotas da Reforma Tributária.</td>
+                    <td>Possui o botão <strong>Aplicar Correlação</strong> que preenche <code class="font-bold text-[#003366]">cNBS</code>, <code class="font-bold text-[#003366]">cIndOp</code> e <code class="font-bold text-[#003366]">cClassTrib</code> de uma só vez.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 5. Gerenciador de Padrões & Meus Clientes -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">5. Padrões de Emissão Master-Detail & Gestão de Clientes</span>
+            <p class="text-xs text-[#555555] mb-3">Automação de modelos pré-configurados e tomadores frequentes para agilizar o faturamento recorrente.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-success">+ Novo Padrão</span></td>
+                    <td>Botão Master-Detail</td>
+                    <td>Abre o painel lateral para cadastrar um novo modelo de serviço pré-formatado para a empresa.</td>
+                    <td>Salva alíquotas de ISS, código nacional, classificação tributária e texto padrão de discriminação.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Aplicar na Emissão</span></td>
+                    <td>Ação Rápida</td>
+                    <td>Carrega todos os dados do padrão selecionado diretamente nos campos do formulário de DPS.</td>
+                    <td>Reduz o tempo de emissão de uma nota recorrente para menos de 10 segundos.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-success">+ Novo Cliente</span></td>
+                    <td>Botão em Meus Clientes</td>
+                    <td>Cadastra um tomador de serviços frequente com validação de formato de CNPJ ou CPF.</td>
+                    <td>Mantém os dados cadastrais (razão social, e-mail financeiro e cidade) salvos no banco local da empresa.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-danger">🗑️ Excluir / ✏️ Editar</span></td>
+                    <td>Ações de Gerenciamento</td>
+                    <td>Permite atualizar os dados do tomador ou modelo fiscal, bem como excluir registros obsoletos.</td>
+                    <td>Mantém os cadastros da empresa organizados sem acumular registros inativos.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 6. Guia Geral de Notas -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">6. Guia Geral de Notas (Consolidação dos 4 Modelos)</span>
+            <p class="text-xs text-[#555555] mb-3">Fechamento fiscal mensal unificado reunindo NF-e (55), NFC-e (65), CT-e (57) e NFS-e.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge">Seletor de Competência</span></td>
+                    <td>Controle MM/AAAA</td>
+                    <td>Alterna o mês e ano de apuração fiscal para carregar as notas correspondentes em disco e banco.</td>
+                    <td>Gera o fechamento isolado de cada competência para conciliação contábil e fiscal.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Filtro de Fluxo</span></td>
+                    <td>Botões Entrada / Saída</td>
+                    <td>Separa instantaneamente documentos de Entradas (Compras/Tomados) e Saídas (Vendas/Prestados).</td>
+                    <td>Permite conferir o total de créditos fiscais de compras versus débitos fiscais de saídas.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Filtro por Modelo</span></td>
+                    <td>Badges 55 / 65 / 57 / NFS-e</td>
+                    <td>Isola a listagem para exibir apenas NF-e, apenas NFC-e, apenas CT-e ou apenas NFS-e.</td>
+                    <td>Facilita a conferência setorizada por tipo de documento e natureza de operação.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">📄 Ver DANFE / DACTE / DANFSE</span></td>
+                    <td>Ação na Linha</td>
+                    <td>Abre o visualizador auxiliar correspondente ao modelo do documento em tela cheia com opção de impressão.</td>
+                    <td>Dispensa o uso de ferramentas externas para visualizar e imprimir documentos fiscais.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">📊 Exportar Resumo CSV</span></td>
+                    <td>Botão Toolbar</td>
+                    <td>Gera planilha Excel/CSV consolidada com todos os documentos do mês e suas retenções federais.</td>
+                    <td>Facilita a importação do movimento fiscal nos principais ERPs contábeis do mercado brasileiro.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 7. NF-e Entradas & Ciência da Operação -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">7. NF-e Entradas (Modelo 55 — SEFAZ Nacional & Ciência 210210)</span>
+            <p class="text-xs text-[#555555] mb-3">Captação via WebService oficial NFeDistribuicaoDFe com manifestação automática.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">🔄 Sincronizar SEFAZ (NSU)</span></td>
+                    <td>Botão Principal</td>
+                    <td>Consulta o Ambiente Nacional da SEFAZ consumindo o NSU sequencial da empresa via mTLS.</td>
+                    <td>Baixa novos XMLs completos e resumos fiscais sem duplicar registros já existentes.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">🏷️ Ciência da Operação (210210)</span></td>
+                    <td>Automação / Botão</td>
+                    <td>Registra o evento de Ciência da Operação sobre o resumo fiscal para liberar o download do XML completo.</td>
+                    <td>Obrigatório pelo CONFAZ para fornecimento do XML integral com chave de 44 dígitos.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">🔑 Baixar por Chave de Acesso</span></td>
+                    <td>Botão com Modal</td>
+                    <td>Permite digitar uma chave específica de 44 dígitos para forçar o download direto na SEFAZ.</td>
+                    <td>Útil para capturar notas emitidas em contingência ou com NSU postergado.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">🔍 Consultar Simples Nacional</span></td>
+                    <td>Botão Toolbar</td>
+                    <td>Consulta o enquadramento tributário do emitente via CNPJ na Receita Federal.</td>
+                    <td>Separa notas emitidas por fornecedores do Simples Nacional vs. Regime Normal (RPA).</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-success">⚡ Enviar p/ Auditoria DIFAL</span></td>
+                    <td>Botão de Integração</td>
+                    <td>Transfere automaticamente as notas interestaduais capturadas para a aba de apuração do DIFAL.</td>
+                    <td>Conecta o fluxo de captura ao módulo de cálculo de impostos interestaduais em 1 clique.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">📦 Exportar Pacote ZIP</span></td>
+                    <td>Botão Toolbar</td>
+                    <td>Compacta todos os XMLs de NF-e do mês em um único arquivo .zip organizado por data.</td>
+                    <td>Gera o pacote para envio ao cliente ou backup em repositório externo da contabilidade.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 8. CT-e Fretes & NFC-e Cupons -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">8. CT-e Fretes (Modelo 57) & NFC-e Cupons Fiscais (Modelo 65)</span>
+            <p class="text-xs text-[#555555] mb-3">Gestão de transportes de cargas e cupons fiscais eletrônicos do varejo.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">🔄 Sincronizar CT-e</span></td>
+                    <td>Botão de Captação</td>
+                    <td>Consulta o WebService <code class="text-[#005a9e]">CTeDistribuicaoDFe</code> por NSU via certificado A1.</td>
+                    <td>Captura fretes onde a empresa atua como tomadora, remetente ou destinatária da mercadoria.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">📄 Ver DACTE PDF</span></td>
+                    <td>Ação na Grid</td>
+                    <td>Renderiza o Documento Auxiliar do Conhecimento de Transporte diretamente a partir do XML.</td>
+                    <td>Permite auditar transportadora emitente, modal rodoviário, peso e valor total da prestação.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">🔄 Sincronizar NFC-e</span></td>
+                    <td>Botão de Captação</td>
+                    <td>Captura cupons fiscais eletrônicos com controle de taxa de requisições por período.</td>
+                    <td>Organiza em disco separando cupons autorizados de cupons cancelados na competência.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Filtro de Status NFC-e</span></td>
+                    <td>Seletor Dropdown</td>
+                    <td>Alterna a visualização entre cupons autorizados e cancelados para conciliação de caixa.</td>
+                    <td>Garante que cupons cancelados não sejam somados indevidamente no faturamento bruto.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 9. NFS-e Consulta (ADN & Prefeitura SP) -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">9. NFS-e Consulta (Portal Nacional ADN & Prefeitura Paulistana SP)</span>
+            <p class="text-xs text-[#555555] mb-3">Captação híbrida de serviços tomados e prestados via REST mTLS e SOAP Paulistana.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge">Origem do WebService</span></td>
+                    <td>Seletor de Plataforma</td>
+                    <td>Alterna a busca entre o <strong>Portal Nacional ADN</strong> e a <strong>Prefeitura de São Paulo (SP)</strong>.</td>
+                    <td>Permite atender simultaneamente empresas de municípios integrados ao ADN e da capital paulista.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Tomadas vs Prestadas</span></td>
+                    <td>Alternador de Fluxo</td>
+                    <td>Define se a captação consultará serviços tomados (compras de serviços) ou prestados (receitas).</td>
+                    <td>Permite realizar a conferência completa do ISS e das retenções na fonte de ambos os lados.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">🔄 Sincronizar NFS-e</span></td>
+                    <td>Botão Principal</td>
+                    <td>Dispara a consulta por NSU no ADN ou por período na Prefeitura de SP via certificado A1.</td>
+                    <td>Baixa os XMLs oficiais e gera os PDFs do DANFSE com detalhamento tributário completo.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">📊 Exportar Planilha com Retenções</span></td>
+                    <td>Botão Toolbar</td>
+                    <td>Exporta planilha detalhando Base de Cálculo, ISS, ISS Retido, PIS, COFINS, INSS, IRRF e CSLL.</td>
+                    <td>Fornece os valores exatos para preenchimento da EFD-Reinf e da DCTFWeb da competência.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 10. Cálculo de DIFAL / Antecipação -->
+          <div class="vb-groupbox border-[#005a9e]">
+            <span class="vb-legend text-[#003366]">10. Motor de Auditoria e Apuração de DIFAL / Antecipação Tributária</span>
+            <p class="text-xs text-[#555555] mb-3">Apuração automática item a item de notas interestaduais de entrada com regras por NCM.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">⚡ Sincronizar e Calcular DIFAL</span></td>
+                    <td>Botão Principal</td>
+                    <td>Carrega as notas interestaduais do mês e aplica as regras tributárias item a item.</td>
+                    <td>Descarta automaticamente notas internas e processa apenas mercadorias vindas de outro estado.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Base Dupla ("Por Dentro")</span></td>
+                    <td>Alternador de Método</td>
+                    <td>Calcula o imposto embutindo a alíquota interna na base de cálculo antes de apurar o diferencial.</td>
+                    <td>Método padrão exigido pela maioria das legislações estaduais para empresas do Regime Normal e Simples.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Base Simples ("Por Fora")</span></td>
+                    <td>Alternador de Método</td>
+                    <td>Aplica a diferença direta entre alíquotas sobre o valor contábil original da mercadoria.</td>
+                    <td>Utilizado em estados ou regimes que adotam cálculo direto sem recomposição de base.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">⚙️ Regras por NCM</span></td>
+                    <td>Botão com Modal</td>
+                    <td>Cadastra alíquotas internas específicas por código de NCM (ex: 12%, 7%, 25%, cesta básica).</td>
+                    <td>Permite sobrepor a alíquota padrão do estado para itens com tributação diferenciada.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Consumo/Ativo vs Revenda</span></td>
+                    <td>Alternador por Item</td>
+                    <td>Permite alternar a destinação da mercadoria entre Uso/Consumo/Ativo ou Revenda/Industrialização.</td>
+                    <td>Define a inclusão ou exclusão do IPI na base de cálculo de acordo com o Regulamento do ICMS.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">🖨️ Relatório / Impressão PDF</span></td>
+                    <td>Botão Toolbar</td>
+                    <td>Gera relatório formal com layout executivo e memória completa de cálculo para conferência e arquivo.</td>
+                    <td>Serve de suporte para emissão do DARE/GNRE e auditoria fiscal perante o fisco estadual.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">📊 Exportar Consolidado / Analítico CSV</span></td>
+                    <td>Botões de Exportação</td>
+                    <td>Exporta duas visões em Excel: consolidado por nota fiscal ou analítico detalhado item a item.</td>
+                    <td>Permite auditar cada item da nota com sua base de cálculo, alíquotas e imposto devido.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 11. Central de Configurações -->
+          <div class="vb-groupbox">
+            <span class="vb-legend">11. Central de Configurações, Empresas e Agendadores</span>
+            <p class="text-xs text-[#555555] mb-3">Parâmetros operacionais do sistema, repositório de certificados e tarefas automáticas.</p>
+            <div class="overflow-x-auto">
+              <table class="erp-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Controle / Botão</th>
+                    <th style="width: 15%;">Tipo / Atalho</th>
+                    <th style="width: 35%;">Ação Realizada</th>
+                    <th style="width: 30%;">Impacto Fiscal / Técnico</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="btn-badge">Importar Pasta de Certificados</span></td>
+                    <td>Ação em Lote</td>
+                    <td>Varre uma pasta de rede ou diretório local contendo múltiplos arquivos .pfx/.p12.</td>
+                    <td>Cadastra dezenas de empresas simultaneamente com leitura automática dos dados digitais.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Windows Store Certificados</span></td>
+                    <td>Seletor Repositório</td>
+                    <td>Permite vincular certificados digitais instalados no repositório nativo do Windows (CurrentUser / LocalMachine).</td>
+                    <td>Permite emitir e sincronizar notas sem precisar manter o arquivo físico .pfx em disco.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Ativar Agendadores Diários</span></td>
+                    <td>Painel Agendador</td>
+                    <td>Configura horários específicos (ex: 08:00, 14:00, 18:00) para busca automática em segundo plano.</td>
+                    <td>O CONT-AI executa a captação na bandeja do sistema (*System Tray*) mantendo os XMLs atualizados.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge">Diretório Raiz de Armazenamento</span></td>
+                    <td>Seletor de Pasta</td>
+                    <td>Define onde os XMLs e PDFs serão arquivados em disco, organizados por Empresa/Ano-Mês.</td>
+                    <td>Garante total compatibilidade com pastas compartilhadas de servidores locais e rotinas de backup.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-danger">Zerar NSU / Limpar Cache</span></td>
+                    <td>Ferramenta de Manutenção</td>
+                    <td>Reinicializa o contador sequencial de NSU para forçar uma nova varredura completa na SEFAZ.</td>
+                    <td>Útil quando notas antigas precisam ser recapturadas ou reauditadas após inconsistências.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
