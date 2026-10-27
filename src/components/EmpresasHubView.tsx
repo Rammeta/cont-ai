@@ -8,12 +8,10 @@ import LoadingGearOverlay from "./LoadingGearOverlay";
 import logoImg from "../../assets/logo.png";
 import {
   RotateCw,
-  FolderOpen,
   Plus,
   Folder,
   BarChart3,
   Copy,
-  ArrowRight,
   ShieldCheck,
   CheckCircle2,
   Building2,
@@ -680,17 +678,6 @@ export default function EmpresasHubView({
       <div className="bg-[#e8e8e8] border-b border-[#b5b5b5] px-3 py-1.5 flex items-center justify-between gap-2 flex-wrap shrink-0 shadow-2xs">
         {/* Lado Esquerdo: Ações Principais da Empresa e Cadastro */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => selectedMetric && handleEnterCompany(selectedMetric.id)}
-            disabled={!selectedMetric}
-            className="vb-btn vb-btn-primary"
-            title="Abrir movimentação fiscal da empresa selecionada (Enter)"
-          >
-            <FolderOpen size={12} className="text-[#003366]" />
-            <span>Abrir Movimento Fiscal (Enter)</span>
-          </button>
-
           {onOpenCompanyModal && (
             <button
               type="button"
@@ -960,22 +947,6 @@ export default function EmpresasHubView({
                 >
                   <RotateCw size={12} className="text-[#003366]" />
                   <span>Sincronizar Esta Empresa</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleEnterCompany(selectedMetric.id)}
-                  className="vb-btn"
-                  style={{
-                    background: "linear-gradient(180deg, #e6f2ff 0%, #cce5ff 100%)",
-                    borderColor: "#005a9e",
-                    fontWeight: "bold",
-                    color: "#003366",
-                  }}
-                  title="Entrar na apuração e movimento fiscal consolidado (Enter)"
-                >
-                  <ArrowRight size={12} />
-                  <span>Entrar no Movimento Fiscal (Enter)</span>
                 </button>
               </div>
             </div>
