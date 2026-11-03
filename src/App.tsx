@@ -61,6 +61,7 @@ const DEFAULT_CONFIG: AppConfig = {
   includeIPI: "yes",
   applyFcpAntecipacao: "no",
   obsLivre: "",
+  ignorarDevolucao: "yes",
 };
 
 export default function App() {
@@ -319,8 +320,10 @@ export default function App() {
     setInternalIgnoredCount(ignored);
 
     const ignoredMsg = ignored > 0 ? ` (${ignored} nota(s) interna(s) de ${company.uf || "SP"} foram ignoradas por não incidirem DIFAL)` : "";
+    const devolucoesCount = currentNotas.filter((n) => n.isDevolucao || n.modeLabel?.includes("Devolução")).length;
+    const devolucaoMsg = devolucoesCount > 0 ? ` [${devolucoesCount} devolução(ões) identificada(s) e isenta(s) de DIFAL]` : "";
     alertStatus(
-      `${currentNotas.length} nota(s) interestadual(is) carregadas para cálculo do DIFAL${ignoredMsg}. ${currentItens.length} itens auditados!`
+      `${currentNotas.length} nota(s) interestadual(is) carregadas para cálculo do DIFAL${ignoredMsg}${devolucaoMsg}. ${currentItens.length} itens auditados!`
     );
     setAppModule("difal");
     setActiveTab("notas");
@@ -495,7 +498,7 @@ export default function App() {
 
     const updatedNotas = notas.map((nota) => {
       const itensNota = updatedItens.filter((i) => i.arquivo === nota.arquivo && i.nNF === nota.nNF);
-      const agg = summarizeNota(itensNota, config.regimeRemet, config.regimeDest);
+      const agg = summarizeNota(itensNota, config.regimeRemet, config.regimeDest, nota.isDevolucao);
       return { ...nota, ...agg } as ParsedNota;
     });
 
@@ -641,7 +644,9 @@ export default function App() {
       setInternalIgnoredCount((prev) => prev + ignoredNotasCount);
 
       const ignoredMsg = ignoredNotasCount > 0 ? ` (${ignoredNotasCount} nota(s) interna(s) ignoradas por não incidirem DIFAL)` : "";
-      alertStatus(`${addedNotasCount} XML(s) interestadual(is) carregado(s)${ignoredMsg}. ${addedItensCount} item(ns) identificados.`);
+      const devolucoesCount = currentNotas.filter((n) => n.isDevolucao || n.modeLabel?.includes("Devolução")).length;
+      const devolucaoMsg = devolucoesCount > 0 ? ` [${devolucoesCount} devolução(ões) isenta(s)]` : "";
+      alertStatus(`${addedNotasCount} XML(s) interestadual(is) carregado(s)${ignoredMsg}${devolucaoMsg}. ${addedItensCount} item(ns) identificados.`);
       
       // Automatically switch tabs for direct spreadsheet views
       setActiveTab("notas");
@@ -1023,7 +1028,7 @@ export default function App() {
             <div
               className="flex items-center gap-1 cursor-pointer"
               onClick={() => setAppModule("hub")}
-              title="CONT-AI - Gestor de Movimento Fiscal v2.1 (Clique para ir ao Painel de Empresas)"
+              title="CONT-AI - Gestor de Movimento Fiscal v2.2 (Clique para ir ao Painel de Empresas)"
             >
               <img
                 src={logoImg}
@@ -1034,7 +1039,7 @@ export default function App() {
                 CONT-AI
               </span>
               <span className="text-[9px] font-bold text-[#005a9e] bg-[#dbe8f8] border border-[#99bce8] px-1 rounded-xs">
-                v2.1
+                v2.2
               </span>
             </div>
 

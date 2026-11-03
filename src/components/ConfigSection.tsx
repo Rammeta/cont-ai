@@ -54,13 +54,31 @@ export default function ConfigSection({ config, onChange, summaryText }: ConfigS
                 className="vb-input w-24 text-center font-mono font-bold"
               />
               <span className="text-[10px] text-[#666666] leading-tight">
-                Fundo Estadual Combate à Pobreza (insira 0,00 se isento).
+                Fundo Estadual Combate à Pobreza.
               </span>
             </div>
           </div>
 
+          {/* Desconsiderar Devoluções */}
+          <div className="flex flex-col gap-1" id="field_ignorarDevolucao">
+            <label className="font-semibold text-[#333333]">
+              Desconsiderar Devoluções:
+            </label>
+            <select
+              value={config.ignorarDevolucao || "yes"}
+              onChange={(e) => handleInputChange("ignorarDevolucao", e.target.value)}
+              className="vb-input w-full font-semibold"
+            >
+              <option value="yes">Sim (Isentar Devoluções - Sem DIFAL)</option>
+              <option value="no">Não (Calcular Devoluções Normalmente)</option>
+            </select>
+            <span className="text-[10px] text-[#666666] leading-tight">
+              Notas com finNFe 4 ou CFOP de devolução ficam com DIFAL R$ 0,00.
+            </span>
+          </div>
+
           {/* Observação Livre */}
-          <div className="flex flex-col gap-1 sm:col-span-2" id="field_obsLivre">
+          <div className="flex flex-col gap-1" id="field_obsLivre">
             <label className="font-semibold text-[#333333]">
               Observação Operacional Livre (Exportação / Relatório):
             </label>
@@ -79,7 +97,7 @@ export default function ConfigSection({ config, onChange, summaryText }: ConfigS
           <legend className="vb-legend text-[10px]">
             Parâmetros Automatizados Conforme Legislação Tributária
           </legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[10px] text-[#444444] leading-normal">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 text-[10px] text-[#444444] leading-normal">
             <div className="bg-[#f9f9f9] border border-[#d8d8d8] p-1.5">
               <strong className="text-[#003366] block mb-0.5">Alíquota Interestadual:</strong>
               Extraída automaticamente da tag <code>&lt;pICMS&gt;</code> do XML (4%, 7% ou 12%). Evita erros de parametrização manual.
@@ -95,6 +113,10 @@ export default function ConfigSection({ config, onChange, summaryText }: ConfigS
             <div className="bg-[#f9f9f9] border border-[#d8d8d8] p-1.5">
               <strong className="text-[#003366] block mb-0.5">Incidência do FCP:</strong>
               Calculado para Uso/Consumo Final onde há alíquota FCP configurada. Bloqueado em Antecipação simples por regra padrão.
+            </div>
+            <div className="bg-[#f9f9f9] border border-[#d8d8d8] p-1.5">
+              <strong className="text-[#003366] block mb-0.5">Operações de Devolução:</strong>
+              Operações de devolução (tag <code>&lt;finNFe&gt;=4</code> ou CFOP de devolução) são isentas de DIFAL automaticamente quando habilitado.
             </div>
           </div>
         </fieldset>

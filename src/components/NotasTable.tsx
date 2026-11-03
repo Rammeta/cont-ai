@@ -392,10 +392,14 @@ export default function NotasTable({ notas, onExport }: NotasTableProps) {
                       <td className="text-center">
                         <span
                           className={`px-1 py-0.2 rounded text-[9px] font-bold ${
-                            n.mode === "antecipacao"
+                            n.isDevolucao || n.modeLabel?.includes("Devolução")
+                              ? "bg-slate-100 text-slate-700 border border-slate-300"
+                              : n.mode === "antecipacao"
                               ? "bg-amber-100 text-amber-900 border border-amber-300"
                               : n.mode === "difal_consumidor_final"
                               ? "bg-blue-100 text-blue-900 border border-blue-300"
+                              : n.mode === "sem_difal"
+                              ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
                               : "bg-purple-100 text-purple-900 border border-purple-300"
                           }`}
                         >

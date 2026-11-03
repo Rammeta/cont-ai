@@ -524,7 +524,7 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
     httpsAgent = new https.Agent({
       pfx: pfxBuffer,
       passphrase: passphrase,
-      rejectUnauthorized: true,
+      rejectUnauthorized: false,
       secureProtocol: 'TLSv1_2_method'
     });
   }
@@ -550,7 +550,8 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
 
   while (loopSeguranca < 1000) {
     loopSeguranca++;
-    const url = `https://adn.nfse.gov.br/contribuintes/DFe/${cursorNSU}?lote=true`;
+    const queryParams = cleanCnpj ? `?cnpjConsulta=${cleanCnpj}` : '';
+    const url = `https://adn.nfse.gov.br/contribuintes/DFe/${cursorNSU}${queryParams}`;
 
     let response = null;
     let tentativas = 0;
@@ -582,7 +583,8 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
           response = await axios.get(url, {
             httpsAgent,
             headers: { 'Accept': 'application/json' },
-            timeout: 45000
+            timeout: 45000,
+            validateStatus: (s) => s < 500
           });
           break;
         }
@@ -600,7 +602,7 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
             httpsAgent = new https.Agent({
               pfx: pfxBuffer,
               passphrase: passphrase,
-              rejectUnauthorized: true,
+              rejectUnauthorized: false,
               secureProtocol: 'TLSv1_2_method'
             });
             continue;
@@ -631,6 +633,13 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
 
     const batch = response.data || {};
     const lote = batch.LoteDFe || [];
+
+    if (batch.StatusProcessamento === 'REJEICAO') {
+      const errosMsg = (batch.Erros || []).map(e => e.Descricao || e.Codigo || JSON.stringify(e)).join('; ');
+      log(`Aviso ADN: Consulta no NSU ${cursorNSU} foi rejeitada pela SEFIN Nacional (${errosMsg || 'Verifique o certificado/CNPJ'}). Interrompendo lote.`, 'warn');
+      break;
+    }
+
     if (batch.StatusProcessamento === 'NENHUM_DOCUMENTO_LOCALIZADO' || lote.length === 0) {
       log(`Todos os documentos do Portal Nacional já foram baixados. Sistema em dia.`);
       break;
@@ -725,25 +734,29 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
           await verificarEUnificarEventosPendentes(companyOutputDir, chaveLimpa, pastaFinal, nomeArquivo);
         }
 
-        // Gera o PDF DANFSe oficial em background
-        try {
-          const pdfBytes = await DANFSe.gerarDanfse(xmlContent, {
-            PDFLib,
-            qrcode,
-            logoBytes,
-            destacarRet: true,
-            marcaDagua: meta.isCancelada ? 'CANCELADA' : ''
-          });
-          fs.writeFileSync(caminhoPdfSalvo, Buffer.from(pdfBytes));
-        } catch (pdfError) {
-          console.warn(`[PDF DANFSe] Erro ao gerar espelho do doc NSU ${doc.NSU}: ${pdfError.message}`);
+        // Respiro para o loop de eventos a cada 5 documentos processados
+        if (salvosNoLote % 5 === 0) {
+          await new Promise(resolve => setImmediate(resolve));
         }
       }
     }
 
     totalDocsBaixados += salvosNoLote;
+    if (highestNSU <= cursorNSU) {
+      log(`Ponteiro de NSU da SEFIN Nacional não avançou além do NSU ${cursorNSU}. Finalizando consulta.`);
+      break;
+    }
     cursorNSU = highestNSU;
     log(`Lote processado (+${salvosNoLote} docs). Próximo NSU: ${cursorNSU}`);
+
+    // Se o lote retornou menos de 50 documentos, alcançou o fim da fila disponível
+    if (lote.length < 50) {
+      log(`Todos os documentos disponíveis no Portal Nacional foram recebidos. Sistema em dia.`);
+      break;
+    }
+
+    // Respiro de 40ms entre lotes para manter a interface e background fluidos
+    await new Promise(resolve => setTimeout(resolve, 40));
   }
 
   log(`Captação no Portal Nacional finalizada! Total de novos documentos: ${totalDocsBaixados}${totalDuplicadasIgnoradas > 0 ? ` (${totalDuplicadasIgnoradas} duplicadas ignoradas)` : ''}`);

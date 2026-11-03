@@ -239,9 +239,6 @@ export default function NfseCaptacaoView({
         },
         ...prev.slice(0, 150),
       ]);
-      if (info.docsCount && info.docsCount > 0) {
-        loadCompanyData(activeEmpresa);
-      }
     });
     return () => unsub();
   }, [activeEmpresa?.id, activeEmpresa?.cnpj]);

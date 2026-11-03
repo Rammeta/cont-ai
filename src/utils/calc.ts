@@ -220,6 +220,23 @@ export function getModeLabel(mode: string): string {
   return "Sem DIFAL";
 }
 
+export function isCfopDevolucao(cfop: string): boolean {
+  const c = String(cfop || "").replace(/\D/g, "");
+  if (c.length < 4) return false;
+  // Qualquer CFOP com dígito 2 na 2ª posição (ex: 1201, 1202, 2201, 2202, 5201, 6201, 6202...)
+  if (c[1] === "2") return true;
+  // CFOPs específicos de devolução (ST, ativo imobilizado, combustíveis, demonstração)
+  const end3 = c.substring(1);
+  return ["410", "411", "412", "413", "503", "504", "505", "506", "553", "660", "661", "662", "918", "919", "921", "924"].includes(end3);
+}
+
+export function isDevolucaoOperation(finNFe?: string, natOp?: string, cfop?: string): boolean {
+  if (String(finNFe || "").trim() === "4") return true;
+  if (natOp && /devolu[cç][aã]o/i.test(natOp)) return true;
+  if (cfop && isCfopDevolucao(cfop)) return true;
+  return false;
+}
+
 export function getModeBadge(mode: string): string {
   if (mode === "antecipacao") return "badge-orange";
   if (mode === "difal_consumidor_final") return "badge-blue";
@@ -259,6 +276,10 @@ export function calculateLegal(
     cnpjCpfDest?: string;
     ncm: string;
     crt?: string;
+    cfop?: string;
+    finNFe?: string;
+    natOp?: string;
+    isDevolucao?: boolean;
   },
   config: AppConfig,
   emitterRegimes: EmitterRegimesMap,
@@ -382,6 +403,41 @@ export function calculateLegal(
   let memory = "";
   const difalRate = Math.max(aliqInterna - aliqInter, 0);
 
+  const isDevolucao = Boolean(item.isDevolucao || isDevolucaoOperation(item.finNFe, item.natOp, item.cfop));
+  const ignorarDevolucao = config.ignorarDevolucao !== "no";
+
+  if (isDevolucao && ignorarDevolucao) {
+    let devMemory = `Operação de Devolução identificada (finNFe: ${item.finNFe || "-"}, CFOP: ${item.cfop || "-"}, natOp: "${item.natOp || "-"}"). Isenta de cálculo de DIFAL conforme parâmetro configurado.`;
+    if (obsLivre) devMemory += ` Obs: ${obsLivre}.`;
+
+    return {
+      mode: "sem_difal" as const,
+      modeLabel: "Devolução (Isenta)",
+      modeBadge: "badge-gray",
+      fundamento: "Operação de Devolução de Mercadoria: isenta de DIFAL interestadual conforme legislação e parâmetro ativo.",
+      valorOperSemIPI,
+      valorIPI,
+      baseOrigem: 0,
+      baseCalculo: 0,
+      aliqInter,
+      aliqInterna,
+      aliqFcp: 0,
+      difalRate: 0,
+      icmsOrigemCalc: 0,
+      difalPuro: 0,
+      fcpCalc: 0,
+      totalRecolher: 0,
+      memory: devMemory,
+      memoryShort: `Devolução Isenta · base ${formatBRL(0)} · total ${formatBRL(0)}`,
+      consumerFinalApplied,
+      consumerFinalSource,
+      regimeRemetAplicado,
+      regimeRemetOrigem,
+      regimeDestAplicado,
+      regimeDestOrigem,
+    };
+  }
+
   if (mode === "sem_difal") {
     memory = `UF remetente (${item.ufRem || "-"}) e UF destinatário (${item.ufDest || "-"}) coincidem. Isento de DIFAL interestadual pelo critério do app.`;
     if (obsLivre) memory += ` Obs: ${obsLivre}.`;
@@ -500,13 +556,14 @@ export function calculateLegal(
 export function summarizeNota(
   itensNota: ParsedItem[],
   globalRegimeRemet: RegimeRemetente,
-  globalRegimeDest: RegimeDestinatario = "normal"
+  globalRegimeDest: RegimeDestinatario = "normal",
+  notaIsDevolucao?: boolean
 ): Partial<ParsedNota> {
   if (!itensNota.length) {
     return {
       mode: "sem_difal",
-      modeLabel: getModeLabel("sem_difal"),
-      modeBadge: getModeBadge("sem_difal"),
+      modeLabel: notaIsDevolucao ? "Devolução (Isenta)" : getModeLabel("sem_difal"),
+      modeBadge: notaIsDevolucao ? "badge-gray" : getModeBadge("sem_difal"),
       valorOperSemIPITotal: 0,
       valorIPITotal: 0,
       baseOrigemTotal: 0,
@@ -515,21 +572,34 @@ export function summarizeNota(
       difalPuroTotal: 0,
       fcpCalcTotal: 0,
       totalRecolher: 0,
-      fundamento: getFundamentoResumido("sem_difal"),
+      fundamento: notaIsDevolucao
+        ? "Operação de Devolução de Mercadoria: isenta de DIFAL conforme parâmetro configurado."
+        : getFundamentoResumido("sem_difal"),
       regimeRemetAplicado: globalRegimeRemet,
       regimeRemetOrigem: "Padrão geral",
       regimeDestAplicado: globalRegimeDest,
       regimeDestOrigem: "Padrão geral",
+      isDevolucao: Boolean(notaIsDevolucao),
     };
   }
+
+  const allDevolucao = itensNota.length > 0 && itensNota.every((i) => i.modeLabel === "Devolução (Isenta)" || i.isDevolucao);
+  const isDevolucaoFinal = allDevolucao || Boolean(notaIsDevolucao);
 
   const uniqueModes = [...new Set(itensNota.map((i) => i.mode))];
   const mode = uniqueModes.length === 1 ? uniqueModes[0] : "misto";
 
+  const isExemptDevolucao = isDevolucaoFinal && itensNota.every((i) => i.totalRecolher === 0);
+  const modeLabel = isExemptDevolucao ? "Devolução (Isenta)" : getModeLabel(mode);
+  const modeBadge = isExemptDevolucao ? "badge-gray" : getModeBadge(mode);
+  const fundamento = isExemptDevolucao
+    ? "Operação de Devolução de Mercadoria: isenta de DIFAL conforme parâmetro configurado."
+    : getFundamentoResumido(mode);
+
   return {
     mode,
-    modeLabel: getModeLabel(mode),
-    modeBadge: getModeBadge(mode),
+    modeLabel,
+    modeBadge,
     valorOperSemIPITotal: round2(itensNota.reduce((a, i) => a + toNumber(i.valorOperSemIPI), 0)),
     valorIPITotal: round2(itensNota.reduce((a, i) => a + toNumber(i.valorIPI), 0)),
     baseOrigemTotal: round2(itensNota.reduce((a, i) => a + toNumber(i.baseOrigem), 0)),
@@ -538,11 +608,12 @@ export function summarizeNota(
     difalPuroTotal: round2(itensNota.reduce((a, i) => a + toNumber(i.difalPuro), 0)),
     fcpCalcTotal: round2(itensNota.reduce((a, i) => a + toNumber(i.fcpCalc), 0)),
     totalRecolher: round2(itensNota.reduce((a, i) => a + toNumber(i.totalRecolher), 0)),
-    fundamento: getFundamentoResumido(mode),
+    fundamento,
     regimeRemetAplicado: itensNota[0].regimeRemetAplicado,
     regimeRemetOrigem: itensNota[0].regimeRemetOrigem,
     regimeDestAplicado: itensNota[0].regimeDestAplicado,
     regimeDestOrigem: itensNota[0].regimeDestOrigem || "Padrão geral",
+    isDevolucao: isDevolucaoFinal,
   };
 }
 
@@ -575,12 +646,19 @@ export function parseXMLContent(
   const total = getChild(infNFe, "total");
   const icmsTot = total ? getChild(total, "ICMSTot") : null;
 
+  const finNFe = getText(ide, "finNFe");
+  const natOp = getText(ide, "natOp");
+  const isNotaDevolucao = isDevolucaoOperation(finNFe, natOp);
+
   const cnpjCpfRem = getText(emit, "CNPJ") || getText(emit, "CPF");
   const emitenteKey = normalizeDoc(cnpjCpfRem);
 
   const nota: ParsedNota = {
     arquivo: fileName,
     nNF: getText(ide, "nNF"),
+    finNFe,
+    natOp,
+    isDevolucao: isNotaDevolucao,
     dataEmissaoRaw: getText(ide, "dhEmi"),
     dataEmissao: parseDate(getText(ide, "dhEmi") || getText(ide, "dEmi")), // fallback para dEmi antiga
     ufRem: getText(emit ? getChild(emit, "enderEmit") : null, "UF"),
@@ -650,9 +728,14 @@ export function parseXMLContent(
       xProd,
     });
 
+    const isItemDevolucao = isNotaDevolucao || isDevolucaoOperation(finNFe, natOp, cfop);
+
     const basicItem = {
       arquivo: fileName,
       nNF: nota.nNF,
+      finNFe,
+      natOp,
+      isDevolucao: isItemDevolucao,
       dataEmissao: nota.dataEmissao,
       dataEmissaoRaw: nota.dataEmissaoRaw,
       ufRem: nota.ufRem,
@@ -699,8 +782,11 @@ export function parseXMLContent(
     return { ...basicItem, ...calc } as ParsedItem;
   });
 
-  const aggregate = summarizeNota(itens, config.regimeRemet, config.regimeDest);
+  const aggregate = summarizeNota(itens, config.regimeRemet, config.regimeDest, isNotaDevolucao);
   Object.assign(nota, aggregate);
+  nota.finNFe = finNFe;
+  nota.natOp = natOp;
+  nota.isDevolucao = isNotaDevolucao || itens.some((i) => i.isDevolucao);
 
   return { nota, itens };
 }

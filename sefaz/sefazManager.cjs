@@ -413,22 +413,43 @@ class SefazManager {
       const response = await distribuicao.consultarPorNSU(state.ultNSU);
 
       if (response.cStat === '137') {
+        if (response.ultNSU && response.ultNSU !== '000000000000000' && response.ultNSU !== '0') {
+          state.ultNSU = response.ultNSU;
+        } else if (response.maxNSU && response.maxNSU !== '000000000000000' && response.maxNSU !== '0') {
+          state.ultNSU = response.maxNSU;
+        }
         state.maxNSU = response.maxNSU || state.maxNSU;
         state.lastSyncTime = new Date().toISOString();
         state.lastCStat = '137';
         // Cooldown preventivo de 1 hora conforme NT 2014.002
         state.blockedUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         storage.saveState(state);
-        if (onProgress) onProgress({ status: 'info', message: 'Nenhum documento novo na SEFAZ. Repouso preventivo de 1h ativado.' });
+        if (onProgress) onProgress({ status: 'info', message: `Nenhum documento novo na SEFAZ (NSU ${state.ultNSU} de ${state.maxNSU}). Repouso preventivo de 1h ativado.` });
         break;
       }
 
       if (response.cStat === '656') {
+        if (response.ultNSU && response.ultNSU !== '000000000000000' && response.ultNSU !== '0') {
+          state.ultNSU = response.ultNSU;
+        }
         state.lastSyncTime = new Date().toISOString();
         state.lastCStat = '656';
         state.blockedUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         storage.saveState(state);
-        throw new Error('Aviso da SEFAZ: Consumo Indevido (Rejeição 656). A SEFAZ bloqueou temporariamente novas consultas. Aguarde 1 hora antes de consultar novamente.');
+        throw new Error(`Aviso da SEFAZ: Consumo Indevido (Rejeição 656). A SEFAZ bloqueou temporariamente novas consultas por 1 hora.${state.ultNSU !== '0' ? ` O ponteiro de NSU foi sincronizado para ${state.ultNSU}.` : ''} Aguarde o repouso.`);
+      }
+
+      if (response.cStat === '653') {
+        state.lastSyncTime = new Date().toISOString();
+        state.lastCStat = '653';
+        if (response.maxNSU && response.maxNSU !== '000000000000000' && response.maxNSU !== '0') {
+          state.ultNSU = response.maxNSU;
+          state.maxNSU = response.maxNSU;
+        } else {
+          state.ultNSU = '0';
+        }
+        storage.saveState(state);
+        throw new Error(`Aviso SEFAZ: O NSU consultado era superior ao maior da SEFAZ (Rejeição 653). O ponteiro foi ajustado para ${state.ultNSU}. Tente novamente.`);
       }
 
       if (response.cStat === '138') {
@@ -495,9 +516,6 @@ class SefazManager {
             });
             const savedPath = saveRes.filePath;
             const pdfPath = savedPath.replace('-nfe.xml', '-danfe.pdf').replace('.xml', '-danfe.pdf');
-            try {
-              await danfe.gerarDanfeFromFile(savedPath, pdfPath);
-            } catch (_) {}
 
             state.downloadedKeys = state.downloadedKeys || {};
             state.downloadedKeys[parsed.chNFe] = {
@@ -539,23 +557,26 @@ class SefazManager {
           continuar = false;
         }
       } else {
+        state.lastSyncTime = new Date().toISOString();
+        state.lastCStat = response.cStat;
         storage.saveState(state);
-        break;
+        throw new Error(`SEFAZ retornou Rejeição ${response.cStat}: ${response.xMotivo || 'Erro na consulta de distribuição de documentos'}`);
       }
     }
 
-    // Se novas notas foram baixadas e a geração não foi diferida para o lote geral, gera os DANFEs faltantes
+    // Se novas notas foram baixadas e a geração não foi diferida para o lote geral, gera os DANFEs dos últimos 90 dias
     if (!skipDanfeGeneration && totalBaixadas > 0) {
       if (onProgress) {
         onProgress({
           status: 'info',
-          message: `Gerando DANFEs em PDF para as ${totalBaixadas} nova(s) nota(s) baixada(s)...`
+          message: `Gerando DANFEs em PDF para notas recentes dos últimos 90 dias (${totalBaixadas} nova(s))...`
         });
       }
       try {
         await this.generateMissingDanfes({
           cnpj: cleanCnpj,
           razaoSocial: company.razaoSocial,
+          diasRetroativos: 90,
           onProgress
         });
       } catch (eDanfe) {
@@ -1007,11 +1028,6 @@ class SefazManager {
         fs.writeFileSync(xmlPath, xmlContent, 'utf8');
 
         const pdfPath = path.join(targetFolder, `${chave}-nfce-danfe.pdf`);
-        try {
-          await danfe.gerarDanfeFromXml(xmlContent, pdfPath);
-        } catch (ePdf) {
-          console.warn(`Aviso ao gerar DANFE da NFC-e ${chave}:`, ePdf.message);
-        }
 
         const meta = this.extractXmlMetadata(xmlContent, `${chave}-nfce.xml`, ym, xmlPath);
         stateNfce.downloadedKeys[chave] = {
@@ -1056,6 +1072,26 @@ class SefazManager {
     stateNfce.lastExecution = new Date().toISOString();
     stateNfce.lastSyncTime = new Date().toISOString();
     this.stateDb.saveState(cleanCnpj, 'nfce', stateNfce);
+
+    // Converte os DANFEs dos últimos 90 dias após concluir a captação
+    if (totalBaixadas > 0) {
+      if (onProgress) {
+        onProgress({
+          status: 'info',
+          message: `Gerando DANFEs NFC-e em PDF dos últimos 90 dias (${totalBaixadas} nova(s))...`
+        });
+      }
+      try {
+        await this.generateMissingNfceDanfes({
+          cnpj: cleanCnpj,
+          razaoSocial: company.razaoSocial,
+          diasRetroativos: 90,
+          onProgress
+        });
+      } catch (eDanfe) {
+        console.warn('Aviso ao gerar DANFEs NFC-e pós-captação:', eDanfe.message);
+      }
+    }
 
     return {
       success: true,
@@ -2279,13 +2315,16 @@ class SefazManager {
     };
   }
 
-  async generateMissingDanfes({ cnpj, razaoSocial, onProgress }) {
+  async generateMissingDanfes({ cnpj, razaoSocial, diasRetroativos = 90, onProgress }) {
     const cleanCnpj = String(cnpj || '').replace(/\D/g, '');
     const companyDir = this.getCompanyDir(cleanCnpj, razaoSocial);
     if (!fs.existsSync(companyDir)) return { totalGenerated: 0, totalChecked: 0 };
 
     const danfe = new DanfeService();
     const missing = [];
+    const cutoffMs = Date.now() - (diasRetroativos * 24 * 60 * 60 * 1000);
+    const cutoffYear = new Date(cutoffMs).getFullYear();
+    const cutoffMonth = new Date(cutoffMs).getMonth() + 1;
 
     const scanDir = (dir) => {
       let entries = [];
@@ -2297,12 +2336,22 @@ class SefazManager {
       for (const entry of entries) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-          if (entry.name === 'danfes') continue;
+          if (['danfes', 'saidas', 'transportes', 'servicos', 'nfce', 'cte', 'nfse'].includes(entry.name.toLowerCase())) continue;
+          if (/^\d{4}$/.test(entry.name) && parseInt(entry.name, 10) < cutoffYear) continue;
+          if (/^\d{2}$/.test(entry.name)) {
+            const parent = path.basename(path.dirname(full));
+            if (/^\d{4}$/.test(parent) && parseInt(parent, 10) === cutoffYear && parseInt(entry.name, 10) < cutoffMonth) continue;
+          }
           scanDir(full);
         } else if (entry.isFile() && entry.name.endsWith('.xml')) {
           const match = entry.name.match(/(\d{44})/);
           if (match) {
             const chNFe = match[1];
+            const yr = 2000 + parseInt(chNFe.slice(2, 4), 10);
+            const mo = parseInt(chNFe.slice(4, 6), 10);
+            const endOfMonthMs = new Date(yr, mo, 0, 23, 59, 59).getTime();
+            if (!isNaN(endOfMonthMs) && endOfMonthMs < cutoffMs) continue;
+
             const pdfSameDir = path.join(dir, `${chNFe}-danfe.pdf`);
             const pdfAlternative = path.join(dir, `${path.basename(entry.name, '.xml')}.pdf`);
             const hasPdf = (fs.existsSync(pdfSameDir) && fs.statSync(pdfSameDir).size > 0) ||
@@ -2324,7 +2373,7 @@ class SefazManager {
       if (onProgress) {
         onProgress({
           status: 'info',
-          message: `Gerando DANFE PDF (${i + 1} de ${total}): NF-e ${item.chNFe.slice(-8)}...`,
+          message: `Gerando DANFE PDF dos últimos ${diasRetroativos} dias (${i + 1} de ${total}): NF-e ${item.chNFe.slice(-8)}...`,
           current: i + 1,
           total
         });
@@ -2335,8 +2384,152 @@ class SefazManager {
       } catch (eDanfe) {
         console.warn(`Aviso ao gerar DANFE para ${item.chNFe}:`, eDanfe.message);
       }
-      // Pausa suave de 100ms entre DANFEs para manter CPU livre e PC responsivo
-      await sleep(100);
+      // Pausa suave de 40ms entre DANFEs para manter CPU livre e PC responsivo
+      await sleep(40);
+    }
+
+    return { totalGenerated, totalChecked: missing.length };
+  }
+
+  async generateMissingNfceDanfes({ cnpj, razaoSocial, diasRetroativos = 90, onProgress }) {
+    const cleanCnpj = String(cnpj || '').replace(/\D/g, '');
+    const companyDir = this.getCompanyDir(cleanCnpj, razaoSocial);
+    if (!fs.existsSync(companyDir)) return { totalGenerated: 0, totalChecked: 0 };
+
+    const danfe = new DanfeService();
+    const missing = [];
+    const cutoffMs = Date.now() - (diasRetroativos * 24 * 60 * 60 * 1000);
+    const cutoffYear = new Date(cutoffMs).getFullYear();
+    const cutoffMonth = new Date(cutoffMs).getMonth() + 1;
+
+    const scanDir = (dir) => {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch (e) {
+        return;
+      }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (['danfes', 'transportes', 'cte', 'nfse'].includes(entry.name.toLowerCase())) continue;
+          if (/^\d{4}$/.test(entry.name) && parseInt(entry.name, 10) < cutoffYear) continue;
+          if (/^\d{2}$/.test(entry.name)) {
+            const parent = path.basename(path.dirname(full));
+            if (/^\d{4}$/.test(parent) && parseInt(parent, 10) === cutoffYear && parseInt(entry.name, 10) < cutoffMonth) continue;
+          }
+          scanDir(full);
+        } else if (entry.isFile() && entry.name.endsWith('.xml') && (entry.name.includes('nfce') || entry.name.length >= 44)) {
+          const match = entry.name.match(/(\d{44})/);
+          if (match) {
+            const chNFCe = match[1];
+            const yr = 2000 + parseInt(chNFCe.slice(2, 4), 10);
+            const mo = parseInt(chNFCe.slice(4, 6), 10);
+            const endOfMonthMs = new Date(yr, mo, 0, 23, 59, 59).getTime();
+            if (!isNaN(endOfMonthMs) && endOfMonthMs < cutoffMs) continue;
+
+            const pdfPath = full.replace('-nfce.xml', '-nfce-danfe.pdf').replace('.xml', '.pdf');
+            if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
+              missing.push({ chNFCe, xmlPath: full, targetPdfPath: pdfPath });
+            }
+          }
+        }
+      }
+    };
+
+    scanDir(companyDir);
+
+    let totalGenerated = 0;
+    const total = missing.length;
+    for (let i = 0; i < total; i++) {
+      const item = missing[i];
+      if (onProgress) {
+        onProgress({
+          status: 'info',
+          message: `Gerando DANFE NFC-e dos últimos ${diasRetroativos} dias (${i + 1} de ${total})...`,
+          current: i + 1,
+          total
+        });
+      }
+      try {
+        await danfe.gerarDanfeFromFile(item.xmlPath, item.targetPdfPath);
+        totalGenerated++;
+      } catch (ePdf) {
+        console.warn(`Aviso ao gerar DANFE NFC-e para ${item.chNFCe}:`, ePdf.message);
+      }
+      await sleep(40);
+    }
+
+    return { totalGenerated, totalChecked: missing.length };
+  }
+
+  async generateMissingDactes({ cnpj, razaoSocial, diasRetroativos = 90, onProgress }) {
+    const cleanCnpj = String(cnpj || '').replace(/\D/g, '');
+    const companyDir = this.getCompanyDir(cleanCnpj, razaoSocial);
+    if (!fs.existsSync(companyDir)) return { totalGenerated: 0, totalChecked: 0 };
+
+    const dacte = new DacteService();
+    const missing = [];
+    const cutoffMs = Date.now() - (diasRetroativos * 24 * 60 * 60 * 1000);
+    const cutoffYear = new Date(cutoffMs).getFullYear();
+    const cutoffMonth = new Date(cutoffMs).getMonth() + 1;
+
+    const scanDir = (dir) => {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch (e) {
+        return;
+      }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (['danfes', 'saidas', 'nfce', 'nfse'].includes(entry.name.toLowerCase())) continue;
+          if (/^\d{4}$/.test(entry.name) && parseInt(entry.name, 10) < cutoffYear) continue;
+          if (/^\d{2}$/.test(entry.name)) {
+            const parent = path.basename(path.dirname(full));
+            if (/^\d{4}$/.test(parent) && parseInt(parent, 10) === cutoffYear && parseInt(entry.name, 10) < cutoffMonth) continue;
+          }
+          scanDir(full);
+        } else if (entry.isFile() && entry.name.endsWith('.xml') && (entry.name.includes('cte') || entry.name.length >= 44)) {
+          const match = entry.name.match(/(\d{44})/);
+          if (match) {
+            const chCTe = match[1];
+            const yr = 2000 + parseInt(chCTe.slice(2, 4), 10);
+            const mo = parseInt(chCTe.slice(4, 6), 10);
+            const endOfMonthMs = new Date(yr, mo, 0, 23, 59, 59).getTime();
+            if (!isNaN(endOfMonthMs) && endOfMonthMs < cutoffMs) continue;
+
+            const pdfPath = full.replace('.xml', '.pdf');
+            if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
+              missing.push({ chCTe, xmlPath: full, targetPdfPath: pdfPath });
+            }
+          }
+        }
+      }
+    };
+
+    scanDir(companyDir);
+
+    let totalGenerated = 0;
+    const total = missing.length;
+    for (let i = 0; i < total; i++) {
+      const item = missing[i];
+      if (onProgress) {
+        onProgress({
+          status: 'info',
+          message: `Gerando DACTE PDF dos últimos ${diasRetroativos} dias (${i + 1} de ${total}): CT-e ${item.chCTe.slice(-8)}...`,
+          current: i + 1,
+          total
+        });
+      }
+      try {
+        await dacte.gerarDacteFromFile(item.xmlPath, item.targetPdfPath);
+        totalGenerated++;
+      } catch (eDacte) {
+        console.warn(`Aviso ao gerar DACTE para ${item.chCTe}:`, eDacte.message);
+      }
+      await sleep(40);
     }
 
     return { totalGenerated, totalChecked: missing.length };
@@ -2545,11 +2738,6 @@ class SefazManager {
             fs.writeFileSync(xmlPath, xml, 'utf8');
 
             const pdfPath = path.join(folderDir, `${chCTe}-cte-danfe.pdf`);
-            try {
-              await dacte.gerarDactePdf(xml, pdfPath);
-            } catch (ePdf) {
-              console.warn('Aviso ao gerar DACTE PDF:', ePdf.message);
-            }
 
             stateCte.downloadedKeys = stateCte.downloadedKeys || {};
             stateCte.downloadedKeys[chCTe] = {
@@ -2578,6 +2766,26 @@ class SefazManager {
 
     stateCte.lastSync = new Date().toISOString();
     this.stateDb.saveState(cleanCnpj, 'cte', stateCte);
+
+    // Converte os DACTEs dos últimos 90 dias após a captação
+    if (totalBaixadas > 0) {
+      if (onProgress) {
+        onProgress({
+          status: 'info',
+          message: `Gerando DACTEs em PDF dos últimos 90 dias (${totalBaixadas} nova(s) nota(s))...`
+        });
+      }
+      try {
+        await this.generateMissingDactes({
+          cnpj: cleanCnpj,
+          razaoSocial: company.razaoSocial,
+          diasRetroativos: 90,
+          onProgress
+        });
+      } catch (eDacte) {
+        console.warn('Aviso ao gerar DACTEs pós-captação:', eDacte.message);
+      }
+    }
 
     return {
       success: true,

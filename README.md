@@ -1,6 +1,6 @@
 <div align="center">
   <img src="assets/logo.png" alt="CONT-AI Logo" width="90" />
-  <h1>CONT-AI v2.1 — Gestor de Movimento Fiscal & Emissor de NFS-e Nacional</h1>
+  <h1>CONT-AI v2.2 — Gestor de Movimento Fiscal & Emissor de NFS-e Nacional</h1>
   <p>
     <strong>Sistema Desktop ERP para Captação Automatizada de Documentos Fiscais Eletrônicos (NF-e, NFC-e, CT-e e NFS-e), Emissão de NFS-e Nacional (DPS / Sefin / ADN) via Certificado Digital A1 (mTLS) com Emissão Retroativa, Catálogo Oficial dos 335 Serviços (6 Dígitos - LC 116), Correlação NBS/NT 004 e Auditoria de DIFAL.</strong>
   </p>
@@ -17,10 +17,10 @@
 
 ## 📥 Download Direto do Instalador Windows (`.exe`)
 
-Para instalar o **CONT-AI v2.1** diretamente no seu computador (Windows 10 / 11 x64) sem precisar compilar o código-fonte, clique no link abaixo:
+Para instalar o **CONT-AI v2.2** diretamente no seu computador (Windows 10 / 11 x64) sem precisar compilar o código-fonte, clique no link abaixo:
 
 👉 **[🌐 Acessar Site Oficial de Download & Demonstração (GitHub Pages)](https://rammeta.github.io/cont-ai/)**  
-👉 **[⬇️ Baixar Instalador Oficial — CONT-AI-Setup-2.1.0.exe (Windows x64)](https://github.com/Rammeta/cont-ai/releases/download/v2.1.0/CONT-AI-Setup-2.1.0.exe)**  
+👉 **[⬇️ Baixar Instalador Oficial — CONT-AI-Setup-2.2.0.exe (Windows x64)](https://github.com/Rammeta/cont-ai/releases/download/v2.2.0/CONT-AI-Setup-2.2.0.exe)**  
 *(Ou acesse a página de [Releases Oficiais do Repositório](https://github.com/Rammeta/cont-ai/releases/latest))*
 
 ---
@@ -76,7 +76,7 @@ Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar 
    - [15. NFS-e Consulta (Portal Nacional ADN & Prefeitura Paulistana SP)](#15-nfs-e-consulta-portal-nacional-adn--prefeitura-paulistana-sp)
    - [16. Cálculo e Auditoria de DIFAL / Antecipação Tributária por Item](#16-cálculo-e-auditoria-de-difal--antecipação-tributária-por-item)
    - [17. Central de Configurações, Empresas e Agendadores](#17-central-de-configurações-empresas-e-agendadores)
-5. [Mapeamento Exaustivo de Botões, Atalhos e Funções do CONT-AI v2.1](#-mapeamento-exaustivo-de-botões-atalhos-e-funções-do-cont-ai-v21)
+5. [Mapeamento Exaustivo de Botões, Atalhos e Funções do CONT-AI v2.2](#-mapeamento-exaustivo-de-botões-atalhos-e-funções-do-cont-ai-v22)
 6. [Tutorial Passo a Passo de Uso no Dia a Dia](#-tutorial-passo-a-passo-de-uso-no-dia-a-dia)
 7. [Tutorial de Instalação (Ambiente de Desenvolvimento)](#-tutorial-de-instalação-ambiente-de-desenvolvimento)
 8. [Tutorial para Gerar o Executável / Instalador Windows (`.exe`)](#-tutorial-para-gerar-o-executável--instalador-windows-exe)
@@ -88,7 +88,7 @@ Se esta ferramenta economiza horas do seu trabalho mensal e você deseja apoiar 
 
 ## 📌 Sobre o Projeto
 
-O **CONT-AI v2.1** foi projetado para resolver os principais gargalos operacionais de escritórios de contabilidade e departamentos fiscais:
+O **CONT-AI v2.2** foi projetado para resolver os principais gargalos operacionais de escritórios de contabilidade e departamentos fiscais:
 - **Emissor de NFS-e Nacional (ADN / SEFIN):** Emissão completa de Declaração de Prestação de Serviços (DPS) transmitida diretamente aos servidores da Receita Federal / Sefin Nacional via mTLS (Certificado A1 em arquivo `.pfx` ou Windows Store), com suporte a emissões normais e **retroativas**, retenções federais (IRRF, PIS, COFINS, CSLL, INSS), pré-visualização oficial do DANFSE e gestão de clientes frequentes.
 - **Catálogo Oficial dos 335 Serviços (LC 116):** Banco completo com os 335 códigos numéricos oficiais de 6 dígitos (`cTribNac`) da Lei Complementar 116/2003, organizados pelos 41 grupos de atividades com busca instantânea.
 - **Correlação NBS (9 Dígitos) & Reforma Tributária (NT 004):** Mapeamento direto com Nomenclatura Brasileira de Serviços e preenchimento automático das tags de transição `cIndOp` e `cClassTrib` (IBS e CBS).
@@ -280,9 +280,9 @@ Painel administrativo acessível pelo ícone de engrenagem no cabeçalho:
 
 ---
 
-## 🕹️ Mapeamento Exaustivo de Botões, Atalhos e Funções do CONT-AI v2.1
+## 🕹️ Mapeamento Exaustivo de Botões, Atalhos e Funções do CONT-AI v2.2
 
-A tabela a seguir apresenta o mapeamento detalhado de **todos os botões, atalhos, modais e controles fiscais** disponíveis na versão 2.1:
+A tabela a seguir apresenta o mapeamento detalhado de **todos os botões, atalhos, modais e controles fiscais** disponíveis na versão 2.2:
 
 | Módulo / Local | Botão ou Controle | Tipo / Atalho | Ação Executada | Efeito Técnico e Regra Fiscal |
 | :--- | :--- | :--- | :--- | :--- |
@@ -395,7 +395,7 @@ npm run dev
 
 ## 📦 Tutorial para Gerar o Executável / Instalador Windows (`.exe`)
 
-Para compilar o código-fonte em produção e gerar o instalador completo do Windows (`CONT-AI - Gestor de Movimento Fiscal Setup 2.1.0.exe`):
+Para compilar o código-fonte em produção e gerar o instalador completo do Windows (`CONT-AI - Gestor de Movimento Fiscal Setup 2.2.0.exe`):
 
 ### Passo 1: Instalar dependências de empacotamento (caso ainda não estejam instaladas)
 ```bash
@@ -412,7 +412,7 @@ O comando acima executará duas etapas automaticamente:
 
 ### Passo 3: Localizar o Instalador Gerado
 Ao finalizar o processo, os arquivos estarão disponíveis na pasta `dist_electron/`:
-- **`dist_electron/CONT-AI - Gestor de Movimento Fiscal Setup 2.1.0.exe`**: Instalador oficial com assistente de instalação e criação de atalho na Área de Trabalho e Menu Iniciar.
+- **`dist_electron/CONT-AI - Gestor de Movimento Fiscal Setup 2.2.0.exe`**: Instalador oficial com assistente de instalação e criação de atalho na Área de Trabalho e Menu Iniciar.
 - **`dist_electron/win-unpacked/CONT-AI - Gestor de Movimento Fiscal.exe`**: Versão portátil (executável direto sem necessidade de instalação).
 
 ---

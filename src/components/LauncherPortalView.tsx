@@ -136,7 +136,7 @@ export default function LauncherPortalView({
               <span>CONT-AI - Seleção do Ambiente de Trabalho</span>
             </div>
             <span className="text-[10px] text-sky-200 font-normal">
-              Versão 2.1.0
+              Versão 2.2.0
             </span>
           </div>
 

@@ -376,7 +376,8 @@ function createWindow () {
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      backgroundThrottling: false
     }
   });
 
@@ -1638,6 +1639,106 @@ function resolveCompanyNfseDir(cnpj, razaoSocial) {
   return { companyDir, companyNfseDir: companyDir };
 }
 
+async function generateMissingNfsePdfs({ companyNfseDir, diasRetroativos = 90, onProgress }) {
+  if (!companyNfseDir || !fs.existsSync(companyNfseDir)) return { totalGenerated: 0 };
+  const cutoffMs = Date.now() - (diasRetroativos * 24 * 60 * 60 * 1000);
+  const cutoffYear = new Date(cutoffMs).getFullYear();
+  const cutoffMonth = new Date(cutoffMs).getMonth() + 1;
+
+  const missing = [];
+
+  const scanNfse = (dir) => {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_) { return; }
+
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Pula anos anteriores ao corte
+        if (/^\d{4}$/.test(entry.name) && parseInt(entry.name, 10) < cutoffYear) continue;
+        // Pula meses anteriores ao corte no ano de corte
+        if (/^\d{2}$/.test(entry.name)) {
+          const parentDir = path.basename(path.dirname(full));
+          if (/^\d{4}$/.test(parentDir)) {
+            const yr = parseInt(parentDir, 10);
+            const mo = parseInt(entry.name, 10);
+            if (yr === cutoffYear && mo < cutoffMonth) continue;
+          }
+        }
+        scanNfse(full);
+      } else if (entry.isFile() && entry.name.endsWith('.xml') && !entry.name.includes('EVENTO_CANCELAMENTO')) {
+        const pdfPath = full.replace(/\.xml$/i, '.pdf');
+        if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
+          missing.push({ xmlPath: full, targetPdfPath: pdfPath, name: entry.name });
+        }
+      }
+    }
+  };
+
+  scanNfse(companyNfseDir);
+
+  let totalGenerated = 0;
+  const total = missing.length;
+  if (total === 0) return { totalGenerated: 0 };
+
+  let logoBytes = null;
+  const logoFile = path.join(__dirname, 'assets/nfse-logo.png');
+  if (fs.existsSync(logoFile)) {
+    try { logoBytes = new Uint8Array(fs.readFileSync(logoFile)); } catch (_) {}
+  }
+
+  for (let i = 0; i < total; i++) {
+    const item = missing[i];
+    if (onProgress) {
+      onProgress({
+        message: `[NFS-e] Convertendo DANFSe em PDF dos últimos ${diasRetroativos} dias (${i + 1} de ${total})...`,
+        type: 'info',
+        docsCount: 0,
+        timestamp: new Date().toLocaleTimeString('pt-BR')
+      });
+    }
+
+    try {
+      const xmlContent = fs.readFileSync(item.xmlPath, 'utf8');
+      const isPortalSp = (
+        xmlContent.includes('prefeitura.sp.gov.br') ||
+        xmlContent.includes('<PedidoConsultaNFePeriodo') ||
+        xmlContent.includes('<RetornoConsultaNFePeriodo') ||
+        xmlContent.includes('<NFe>') ||
+        xmlContent.includes('<ChaveNFe>') ||
+        item.name.startsWith('NFSE_SP_') ||
+        item.xmlPath.toLowerCase().includes('prefeitura_sp')
+      );
+
+      if (isPortalSp) {
+        const pdfBytes = await gerarPdfPadraoSp(xmlContent);
+        fs.writeFileSync(item.targetPdfPath, Buffer.from(pdfBytes));
+      } else {
+        let marcaDagua = '';
+        if (/CANCELAD/i.test(item.name) || /<cStat>\s*2\s*<\/cStat>/i.test(xmlContent)) {
+          marcaDagua = 'CANCELADA';
+        }
+        const pdfBytes = await DANFSe.gerarDanfse(xmlContent, {
+          PDFLib,
+          qrcode,
+          logoBytes,
+          marcaDagua
+        });
+        fs.writeFileSync(item.targetPdfPath, Buffer.from(pdfBytes));
+      }
+      totalGenerated++;
+    } catch (errPdf) {
+      console.warn(`[NFS-e] Aviso ao converter PDF para ${item.name}:`, errPdf.message);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 40));
+  }
+
+  return { totalGenerated };
+}
+
 async function executarCaptacaoUnificadaNfse({ company, targetNsu, onProgress }) {
   const { companyDir, companyNfseDir } = resolveCompanyNfseDir(company.cnpj, company.razaoSocial);
   const nfseState = loadNfseState(companyDir, company.cnpj);
@@ -1657,7 +1758,10 @@ async function executarCaptacaoUnificadaNfse({ company, targetNsu, onProgress })
     };
     const resSp = await consultarTomadasSP(empDescript, companyNfseDir, {
       ultimaDataSp: isResetRun ? null : nfseState.ultimaDataSp,
-      onProgress
+      onProgress,
+      onSaveState: (stateUpdate) => {
+        saveNfseState(companyDir, stateUpdate, company.cnpj);
+      }
     });
     if (resSp && resSp.sucesso) {
       baixadasSp = Number(resSp.totalBaixadas || 0);
@@ -1700,6 +1804,27 @@ async function executarCaptacaoUnificadaNfse({ company, targetNsu, onProgress })
   }, company.cnpj);
 
   const totalDocsBaixados = baixadasNacional + baixadasSp;
+
+  // Converte DANFSe em PDF dos últimos 90 dias após concluir a captação de XML
+  if (totalDocsBaixados > 0) {
+    if (onProgress) {
+      onProgress({
+        message: `[NFS-e] Convertendo DANFSe em PDF dos últimos 90 dias (${totalDocsBaixados} nova(s) nota(s))...`,
+        type: 'info',
+        docsCount: 0,
+        timestamp: new Date().toLocaleTimeString('pt-BR')
+      });
+    }
+    try {
+      await generateMissingNfsePdfs({
+        companyNfseDir,
+        diasRetroativos: 90,
+        onProgress
+      });
+    } catch (eNfsePdf) {
+      console.warn('Aviso ao gerar DANFSe pós-captação:', eNfsePdf.message);
+    }
+  }
 
   return {
     sucesso: true,
@@ -1749,6 +1874,23 @@ ipcMain.handle('nfse:sync-sp', async (event, { company, params }) => {
         }
       }
     });
+
+    if (resultado && resultado.totalBaixadas > 0) {
+      try {
+        await generateMissingNfsePdfs({
+          companyNfseDir,
+          diasRetroativos: 90,
+          onProgress: (info) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('nfse:sync-progress', { ...info, cnpj: company?.cnpj });
+            }
+          }
+        });
+      } catch (eNfsePdf) {
+        console.warn('Aviso ao gerar DANFSe SP pós-captação:', eNfsePdf.message);
+      }
+    }
+
     return { success: true, ...resultado };
   } catch (err) {
     return { success: false, error: err.message };

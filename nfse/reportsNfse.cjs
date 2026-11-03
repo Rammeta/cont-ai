@@ -640,6 +640,12 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                                 xmlContentHasRootOwner
                             };
                             cacheDirty = true;
+                            if (resultado.length > 0 && resultado.length % 250 === 0) {
+                                try {
+                                    fs.writeFileSync(cacheFilePath, JSON.stringify(companyCache), 'utf8');
+                                    if (cleanCnpj) memNfseCache.set(cleanCnpj, companyCache);
+                                } catch (_) {}
+                            }
                         }
                     }
 
@@ -946,14 +952,64 @@ function gerarChaveDedupNfse(arg1, arg2, arg3, arg4) {
     return `${numNorm}|${prestNorm}|${tomaNorm}|${valNorm}`;
 }
 
+function extractBasicMetaFast(xmlContent, fileName = '') {
+    if (!xmlContent) return null;
+    let mNum = xmlContent.match(/<NumeroNFe>(\d+)<\/NumeroNFe>/i) ||
+               xmlContent.match(/<nNF>(\d+)<\/nNF>/i) ||
+               xmlContent.match(/<nNFSe>(\d+)<\/nNFSe>/i) ||
+               xmlContent.match(/<nDFSe>(\d+)<\/nDFSe>/i) ||
+               xmlContent.match(/<numero>(\d+)<\/numero>/i) ||
+               fileName.match(/NF\s*(\d+)/i);
+    const numeroNFe = mNum ? mNum[1] : '';
+
+    let mPrest = xmlContent.match(/<CPFCNPJPrestador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
+                 xmlContent.match(/<prestador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
+                 xmlContent.match(/<prest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
+                 xmlContent.match(/<emit>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i);
+    const prestadorCnpj = mPrest ? mPrest[1] : '';
+
+    let mToma = xmlContent.match(/<CPFCNPJTomador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
+                xmlContent.match(/<CPFCNPJTomador>[\s\S]*?<CPF>(\d+)<\/CPF>/i) ||
+                xmlContent.match(/<tomador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
+                xmlContent.match(/<toma>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
+                xmlContent.match(/<toma>[\s\S]*?<CPF>(\d+)<\/CPF>/i) ||
+                xmlContent.match(/<dest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i);
+    const tomadorCnpj = mToma ? mToma[1] : '';
+
+    let mVal = xmlContent.match(/<ValorServicos>([\d.,]+)<\/ValorServicos>/i) ||
+               xmlContent.match(/<vServ>([\d.,]+)<\/vServ>/i) ||
+               xmlContent.match(/<vLiq>([\d.,]+)<\/vLiq>/i) ||
+               xmlContent.match(/<vBC>([\d.,]+)<\/vBC>/i);
+    const valorServicos = mVal ? parseFloat(mVal[1].replace(/\./g, '').replace(',', '.')) || 0 : 0;
+
+    const isCancelada = /<StatusNFe>C<\/StatusNFe>/i.test(xmlContent) ||
+                        /<DataCancelamento>/i.test(xmlContent) ||
+                        /<cStat>\s*2\s*<\/cStat>/i.test(xmlContent) ||
+                        fileName.toUpperCase().includes('CANCELAD');
+
+    const isPortalSp = /PORTAL_SP/i.test(xmlContent) || /prefeitura\.sp\.gov\.br/i.test(xmlContent);
+    const origemCaptacao = isPortalSp ? 'PORTAL_SP' : 'PORTAL_NACIONAL';
+
+    return {
+        numeroNFe,
+        prestadorCnpj,
+        tomadorCnpj,
+        valorServicos,
+        isCancelada,
+        origemCaptacao
+    };
+}
+
 function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
     const map = new Map();
     if (!pastaEmpresa || !fs.existsSync(pastaEmpresa)) return map;
 
     const cleanCnpj = String(cleanOwnerCnpj || '').replace(/\D/g, '');
     let companyCache = cleanCnpj ? memNfseCache.get(cleanCnpj) : null;
+    const cacheFilePath = path.join(pastaEmpresa, '.nfse_meta_cache.json');
+    let cacheDirty = false;
+
     if (!companyCache) {
-        const cacheFilePath = path.join(pastaEmpresa, '.nfse_meta_cache.json');
         if (fs.existsSync(cacheFilePath)) {
             try {
                 companyCache = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
@@ -990,7 +1046,20 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
                     let parsed = companyCache[full]?.parsed;
                     if (!parsed) {
                         const xmlContent = fs.readFileSync(full, 'utf-8');
-                        parsed = parseXmlNota(xmlContent, entry.name);
+                        parsed = extractBasicMetaFast(xmlContent, entry.name);
+                        if (parsed) {
+                            companyCache[full] = {
+                                mtimeMs: Date.now(),
+                                parsed
+                            };
+                            cacheDirty = true;
+                            if (map.size > 0 && map.size % 250 === 0) {
+                                try {
+                                    fs.writeFileSync(cacheFilePath, JSON.stringify(companyCache), 'utf8');
+                                    if (cleanCnpj) memNfseCache.set(cleanCnpj, companyCache);
+                                } catch (_) {}
+                            }
+                        }
                     }
                     if (!parsed) continue;
                     const key = gerarChaveDedupNfse({
@@ -1018,6 +1087,14 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
     }
 
     walk(pastaEmpresa);
+
+    if (cacheDirty) {
+        try {
+            fs.writeFileSync(cacheFilePath, JSON.stringify(companyCache), 'utf8');
+            if (cleanCnpj) memNfseCache.set(cleanCnpj, companyCache);
+        } catch (_) {}
+    }
+
     return map;
 }
 

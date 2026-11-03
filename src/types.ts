@@ -15,6 +15,7 @@ export interface AppConfig {
   includeIPI: YesNoSelection;
   applyFcpAntecipacao: YesNoSelection;
   obsLivre: string;
+  ignorarDevolucao?: YesNoSelection; // "yes" = isenta/desconsidera devoluções | "no" = calcula normalmente
 }
 
 export interface ParsedItem {
@@ -32,6 +33,9 @@ export interface ParsedItem {
   razaoDest: string;
   indFinal: string;
   itemSeq: string;
+  finNFe?: string;
+  natOp?: string;
+  isDevolucao?: boolean;
 
   // Product / Item specific
   itemConfigKey: string;
@@ -100,6 +104,9 @@ export interface ParsedNota {
   cnpjCpfDest: string;
   razaoRem: string;
   razaoDest: string;
+  finNFe?: string;
+  natOp?: string;
+  isDevolucao?: boolean;
 
   // Original XML Totals
   vBC: number;

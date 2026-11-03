@@ -91,6 +91,9 @@ export interface CapturedNfe {
   isInterestadual: boolean;
   content?: string;
   modelo?: string;
+  finNFe?: string;
+  natOp?: string;
+  isDevolucao?: boolean;
 }
 
 interface CaptacaoViewProps {
@@ -128,6 +131,10 @@ function extractNfeMetadata(xmlText: string, fileName: string, folder: string): 
   // Chave de 44 dígitos
   const chNFeMatch = xmlText.match(/Id="NFe(\d{44})"/i) || fileName.match(/(\d{44})/);
   const chNFe = chNFeMatch ? chNFeMatch[1] : "";
+
+  const finNFe = getTagValue("finNFe", ide);
+  const natOp = getTagValue("natOp", ide);
+  const isDevolucao = finNFe === "4" || /devolu[cç][aã]o/i.test(natOp);
 
   const nNF = getTagValue("nNF", ide) || "-";
   const serie = getTagValue("serie", ide) || "1";
@@ -202,6 +209,9 @@ function extractNfeMetadata(xmlText: string, fileName: string, folder: string): 
     vOutro,
     isInterestadual,
     content: xmlText,
+    finNFe,
+    natOp,
+    isDevolucao,
   };
 }
 

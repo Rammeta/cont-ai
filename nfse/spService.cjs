@@ -516,20 +516,7 @@ async function consultarTomadasSP(empresa, pastaOutputRaiz, opcoes = {}) {
           novasNoLote++;
           if (isCancelada) totalCanceladas++;
 
-          // Gera o PDF DANFSe no Padrão Oficial da Prefeitura de São Paulo
-          try {
-            const pdfBytes = await gerarDanfseSpPdf(nfeXmlString, {
-              PDFLib,
-              fontkit,
-              arimo,
-              arimoBold,
-              logoSpBytes
-            });
-            fs.writeFileSync(pdfPath, Buffer.from(pdfBytes));
-          } catch (errPdf) {
-            console.warn(`   [DANFSe SP] Aviso ao gerar PDF da NF ${numeroNFe}: ${errPdf.message}`);
-          }
-
+          // Atualiza índice de existentes
           if (dedupKey) {
             existingIndex.set(dedupKey, {
               caminhoXml: xmlPath,
@@ -538,17 +525,35 @@ async function consultarTomadasSP(empresa, pastaOutputRaiz, opcoes = {}) {
               isCancelada
             });
           }
+
+          // Respiro para o loop de eventos a cada 5 notas processadas
+          if (i % 5 === 0) {
+            await new Promise(resolve => setImmediate(resolve));
+          }
         }
 
         if (novasNoLote > 0) {
           notify(`[Prefeitura SP] +${novasNoLote} nova(s) nota(s) tomada(s) salva(s) no período ${periodo.dtInicio}.`, 'info', novasNoLote);
         }
 
+        // Respiro de 40ms entre páginas e decêndios para manter Windows e Electron 100% responsivos em segundo plano
+        await new Promise(resolve => setTimeout(resolve, 40));
+
         if (nfeNodes.length < 50) {
           temMaisPaginas = false;
         } else {
           pagina++;
         }
+      }
+
+      // Salva progresso incremental do período consultado para evitar reiniciar do zero caso seja pausado
+      if (typeof opcoes.onSaveState === 'function') {
+        try {
+          opcoes.onSaveState({
+            ultimaDataSp: periodo.dtFim,
+            lastSync: new Date().toISOString()
+          });
+        } catch (_) {}
       }
     } catch (errPeriodo) {
       console.warn(`   [SP WS Aviso] Período ${periodo.dtInicio} a ${periodo.dtFim}: ${errPeriodo.message}`);
