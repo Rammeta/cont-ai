@@ -59,7 +59,9 @@
       cursor: pointer;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
+      white-space: nowrap;
       user-select: none;
       transition: all 0.1s ease;
       text-decoration: none;
@@ -181,35 +183,35 @@
 
   <!-- Barra Superior Estilo Faixa de Comando ERP / Windows Ribbon -->
   <header class="bg-[#f0f0f0] border-b border-[#b0b0b0] sticky top-0 z-40 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between">
-      <div class="flex items-center gap-2.5">
-        <img src="screenshots/logo.png" alt="CONT-AI Logo" class="w-7 h-7 object-contain bg-white rounded p-0.5 border border-[#c0c0c0]" />
-        <div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2 shrink-0">
+        <img src="screenshots/logo.png" alt="CONT-AI Logo" class="w-7 h-7 object-contain bg-white rounded p-0.5 border border-[#c0c0c0] shrink-0" />
+        <div class="whitespace-nowrap">
           <span class="font-bold text-[#003366] text-sm leading-none flex items-center gap-1.5">
             CONT-AI
-            <span class="text-[10px] bg-[#005a9e] text-white px-1.5 py-0.2 rounded font-mono font-normal">v2.2</span>
+            <span class="text-[10px] bg-[#005a9e] text-white px-1.5 py-0.5 rounded font-mono font-normal leading-none">v2.2</span>
           </span>
-          <span class="text-[10px] text-[#555555] block">Gestor de Movimento Fiscal & Emissor de NFS-e Nacional</span>
+          <span class="text-[10px] text-[#555555] block mt-0.5">Gestor de Movimento Fiscal & Emissor NFS-e</span>
         </div>
       </div>
 
-      <nav class="hidden lg:flex items-center gap-4 text-xs font-semibold text-[#333333]">
-        <a href="#funcionalidades" class="hover:text-[#005a9e] transition">Módulos Fiscais</a>
-        <a href="#telas" class="hover:text-[#005a9e] transition">Demonstração das 17 Telas</a>
-        <a href="#mapeamento" class="hover:text-[#005a9e] transition">Mapeamento de Funções & Botões</a>
-        <a href="#noticias" class="text-[#005a9e] hover:text-[#003366] font-bold flex items-center gap-1.5 transition">
+      <nav class="hidden lg:flex items-center gap-3.5 text-[11.5px] font-semibold text-[#333333] whitespace-nowrap">
+        <a href="#funcionalidades" class="hover:text-[#005a9e] transition whitespace-nowrap">Módulos Fiscais</a>
+        <a href="#telas" class="hover:text-[#005a9e] transition whitespace-nowrap">Demonstração (17 Telas)</a>
+        <a href="#mapeamento" class="hover:text-[#005a9e] transition whitespace-nowrap">Funções & Botões</a>
+        <a href="#noticias" class="text-[#005a9e] hover:text-[#003366] font-bold inline-flex items-center gap-1.5 transition whitespace-nowrap bg-[#e6f0fa] border border-[#b8daff] px-2 py-0.5 rounded">
           <span>📰 Notícias & Atualizações</span>
-          <span class="text-[9px] bg-red-600 text-white font-bold px-1.5 py-0.2 rounded-full animate-pulse">Novo</span>
+          <span class="text-[9px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded-full leading-none animate-pulse">Novo</span>
         </a>
-        <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition">Apoiar (PIX)</a>
-        <a href="#autor" class="hover:text-[#005a9e] transition">Autor</a>
+        <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition whitespace-nowrap">Apoiar (PIX)</a>
+        <a href="#autor" class="hover:text-[#005a9e] transition whitespace-nowrap">Autor</a>
       </nav>
 
-      <div class="flex items-center gap-2">
-        <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener" class="vb-btn text-xs py-1 px-2.5">
+      <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+        <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener" class="vb-btn text-xs py-1 px-2.5 whitespace-nowrap">
           <span>GitHub</span>
         </a>
-        <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener" class="vb-btn vb-btn-primary text-xs py-1 px-3">
+        <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener" class="vb-btn vb-btn-primary text-xs py-1 px-3 whitespace-nowrap">
           <span>Baixar Windows (.exe)</span>
         </a>
       </div>
