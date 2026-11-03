@@ -199,10 +199,16 @@ export default function SefazCompanyModal({
       alert("Informe a Razão Social da empresa.");
       return;
     }
-    const hasValidCert = Boolean((editingCompany.certStore === "windows" && editingCompany.certThumbprint) || editingCompany.certPath);
+    const hasValidCert = Boolean((editingCompany.certStore === "windows" && editingCompany.certThumbprint) || editingCompany.certPath || editingCompany.usarProcuradorNfse);
     if (!hasValidCert) {
-      alert("Selecione o certificado digital A1 (Arquivo ou Windows).");
+      alert("Selecione o certificado digital A1 (Arquivo ou Windows) ou marque o uso do Procurador.");
       return;
+    }
+
+    if (testingStatus.info && (testingStatus.info.isExpired || (testingStatus.info.daysRemaining !== undefined && testingStatus.info.daysRemaining <= 0))) {
+      if (!confirm("Atenção: O Certificado Digital A1 informado está VENCIDO / EXPIRADO. Ele não terá validade jurídica e será rejeitado pela SEFAZ.\n\nDeseja salvar mesmo assim para fins de cadastro?")) {
+        return;
+      }
     }
 
     let finalRazaoSocial = editingCompany.razaoSocial.trim();
@@ -221,12 +227,13 @@ export default function SefazCompanyModal({
       ambiente: Number(editingCompany.ambiente) || 1,
       certStore: editingCompany.certStore || (editingCompany.certThumbprint ? "windows" : "file"),
       certThumbprint: editingCompany.certThumbprint || "",
+      usarProcuradorNfse: Boolean(editingCompany.usarProcuradorNfse),
       certInfo: testingStatus.info ? {
         subject: testingStatus.info.subject,
         issuer: testingStatus.info.issuer,
         validTo: testingStatus.info.validTo ? new Date(testingStatus.info.validTo).toISOString() : "",
         daysRemaining: testingStatus.info.daysRemaining,
-        isExpired: testingStatus.info.isExpired
+        isExpired: Boolean(testingStatus.info.isExpired || (testingStatus.info.daysRemaining !== undefined && testingStatus.info.daysRemaining <= 0))
       } : editingCompany.certInfo
     };
 
@@ -478,16 +485,57 @@ export default function SefazCompanyModal({
                 </div>
 
                 {/* Status do teste */}
-                {testingStatus.success && testingStatus.info && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 font-bold">
-                      <CheckCircle2 size={16} className="text-emerald-600" />
-                      Certificado Válido!
+                {testingStatus.success && testingStatus.info && (() => {
+                  const days = testingStatus.info.daysRemaining ?? 0;
+                  const isExpired = Boolean(testingStatus.info.isExpired || days <= 0);
+                  const isExpiringSoon = !isExpired && days <= 30;
+
+                  if (isExpired) {
+                    const diasVencido = Math.abs(days);
+                    return (
+                      <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg text-xs text-rose-950 flex flex-col gap-1 shadow-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-rose-700">
+                          <AlertTriangle size={16} className="text-rose-600 shrink-0" />
+                          Certificado A1 Vencido / Expirado!
+                        </div>
+                        <div>Titular: <strong>{testingStatus.info.subject}</strong></div>
+                        <div className="text-[11px] text-rose-800">
+                          Validade expirou em: <strong>{formatDateBr(testingStatus.info.validTo)}</strong>{" "}
+                          <span className="font-bold">({diasVencido === 0 ? "Venceu hoje" : `Vencido há ${diasVencido} dias`})</span>
+                        </div>
+                        <div className="text-[10.5px] text-rose-700 mt-0.5">
+                          ⚠️ Atenção: O certificado foi lido, mas perdeu a validade jurídica e será rejeitado pela SEFAZ. Providencie a renovação do certificado A1.
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (isExpiringSoon) {
+                    return (
+                      <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-950 flex flex-col gap-1 shadow-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-700">
+                          <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                          Certificado A1 Próximo do Vencimento!
+                        </div>
+                        <div>Titular: <strong>{testingStatus.info.subject}</strong></div>
+                        <div className="text-[11px] text-amber-800">
+                          Validade: <strong>{formatDateBr(testingStatus.info.validTo)}</strong> ({days} dias restantes)
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                        Certificado Válido e Operacional!
+                      </div>
+                      <div>Titular: <strong>{testingStatus.info.subject}</strong></div>
+                      <div>Validade: <strong>{formatDateBr(testingStatus.info.validTo)}</strong> ({days} dias restantes)</div>
                     </div>
-                    <div>Titular: <strong>{testingStatus.info.subject}</strong></div>
-                    <div>Validade: {formatDateBr(testingStatus.info.validTo)} ({testingStatus.info.daysRemaining} dias restantes)</div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Painel de Habilitação de Modelos */}
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">

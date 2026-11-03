@@ -293,6 +293,7 @@ export interface EmpresaSefaz {
   modelosNfse?: NfseModeloNota[];
   clientesNfse?: NfseClienteTomador[];
   notasEmitidasNfse?: NfseNotaEmitida[];
+  usarProcuradorNfse?: boolean;
 }
 
 export interface SefazSyncStatus {
@@ -525,12 +526,31 @@ export interface ModelSchedulersMap {
   nfse: ModelSchedulerConfig;
 }
 
+export interface ProcuradorConfig {
+  ativo: boolean;
+  nome?: string;
+  documento?: string; // CPF ou CNPJ
+  certStore: "file" | "windows";
+  certPath?: string;
+  password?: string;
+  certThumbprint?: string;
+  padraoNovasEmpresas?: boolean;
+  certInfo?: {
+    subject: string;
+    issuer: string;
+    validTo: string;
+    daysRemaining: number;
+    isExpired: boolean;
+  };
+}
+
 export interface AppSettings {
   customStorageDir?: string;
   customServerCertDir?: string;
   modelSchedulers?: ModelSchedulersMap;
   scheduler?: ModelSchedulerConfig;
   nfseScheduler?: ModelSchedulerConfig;
+  procurador?: ProcuradorConfig;
 }
 
 export interface InstalledCertItem {
@@ -568,6 +588,8 @@ export interface EmpresaMetrics {
   certValidTo?: string | null;
   certSubject?: string | null;
   certIssuer?: string | null;
+  isProcuradorNfse?: boolean;
+  procuradorNome?: string;
   modelosHabilitados?: {
     nfe?: boolean;
     nfce?: boolean;

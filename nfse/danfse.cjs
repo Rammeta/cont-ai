@@ -784,7 +784,7 @@ function sanitizarDiscriminacao(texto) {
     const _vServNum = parseFloat((data.totais || {}).vServ || '0') || 0;
     const _vLiqNum = parseFloat((data.totais || {}).vLiq || '0') || 0;
     const _hasNetDiff = (_vServNum > 0 && _vLiqNum > 0) ? ((_vServNum - _vLiqNum) >= 0.01) : true;
-    const hlRet = !!deps.destacarRet && _hasNetDiff; // destaca os campos de RETENÇÃO apenas se houver redução real no valor líquido
+    const hlRet = deps.destacarRet !== false; // Destaque amarelo ativo por padrão para todas as retenções tributárias existentes
     // Só destaca quando HÁ retenção (valor retido > 0 ou indicador "retido") — campo vazio não pinta.
     const temVal = (v) => parseFloat(v) > 0;
     const issRetido = ['2', '3'].includes((data.issqn || {}).retencao);   // 2=Tomador, 3=Intermediário

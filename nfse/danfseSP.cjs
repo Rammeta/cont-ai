@@ -633,6 +633,7 @@ function parseXmlSP(xmlString) {
 // Gerador Gráfico PDF (pdf-lib) no Padrão Oficial da PMSP
 async function gerarDanfseSpPdf(xmlString, deps = {}) {
   const { PDFLib, fontkit, arimo, arimoBold, logoSpBytes } = deps;
+  const destacarRet = deps.destacarRet !== false;
   const { PDFDocument, StandardFonts, rgb, degrees } = PDFLib;
 
   const data = parseXmlSP(xmlString);
@@ -882,15 +883,24 @@ async function gerarDanfseSpPdf(xmlString, deps = {}) {
   }
 
   const retCols = [
-    { label: 'Contribuição Previdenciária - Retida (R$)', val: fmtMoeda(data.valores.inss) },
-    { label: 'IRRF (R$)', val: fmtMoeda(data.valores.irrf) },
-    { label: 'COFINS (R$)', val: fmtMoeda(data.valores.cofins) },
-    { label: 'PIS/PASEP (R$)', val: fmtMoeda(data.valores.pis) },
-    { label: 'IPI (R$)', val: '0,00' }
+    { label: 'Contribuição Previdenciária - Retida (R$)', val: fmtMoeda(data.valores.inss), isRet: (parseFloat(data.valores.inss) || 0) > 0 },
+    { label: 'IRRF (R$)', val: fmtMoeda(data.valores.irrf), isRet: (parseFloat(data.valores.irrf) || 0) > 0 },
+    { label: 'COFINS (R$)', val: fmtMoeda(data.valores.cofins), isRet: (parseFloat(data.valores.cofins) || 0) > 0 },
+    { label: 'PIS/PASEP (R$)', val: fmtMoeda(data.valores.pis), isRet: (parseFloat(data.valores.pis) || 0) > 0 },
+    { label: 'IPI (R$)', val: '0,00', isRet: false }
   ];
 
   retCols.forEach((rc, i) => {
     const colX = L + i * c5W;
+    if (destacarRet && rc.isRet) {
+      page1.drawRectangle({
+        x: colX + LINE,
+        y: y - ret1H + LINE,
+        width: c5W - LINE * 2,
+        height: ret1H - LINE * 2,
+        color: YELLOW
+      });
+    }
     page1.drawText(rc.label, { x: colX + (c5W - fN.widthOfTextAtSize(rc.label, 5.5)) / 2, y: y - 8, size: 5.5, font: fN, color: K });
     page1.drawText(rc.val, { x: colX + (c5W - fN.widthOfTextAtSize(rc.val, 7.5)) / 2, y: y - 19, size: 7.5, font: fN, color: K });
   });
@@ -900,13 +910,24 @@ async function gerarDanfseSpPdf(xmlString, deps = {}) {
   const ret2H = 22;
   page1.drawRectangle({ x: L, y: y - ret2H, width: W, height: ret2H, borderWidth: LINE, borderColor: BORDER_COLOR });
   const cRet2W = W * 0.28;
+  const csllVal = parseFloat(data.valores.csll) || 0;
+  if (destacarRet && csllVal > 0) {
+    page1.drawRectangle({
+      x: L + LINE,
+      y: y - ret2H + LINE,
+      width: cRet2W - LINE * 2,
+      height: ret2H - LINE * 2,
+      color: YELLOW
+    });
+  }
   page1.drawLine({ start: { x: L + cRet2W, y: y }, end: { x: L + cRet2W, y: y - ret2H }, thickness: LINE, color: BORDER_COLOR });
 
   page1.drawText('Contribuições Sociais - Retidas (R$)', { x: L + 6, y: y - 8, size: 6, font: fN, color: K });
   page1.drawText(fmtMoeda(data.valores.csll), { x: L + (cRet2W - fN.widthOfTextAtSize(fmtMoeda(data.valores.csll), 7.5)) / 2, y: y - 18, size: 7.5, font: fN, color: K });
 
+  const descRetSoc = data.valores.descRetSociais || (csllVal > 0 ? 'Contribuição Social Retida na Fonte' : '0 - PIS/COFINS/CSLL Não Retidos.');
   page1.drawText('Descrição Contribuições Sociais - Retidas', { x: L + cRet2W + 6, y: y - 8, size: 6, font: fN, color: K });
-  page1.drawText(data.valores.descRetSociais || '0 - PIS/COFINS/CSLL Não Retidos.', { x: L + cRet2W + 6, y: y - 18, size: 7, font: fN, color: K });
+  page1.drawText(descRetSoc, { x: L + cRet2W + 6, y: y - 18, size: 7, font: fN, color: K });
   y -= ret2H;
 
   // 8. CÓDIGO DO SERVIÇO E APURAÇÃO DO ISS
@@ -928,17 +949,27 @@ async function gerarDanfseSpPdf(xmlString, deps = {}) {
   const fmtBase = data.valores.baseCalculo === '*' ? '*' : fmtMoeda(data.valores.baseCalculo);
   const fmtAli = data.valores.aliquota === '*' ? '*' : fmtAliq(data.valores.aliquota);
   const fmtIss = data.valores.valorISS === '*' ? '*' : fmtMoeda(data.valores.valorISS);
+  const isIssRet = Boolean(data.valores.issRetido && (parseFloat(data.valores.valorISS) || 0) > 0);
 
   const issCols = [
     { label: 'Valor Total das Deduções (R$)', val: fmtMoeda(data.valores.valorDeducoes) },
     { label: 'Base de Cálculo (R$)', val: fmtBase },
     { label: 'Alíquota (%)', val: fmtAli },
-    { label: 'Valor do ISS (R$)', val: fmtIss },
+    { label: 'Valor do ISS (R$)', val: fmtIss, isRet: isIssRet },
     { label: 'Crédito Programa da NFP (R$)', val: fmtMoeda(data.valores.valorCredito) }
   ];
 
   issCols.forEach((ic, i) => {
     const colX = L + i * c5W;
+    if (destacarRet && ic.isRet) {
+      page1.drawRectangle({
+        x: colX + LINE,
+        y: y - iss1H + LINE,
+        width: c5W - LINE * 2,
+        height: iss1H - LINE * 2,
+        color: YELLOW
+      });
+    }
     page1.drawText(ic.label, { x: colX + (c5W - fN.widthOfTextAtSize(ic.label, 5.5)) / 2, y: y - 8, size: 5.5, font: fN, color: K });
     page1.drawText(ic.val, { x: colX + (c5W - fN.widthOfTextAtSize(ic.val, 7.5)) / 2, y: y - 19, size: 7.5, font: fN, color: K });
   });

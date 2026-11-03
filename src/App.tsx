@@ -12,6 +12,7 @@ import {
   NcmRateRule,
   EmpresaSefaz,
   CnpjConsultaResult,
+  ProcuradorConfig,
 } from "./types";
 import {
   calculateLegal,
@@ -23,6 +24,7 @@ import {
   getRegimeLabel,
 } from "./utils/calc";
 import { calculateDaysRemaining } from "./utils/certUtils";
+import { getProcuradorConfig } from "./utils/electronBridge";
 import DifalView from "./components/DifalView";
 import { Calculator, FileText, Layers, RefreshCw, CheckCircle2, Building2, Building, Printer, HelpCircle, DownloadCloud, ShieldCheck, Landmark, ShoppingBag, AlertCircle, Truck, Settings, FolderOpen, Home } from "lucide-react";
 import ReportPrintModal from "./components/ReportPrintModal";
@@ -34,6 +36,8 @@ import NfseCaptacaoView from "./components/NfseCaptacaoView";
 import GuiaAcompanhamentoView from "./components/GuiaAcompanhamentoView";
 import EmpresasHubView from "./components/EmpresasHubView";
 import UnifiedConfigModal from "./components/UnifiedConfigModal";
+import ProcuradorModal from "./components/ProcuradorModal";
+import BulkCompanyImportModal from "./components/BulkCompanyImportModal";
 import SyncAllProgressModal from "./components/SyncAllProgressModal";
 import LauncherPortalView from "./components/LauncherPortalView";
 import LoadingGearOverlay from "./components/LoadingGearOverlay";
@@ -105,6 +109,9 @@ export default function App() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [configModalTab, setConfigModalTab] = useState<"empresas" | "schedulers" | "storage">("empresas");
   const [isSyncAllModalOpen, setIsSyncAllModalOpen] = useState(false);
+  const [procuradorConfig, setProcuradorConfig] = useState<ProcuradorConfig | null>(null);
+  const [isProcuradorModalOpen, setIsProcuradorModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Notifications
@@ -215,6 +222,11 @@ export default function App() {
     if (!rawSeenTutorial && currentWorkspace !== "launcher") {
       setIsTutorialOpen(true);
     }
+
+    // Carregar configurações do Certificado do Procurador / Contador
+    getProcuradorConfig().then((cfg) => {
+      if (cfg) setProcuradorConfig(cfg);
+    }).catch(() => {});
   }, []);
 
   const handleCloseTutorial = () => {
@@ -892,6 +904,9 @@ export default function App() {
             setIsConfigModalOpen(true);
           }}
           onOpenHelp={() => setIsTutorialOpen(true)}
+          onOpenProcurador={() => setIsProcuradorModalOpen(true)}
+          onOpenBulkImport={() => setIsBulkImportOpen(true)}
+          procuradorConfig={procuradorConfig}
         />
 
         {isConfigModalOpen && (
@@ -902,13 +917,38 @@ export default function App() {
             activeEmpresaId={activeEmpresaId}
             onSelectEmpresa={handleSelectEmpresa}
             onClose={() => setIsConfigModalOpen(false)}
-            onEmpresasChange={(updated) => {
+            onSaveEmpresas={(updated) => {
               setEmpresas(updated);
               localStorage.setItem(EMPRESAS_STORAGE_KEY, JSON.stringify(updated));
             }}
-            onNotify={alertStatus}
+            onOpenProcurador={() => setIsProcuradorModalOpen(true)}
+            onOpenBulkImport={() => setIsBulkImportOpen(true)}
+            procuradorConfig={procuradorConfig}
           />
         )}
+
+        <ProcuradorModal
+          isOpen={isProcuradorModalOpen}
+          onClose={() => setIsProcuradorModalOpen(false)}
+          empresas={empresas}
+          onSaveEmpresas={(updated) => {
+            setEmpresas(updated);
+            localStorage.setItem(EMPRESAS_STORAGE_KEY, JSON.stringify(updated));
+            setRefreshCounter((prev) => prev + 1);
+          }}
+          procuradorConfig={procuradorConfig}
+          onUpdateProcuradorConfig={setProcuradorConfig}
+          onNotify={(msg, type) => alertStatus(msg, type)}
+        />
+
+        <BulkCompanyImportModal
+          isOpen={isBulkImportOpen}
+          onClose={() => setIsBulkImportOpen(false)}
+          empresas={empresas}
+          onSaveEmpresas={handleSaveEmpresas}
+          procuradorConfig={procuradorConfig}
+          onNotify={(msg, type) => alertStatus(msg, type)}
+        />
 
         {isTutorialOpen && (
           <OnboardingModal
@@ -1237,6 +1277,9 @@ export default function App() {
               setConfigModalTab(tab || "empresas");
               setIsConfigModalOpen(true);
             }}
+            onOpenProcurador={() => setIsProcuradorModalOpen(true)}
+            onOpenBulkImport={() => setIsBulkImportOpen(true)}
+            procuradorConfig={procuradorConfig}
             onNotify={(text, type) => alertStatus(text, type)}
             refreshKey={refreshCounter}
           />
@@ -1390,6 +1433,28 @@ export default function App() {
         onRefreshXmls={() => {
           setRefreshCounter((prev) => prev + 1);
         }}
+        onOpenProcurador={() => setIsProcuradorModalOpen(true)}
+        onOpenBulkImport={() => setIsBulkImportOpen(true)}
+        procuradorConfig={procuradorConfig}
+      />
+
+      <ProcuradorModal
+        isOpen={isProcuradorModalOpen}
+        onClose={() => setIsProcuradorModalOpen(false)}
+        empresas={empresas}
+        onSaveEmpresas={handleSaveEmpresas}
+        procuradorConfig={procuradorConfig}
+        onUpdateProcuradorConfig={setProcuradorConfig}
+        onNotify={(msg, type) => alertStatus(msg, type)}
+      />
+
+      <BulkCompanyImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        empresas={empresas}
+        onSaveEmpresas={handleSaveEmpresas}
+        procuradorConfig={procuradorConfig}
+        onNotify={(msg, type) => alertStatus(msg, type)}
       />
 
       <SyncAllProgressModal

@@ -187,7 +187,8 @@ function loadSettings() {
       enabled: false,
       time: '18:00',
       lastRunDate: null
-    }
+    },
+    procurador: null
   };
   try {
     if (fs.existsSync(settingsPath)) {
@@ -1414,8 +1415,31 @@ ipcMain.handle('settings:get', () => {
     defaultStorageDir,
     modelSchedulers: settings.modelSchedulers,
     scheduler: settings.scheduler,
-    nfseScheduler: settings.nfseScheduler
+    nfseScheduler: settings.nfseScheduler,
+    procurador: settings.procurador || null
   };
+});
+
+ipcMain.handle('settings:get-procurador', () => {
+  const settings = loadSettings();
+  return {
+    success: true,
+    procurador: settings.procurador || null
+  };
+});
+
+ipcMain.handle('settings:save-procurador', (event, procuradorData) => {
+  try {
+    const settings = loadSettings();
+    settings.procurador = procuradorData;
+    saveSettings(settings);
+    return {
+      success: true,
+      procurador: settings.procurador
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 ipcMain.handle('settings:select-folder', async () => {
@@ -1670,7 +1694,33 @@ async function generateMissingNfsePdfs({ companyNfseDir, diasRetroativos = 90, o
         scanNfse(full);
       } else if (entry.isFile() && entry.name.endsWith('.xml') && !entry.name.includes('EVENTO_CANCELAMENTO')) {
         const pdfPath = full.replace(/\.xml$/i, '.pdf');
-        if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
+        let needsRegen = !fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0;
+        if (!needsRegen) {
+          // Se o PDF já existe no disco, verifica se a nota possui retenção de tributos (IRRF, INSS, CSLL, ISSQN retido, etc.)
+          // para garantir que seja regenerada com o destaque amarelo nos campos
+          try {
+            const raw = fs.readFileSync(full, 'utf8');
+            const hasRetXml = (
+              /<vRetIRRF>[^0<]/i.test(raw) ||
+              /<vRetCP>[^0<]/i.test(raw) ||
+              /<vRetCSLL>[^0<]/i.test(raw) ||
+              /<tpRetISSQN>\s*[23]\s*<\/tpRetISSQN>/i.test(raw) ||
+              /<ISSRetido>\s*(true|1|S)\s*<\/ISSRetido>/i.test(raw) ||
+              /<ValorISSRetido>[^0<]/i.test(raw) ||
+              /<vISSQNRetido>[^0<]/i.test(raw) ||
+              /<vTotalRet>[^0<]/i.test(raw) ||
+              /<ValorRetidoPIS>[^0<]/i.test(raw) ||
+              /<ValorRetidoCOFINS>[^0<]/i.test(raw) ||
+              /<ValorRetidoCSLL>[^0<]/i.test(raw) ||
+              /<ValorRetidoIRRF>[^0<]/i.test(raw) ||
+              /<ValorRetidoINSS>[^0<]/i.test(raw)
+            );
+            if (hasRetXml) {
+              needsRegen = true;
+            }
+          } catch (_) {}
+        }
+        if (needsRegen) {
           missing.push({ xmlPath: full, targetPdfPath: pdfPath, name: entry.name });
         }
       }
@@ -1713,7 +1763,7 @@ async function generateMissingNfsePdfs({ companyNfseDir, diasRetroativos = 90, o
       );
 
       if (isPortalSp) {
-        const pdfBytes = await gerarPdfPadraoSp(xmlContent);
+        const pdfBytes = await gerarPdfPadraoSp(xmlContent, { destacarRet: true });
         fs.writeFileSync(item.targetPdfPath, Buffer.from(pdfBytes));
       } else {
         let marcaDagua = '';
@@ -1724,6 +1774,7 @@ async function generateMissingNfsePdfs({ companyNfseDir, diasRetroativos = 90, o
           PDFLib,
           qrcode,
           logoBytes,
+          destacarRet: true,
           marcaDagua
         });
         fs.writeFileSync(item.targetPdfPath, Buffer.from(pdfBytes));
@@ -1740,39 +1791,65 @@ async function generateMissingNfsePdfs({ companyNfseDir, diasRetroativos = 90, o
 }
 
 async function executarCaptacaoUnificadaNfse({ company, targetNsu, onProgress }) {
+  const currentSet = loadSettings();
+  const isUsandoProcurador = Boolean(company.usarProcuradorNfse && currentSet.procurador && currentSet.procurador.ativo);
+  if (isUsandoProcurador) {
+    const proc = currentSet.procurador;
+    company = {
+      ...company,
+      certStore: proc.certStore,
+      certThumbprint: proc.certThumbprint,
+      thumbprint: proc.certThumbprint,
+      certPath: proc.certPath || company.certPath,
+      password: proc.password || company.password,
+      procuradorDocumento: proc.documento
+    };
+  }
+
   const { companyDir, companyNfseDir } = resolveCompanyNfseDir(company.cnpj, company.razaoSocial);
   const nfseState = loadNfseState(companyDir, company.cnpj);
   const isResetRun = targetNsu !== undefined && targetNsu !== null && Number(targetNsu) === 0;
 
-  // 1. Captação de Serviços Tomados na Prefeitura de São Paulo (PMSP) PRIMEIRO
-  // (Garante que as notas de SP fiquem no padrão oficial de São Paulo e evita duplicidade no ADN)
+  // 1. Captação de Serviços Tomados em Prefeituras (Ex: Prefeitura de São Paulo - PMSP)
+  // NOTA FISCAL: Quando a opção de Procuração Eletrônica está ativada, as prefeituras NÃO são consultadas.
+  // A captação via procurador é realizada EXCLUSIVAMENTE pelo Portal Nacional ADN.
   let baixadasSp = 0;
   let canceladasSp = 0;
   let ultimaDataSp = nfseState.ultimaDataSp || null;
 
-  try {
-    const empDescript = {
-      ...company,
-      caminhoPfx: company.certPath,
-      senhaPfx: company.password ? decryptPassword(company.password) : ''
-    };
-    const resSp = await consultarTomadasSP(empDescript, companyNfseDir, {
-      ultimaDataSp: isResetRun ? null : nfseState.ultimaDataSp,
-      onProgress,
-      onSaveState: (stateUpdate) => {
-        saveNfseState(companyDir, stateUpdate, company.cnpj);
+  if (!isUsandoProcurador) {
+    try {
+      const empDescript = {
+        ...company,
+        caminhoPfx: company.certPath,
+        senhaPfx: company.password ? decryptPassword(company.password) : ''
+      };
+      const resSp = await consultarTomadasSP(empDescript, companyNfseDir, {
+        ultimaDataSp: isResetRun ? null : nfseState.ultimaDataSp,
+        onProgress,
+        onSaveState: (stateUpdate) => {
+          saveNfseState(companyDir, stateUpdate, company.cnpj);
+        }
+      });
+      if (resSp && resSp.sucesso) {
+        baixadasSp = Number(resSp.totalBaixadas || 0);
+        canceladasSp = Number(resSp.totalCanceladas || 0);
+        if (resSp.ultimaDataSp) ultimaDataSp = resSp.ultimaDataSp;
       }
-    });
-    if (resSp && resSp.sucesso) {
-      baixadasSp = Number(resSp.totalBaixadas || 0);
-      canceladasSp = Number(resSp.totalCanceladas || 0);
-      if (resSp.ultimaDataSp) ultimaDataSp = resSp.ultimaDataSp;
+    } catch (errSp) {
+      if (onProgress) {
+        onProgress({
+          message: `[Prefeitura SP] Aviso: ${errSp.message}`,
+          type: 'warn',
+          timestamp: new Date().toLocaleTimeString('pt-BR')
+        });
+      }
     }
-  } catch (errSp) {
+  } else {
     if (onProgress) {
       onProgress({
-        message: `[Prefeitura SP] Aviso: ${errSp.message}`,
-        type: 'warn',
+        message: `[NFS-e ADN] Captação via Procurador: busca executada exclusivamente pelo Portal Nacional ADN (prefeituras ignoradas).`,
+        type: 'info',
         timestamp: new Date().toLocaleTimeString('pt-BR')
       });
     }
@@ -1859,6 +1936,13 @@ ipcMain.handle('nfse:sync-company', async (event, { company, targetNsu }) => {
 // 18. Sincronizar NFS-e Tomadas da Prefeitura de São Paulo (PMSP)
 ipcMain.handle('nfse:sync-sp', async (event, { company, params }) => {
   try {
+    if (company && company.usarProcuradorNfse) {
+      return {
+        success: false,
+        error: 'A busca de NFS-e via Procuração Eletrônica opera exclusivamente no Portal Nacional ADN. As prefeituras municipais exigem certificado próprio.'
+      };
+    }
+
     const { companyNfseDir } = resolveCompanyNfseDir(company.cnpj, company.razaoSocial);
     const empDescript = {
       ...company,
@@ -2058,11 +2142,9 @@ ipcMain.handle('nfse:open-pdf', async (event, payload) => {
       );
 
       if (isPortalSp) {
-        if (!pdfPath || !fs.existsSync(pdfPath) || forceRegenerate) {
-          // Mantém sempre o Padrão Oficial da Prefeitura de São Paulo (PMSP) para notas de SP
-          const pdfBytes = await gerarPdfPadraoSp(xmlContent);
-          fs.writeFileSync(targetPdfPath, Buffer.from(pdfBytes));
-        }
+        // Mantém sempre o Padrão Oficial da Prefeitura de São Paulo (PMSP) para notas de SP com destaque de retenções
+        const pdfBytes = await gerarPdfPadraoSp(xmlContent, { destacarRet: true });
+        fs.writeFileSync(targetPdfPath, Buffer.from(pdfBytes));
       } else {
         let logoBytes = null;
         const logoFile = path.join(__dirname, 'assets/nfse-logo.png');
@@ -2449,6 +2531,23 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies, forceRefr
         }
       }
 
+      // Se a empresa está configurada para usar Procurador (NFS-e / Prefeituras)
+      let isProcuradorNfse = !!company.usarProcuradorNfse;
+      let procuradorNome = null;
+      if (isProcuradorNfse) {
+        const proc = currentSettings.procurador;
+        if (proc && proc.ativo && proc.certInfo) {
+          procuradorNome = proc.nome || proc.certInfo.subject || 'Procurador Contábil';
+          if (certStatus === 'missing' || certStatus === 'invalid' || !validTo) {
+            validTo = proc.certInfo.validTo;
+            daysRemaining = proc.certInfo.daysRemaining;
+            certStatus = proc.certInfo.isExpired ? 'expired' : (proc.certInfo.daysRemaining <= 30 ? 'expiring_soon' : 'valid');
+            subject = `Procurador: ${procuradorNome}`;
+            issuer = proc.certInfo.issuer;
+          }
+        }
+      }
+
       metrics.push({
         id: company.id,
         cnpj: company.cnpj,
@@ -2467,6 +2566,8 @@ ipcMain.handle('app:get-companies-metrics', async (event, { companies, forceRefr
         certValidTo: validTo,
         certSubject: subject,
         certIssuer: issuer,
+        isProcuradorNfse,
+        procuradorNome,
         modelosHabilitados: company.modelosHabilitados,
         lastSyncDate: latestMtime > 0 ? new Date(latestMtime).toISOString() : null,
         companyDir

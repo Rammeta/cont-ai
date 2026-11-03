@@ -13,10 +13,13 @@ import {
   FileCheck2,
   ArrowRight,
   Landmark,
-  Check
+  Check,
+  Scale,
+  UploadCloud
 } from "lucide-react";
 import logoImg from "../assets/logo.png";
-import { EmpresaSefaz } from "../types";
+import { EmpresaSefaz, ProcuradorConfig } from "../types";
+import { formatDateBr } from "../utils/certUtils";
 
 interface LauncherPortalViewProps {
   onSelectGestor: (remember?: boolean) => void;
@@ -25,6 +28,9 @@ interface LauncherPortalViewProps {
   activeEmpresa: EmpresaSefaz | null;
   onOpenConfig?: (tab?: "empresas" | "schedulers" | "storage") => void;
   onOpenHelp?: () => void;
+  onOpenProcurador?: () => void;
+  onOpenBulkImport?: () => void;
+  procuradorConfig?: ProcuradorConfig | null;
 }
 
 export default function LauncherPortalView({
@@ -34,6 +40,9 @@ export default function LauncherPortalView({
   activeEmpresa,
   onOpenConfig,
   onOpenHelp,
+  onOpenProcurador,
+  onOpenBulkImport,
+  procuradorConfig,
 }: LauncherPortalViewProps) {
   const [rememberChoice, setRememberChoice] = useState(false);
 
@@ -84,7 +93,7 @@ export default function LauncherPortalView({
             CONT-AI
           </span>
           <span className="text-[9px] font-bold text-[#005a9e] bg-[#dbe8f8] border border-[#99bce8] px-1 rounded-xs">
-            v2.1
+            v2.2
           </span>
           <div className="h-4 w-[1px] bg-[#b8b8b8] mx-1" />
           <span className="text-[11px] text-[#444444] font-medium">
@@ -100,6 +109,33 @@ export default function LauncherPortalView({
                 <strong>{empresasCount}</strong> empresa{empresasCount > 1 ? "s" : ""} cadastrada{empresasCount > 1 ? "s" : ""}
               </span>
             </div>
+          )}
+
+          {onOpenProcurador && (
+            <button
+              type="button"
+              onClick={onOpenProcurador}
+              className="vb-launcher-btn font-semibold text-[#003366]"
+              title="Configurar Certificado Digital do Contador / Procurador para NFS-e Nacional ADN"
+            >
+              <Scale size={12} className={procuradorConfig?.ativo ? "text-[#107c41]" : "text-[#005a9e]"} />
+              <span>Certificado do Contador</span>
+              {procuradorConfig?.ativo && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block" title="Certificado Ativo" />
+              )}
+            </button>
+          )}
+
+          {onOpenBulkImport && (
+            <button
+              type="button"
+              onClick={onOpenBulkImport}
+              className="vb-launcher-btn font-bold text-[#003366] flex items-center gap-1.5"
+              title="Cadastrar múltiplas empresas em massa colando CNPJs ou importando planilha CSV"
+            >
+              <UploadCloud size={12} className="text-[#005a9e]" />
+              <span>Cadastro em Massa</span>
+            </button>
           )}
 
           {onOpenConfig && (
@@ -149,6 +185,60 @@ export default function LauncherPortalView({
               <p className="text-[11px] text-[#555555] mt-0.5">
                 Selecione o módulo de trabalho que deseja acessar:
               </p>
+            </div>
+
+            {/* BANNER PROMINENTE DO CERTIFICADO NA TELA DE INÍCIO */}
+            <div className="bg-[#f0f4f8] border border-[#b8d4f6] p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs rounded-xs">
+              <div className="flex items-start sm:items-center gap-2.5">
+                <div className="p-1.5 bg-[#003366] text-white rounded-xs shrink-0 mt-0.5 sm:mt-0">
+                  <Scale size={16} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-[#003366] text-[12px]">
+                      Certificado Digital do Procurador / Contador (NFS-e Nacional ADN)
+                    </span>
+                    {procuradorConfig?.ativo ? (
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.2 rounded-xs font-bold flex items-center gap-1">
+                        <Check size={10} className="text-emerald-700" />
+                        Ativo & Operacional
+                      </span>
+                    ) : (
+                      <span className="text-[9px] bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded-xs font-bold">
+                        Pendente de Configuração
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10.5px] text-[#555555] mt-0.5 leading-snug">
+                    {procuradorConfig?.ativo ? (
+                      <>
+                        Titular: <strong>{procuradorConfig.nome || procuradorConfig.certInfo?.subject?.split(":")[0]}</strong>
+                        {procuradorConfig.certInfo?.validTo && (
+                          <span> • Válido até {formatDateBr(procuradorConfig.certInfo.validTo)}</span>
+                        )}
+                        {" "}• Habilitado para consultar clientes outorgantes exclusivamente no Portal Nacional ADN.
+                      </>
+                    ) : (
+                      "Cadastre seu e-CPF ou e-CNPJ contábil para captar automaticamente as notas fiscais de serviços tomados e prestados via procuração eletrônica exclusivamente no Portal Nacional ADN."
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {onOpenProcurador && (
+                <button
+                  type="button"
+                  onClick={onOpenProcurador}
+                  className="vb-launcher-btn font-bold text-[#003366] py-1.5 px-3 shrink-0 self-end sm:self-center"
+                  style={{
+                    background: "linear-gradient(180deg, #ffffff 0%, #e8f0fe 100%)",
+                    borderColor: "#005a9e",
+                  }}
+                >
+                  <ShieldCheck size={13} className="text-[#005a9e]" />
+                  <span>{procuradorConfig?.ativo ? "Gerenciar Procurador" : "+ Cadastrar Certificado"}</span>
+                </button>
+              )}
             </div>
 
             {/* 2 Big Cards Grid - Padrão CONT-AI (Bordas sóbrias, fontes 11px, botões clássicos) */}

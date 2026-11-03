@@ -17,18 +17,20 @@ export default function LoadingGearOverlay({
 }: LoadingGearOverlayProps) {
   if (!isLoading) return null;
 
-  const cardContent = (
+  const gearContent = (
     <div
-      className="bg-[#f8fafd] border border-[#3c7fb1] rounded-lg p-3.5 shadow-md flex items-center justify-center select-none"
-      style={{ boxShadow: "0 4px 16px rgba(0, 51, 102, 0.18)" }}
+      className="flex items-center justify-center select-none pointer-events-none bg-transparent"
       title={title}
     >
-      {/* Somente uma catraca/engrenagem grande girando, na cor institucional #003366 e estilo do app */}
+      {/* Somente a engrenagem com fundo 100% transparente (sem quadrado atrás), centralizada na tela */}
       <Settings
-        size={48}
+        size={56}
         className="text-[#003366] animate-spin"
         strokeWidth={2.2}
-        style={{ animationDuration: "2s" }}
+        style={{
+          animationDuration: "2s",
+          filter: "drop-shadow(0 2px 6px rgba(0, 51, 102, 0.28))",
+        }}
       />
     </div>
   );
@@ -36,9 +38,9 @@ export default function LoadingGearOverlay({
   if (variant === "table") {
     return (
       <tr>
-        <td colSpan={colSpan} className="py-12 px-4 text-center">
-          <div className="flex items-center justify-center">
-            {cardContent}
+        <td colSpan={colSpan} className="py-16 px-4 text-center border-none bg-transparent">
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            {gearContent}
           </div>
         </td>
       </tr>
@@ -47,16 +49,16 @@ export default function LoadingGearOverlay({
 
   if (variant === "inline") {
     return (
-      <div className="flex items-center justify-center p-4">
-        {cardContent}
+      <div className="flex items-center justify-center p-4 bg-transparent">
+        {gearContent}
       </div>
     );
   }
 
-  // Variant "overlay" (padrão flutuante cobrindo o container relativo)
+  // Variant "overlay": engrenagem pura centralizada na tela, sem quadrado ou fundo atrás
   return (
-    <div className="absolute inset-0 bg-white/60 backdrop-blur-[0.5px] z-30 flex items-center justify-center select-none pointer-events-auto transition-opacity duration-150">
-      {cardContent}
+    <div className="fixed inset-0 z-50 flex items-center justify-center select-none pointer-events-none">
+      {gearContent}
     </div>
   );
 }

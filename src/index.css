@@ -68,3 +68,104 @@ html, body {
   animation: spin 3.5s linear infinite;
 }
 
+/* WinForms Classic & ERP Global Controls */
+.vb-groupbox {
+  border: 1px solid #c0c0c0;
+  border-radius: 2px;
+  position: relative;
+  margin-top: 8px;
+}
+.vb-legend {
+  font-size: 11px;
+  font-weight: bold;
+  color: #003366;
+  padding: 0 6px;
+  margin-left: 8px;
+}
+.vb-btn {
+  background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 50%, #e6e6e6 100%);
+  border: 1px solid #7a7a7a;
+  border-radius: 2px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  color: #000000;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 2px rgba(0,0,0,0.06);
+  white-space: nowrap;
+  transition: all 0.08s ease-in-out;
+  user-select: none;
+}
+.vb-btn:hover {
+  background: linear-gradient(180deg, #fbfdff 0%, #e8f1fc 50%, #d8e6f8 100%);
+  border-color: #005a9e;
+  color: #003366;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 3px rgba(0,90,158,0.18);
+}
+.vb-btn:active {
+  background: #d4d4d4 !important;
+  border-color: #444444 !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.25) !important;
+  transform: translateY(1px) scale(0.98);
+}
+.vb-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #ececec !important;
+  border-color: #b8b8b8 !important;
+  color: #777777 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.vb-btn-primary {
+  background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+  border: 1px solid #002e50;
+  font-weight: 600;
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.2);
+}
+.vb-btn-primary:hover {
+  background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
+  border-color: #001f38;
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(0,90,158,0.25);
+}
+.vb-btn-primary:active {
+  background: #003862 !important;
+  border-color: #00182b !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+  transform: translateY(1px) scale(0.98);
+}
+.vb-btn-danger {
+  background: linear-gradient(180deg, #fff5f5 0%, #fed7d7 100%);
+  border: 1px solid #c53030;
+  color: #742a2a;
+}
+.vb-btn-danger:hover {
+  background: linear-gradient(180deg, #fee2e2 0%, #fca5a5 100%);
+  border-color: #9b2c2c;
+  color: #63171b;
+}
+.vb-btn-danger:active {
+  background: #f87171 !important;
+  border-color: #7f1d1d !important;
+  transform: translateY(1px) scale(0.98);
+}
+.vb-btn-success {
+  background: linear-gradient(180deg, #107c41 0%, #0b582e 100%);
+  border: 1px solid #07381d;
+  color: #ffffff !important;
+}
+.vb-btn-success:hover {
+  background: linear-gradient(180deg, #138d4a 0%, #0d6837 100%);
+  color: #ffffff !important;
+}
+.vb-btn-success:active {
+  background: #094725 !important;
+  transform: translateY(1px) scale(0.98);
+}
+

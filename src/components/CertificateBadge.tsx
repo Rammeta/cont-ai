@@ -23,14 +23,14 @@ export default function CertificateBadge({ certInfo, compact = false, onClick }:
     const calc = calculateDaysRemaining(certInfo.validTo);
     if (calc !== null) {
       daysRemaining = calc;
-      isExpired = calc < 0;
+      isExpired = calc <= 0;
     }
   }
 
   const clickClass = onClick ? "cursor-pointer hover:opacity-90 active:scale-95 transition-all" : "";
   const clickHint = onClick ? " · Clique para gerenciar certificados" : "";
 
-  if (isExpired || (daysRemaining !== undefined && daysRemaining !== null && daysRemaining < 0)) {
+  if (isExpired || (daysRemaining !== undefined && daysRemaining !== null && daysRemaining <= 0)) {
     return (
       <span
         onClick={onClick}

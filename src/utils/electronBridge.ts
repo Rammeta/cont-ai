@@ -1,4 +1,4 @@
-import { EmpresaSefaz, CnpjConsultaResult, ParsedNfse, NfseMetricas, ParsedNfce, ParsedCte, ModelSchedulersMap, EmpresaMetrics, InstalledCertItem } from "../types";
+import { EmpresaSefaz, CnpjConsultaResult, ParsedNfse, NfseMetricas, ParsedNfce, ParsedCte, ModelSchedulersMap, EmpresaMetrics, InstalledCertItem, ProcuradorConfig } from "../types";
 
 // Helper seguro para obter ipcRenderer se estiver rodando dentro do Electron
 function getIpc() {
@@ -384,6 +384,21 @@ export const saveModelSchedulersSettings = async (
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
   return await ipc.invoke("settings:save-model-schedulers", modelSchedulers);
+};
+
+export const getProcuradorConfig = async (): Promise<ProcuradorConfig | null> => {
+  const ipc = getIpc();
+  if (!ipc) return null;
+  const res = await ipc.invoke("settings:get-procurador");
+  return res && res.success ? res.procurador : null;
+};
+
+export const saveProcuradorConfig = async (
+  procurador: ProcuradorConfig | null
+): Promise<{ success: boolean; procurador?: ProcuradorConfig | null; error?: string }> => {
+  const ipc = getIpc();
+  if (!ipc) return { success: false, error: "Ambiente não é Electron." };
+  return await ipc.invoke("settings:save-procurador", procurador);
 };
 
 export const syncAllCompanies = async (

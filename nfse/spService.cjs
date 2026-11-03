@@ -259,8 +259,13 @@ async function consultarTomadasSP(empresa, pastaOutputRaiz, opcoes = {}) {
     let temMaisPaginas = true;
 
     try {
+      const cleanRemetente = (empresa.procuradorDocumento || cleanCnpj).replace(/\D/g, '');
+      const remetenteTag = cleanRemetente.length === 11
+        ? `<CPFCNPJRemetente><CPF>${cleanRemetente}</CPF></CPFCNPJRemetente>`
+        : `<CPFCNPJRemetente><CNPJ>${cleanRemetente}</CNPJ></CPFCNPJRemetente>`;
+
       while (temMaisPaginas && pagina <= 50) {
-        const xmlPedido = `<PedidoConsultaNFePeriodo xmlns="http://www.prefeitura.sp.gov.br/nfe"><Cabecalho xmlns="" Versao="1"><CPFCNPJRemetente><CNPJ>${cleanCnpj}</CNPJ></CPFCNPJRemetente><CPFCNPJ><CNPJ>${cleanCnpj}</CNPJ></CPFCNPJ><dtInicio>${periodo.dtInicio}</dtInicio><dtFim>${periodo.dtFim}</dtFim><NumeroPagina>${pagina}</NumeroPagina></Cabecalho></PedidoConsultaNFePeriodo>`;
+        const xmlPedido = `<PedidoConsultaNFePeriodo xmlns="http://www.prefeitura.sp.gov.br/nfe"><Cabecalho xmlns="" Versao="1">${remetenteTag}<CPFCNPJ><CNPJ>${cleanCnpj}</CNPJ></CPFCNPJ><dtInicio>${periodo.dtInicio}</dtInicio><dtFim>${periodo.dtFim}</dtFim><NumeroPagina>${pagina}</NumeroPagina></Cabecalho></PedidoConsultaNFePeriodo>`;
         const xmlAssinado = assinarXml(xmlPedido, privateKeyPem, certB64);
 
         const soapBody = `<ConsultaNFeRecebidasRequest xmlns="http://www.prefeitura.sp.gov.br/nfe"><VersaoSchema>1</VersaoSchema><MensagemXML>${xmlAssinado.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</MensagemXML></ConsultaNFeRecebidasRequest>`;
@@ -573,13 +578,14 @@ async function consultarTomadasSP(empresa, pastaOutputRaiz, opcoes = {}) {
   };
 }
 
-async function gerarPdfPadraoSp(xmlContent) {
+async function gerarPdfPadraoSp(xmlContent, opts = {}) {
   return gerarDanfseSpPdf(xmlContent, {
     PDFLib,
     fontkit,
     arimo,
     arimoBold,
-    logoSpBytes
+    logoSpBytes,
+    destacarRet: opts.destacarRet !== false
   });
 }
 

@@ -28,6 +28,7 @@ import {
   CheckCircle,
   Sparkles,
   Clock,
+  Scale,
   Save,
   RotateCw,
   Settings
@@ -979,13 +980,23 @@ export default function NfseCaptacaoView({
           <button
             type="button"
             onClick={() => setIsSpModalOpen(true)}
-            disabled={syncingNacional || syncingSp || !activeEmpresa}
+            disabled={syncingNacional || syncingSp || !activeEmpresa || !!activeEmpresa?.usarProcuradorNfse}
             className="vb-btn"
-            title="Consultar Prefeitura de São Paulo (PMSP) por competência específica"
+            title={activeEmpresa?.usarProcuradorNfse ? "Consulta a prefeituras municipais indisponível via procuração (captação via procurador opera exclusivamente no Portal Nacional ADN)" : "Consultar Prefeitura de São Paulo (PMSP) por competência específica"}
           >
             <Landmark size={13} className="text-[#005a9e]" />
             <span>Prefeitura de SP</span>
           </button>
+
+          {activeEmpresa?.usarProcuradorNfse && (
+            <span
+              className="text-[10px] font-bold text-[#003366] bg-[#e6f2ff] border border-[#bcd2e8] px-2 py-0.5 rounded-xs flex items-center gap-1 shadow-2xs"
+              title="Esta empresa capta exclusivamente pelo Portal Nacional ADN utilizando a Procuração Eletrônica do Contador (prefeituras municipais isoladas desativadas)"
+            >
+              <Scale size={11} className="text-[#005a9e]" />
+              <span>Via Procurador (ADN Nacional)</span>
+            </span>
+          )}
 
           <div className="h-4 w-[1px] bg-[#b5b5b5] mx-0.5" />
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { EmpresaSefaz, EmpresaMetrics } from "../types";
+import { EmpresaSefaz, EmpresaMetrics, ProcuradorConfig } from "../types";
 import { getCompaniesMetrics, openCompanyFolder } from "../utils/electronBridge";
 import { formatDateBr, calculateDaysRemaining } from "../utils/certUtils";
 import { useDebounce } from "../utils/useDebounce";
@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   Building2,
   Search,
-  Settings
+  Settings,
+  Scale,
+  UploadCloud
 } from "lucide-react";
 
 interface EmpresasHubViewProps {
@@ -24,6 +26,9 @@ interface EmpresasHubViewProps {
   activeEmpresaId: string | null;
   onSelectEmpresa: (id: string) => void;
   onOpenCompanyModal?: (tab?: "empresas" | "schedulers" | "storage") => void;
+  onOpenProcurador?: () => void;
+  onOpenBulkImport?: () => void;
+  procuradorConfig?: ProcuradorConfig | null;
   onNotify: (text: string, type: "success" | "error") => void;
   refreshKey?: number;
 }
@@ -33,6 +38,9 @@ export default function EmpresasHubView({
   activeEmpresaId,
   onSelectEmpresa,
   onOpenCompanyModal,
+  onOpenProcurador,
+  onOpenBulkImport,
+  procuradorConfig,
   onNotify,
   refreshKey,
 }: EmpresasHubViewProps) {
@@ -48,7 +56,7 @@ export default function EmpresasHubView({
         daysRemaining = calculateDaysRemaining(e.certInfo.validTo);
       }
       if (daysRemaining !== null) {
-        if (daysRemaining < 0) certStatus = "expired";
+        if (daysRemaining <= 0) certStatus = "expired";
         else if (daysRemaining <= 30) certStatus = "expiring_soon";
         else certStatus = "valid";
       }
@@ -118,7 +126,7 @@ export default function EmpresasHubView({
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 250);
-  const [statusFilter, setStatusFilter] = useState<"todas" | "valid" | "expiring" | "expired" | "with_docs">("todas");
+  const [statusFilter, setStatusFilter] = useState<"todas" | "valid" | "expiring" | "expired" | "with_docs" | "procurador">("todas");
   const [regimeFilter, setRegimeFilter] = useState<"todos" | "simples" | "normal">("todos");
   const [selectedId, setSelectedId] = useState<string | null>(activeEmpresaId || (empresas[0]?.id ?? null));
   const [sortColumn, setSortColumn] = useState<string>("razaoSocial");
@@ -182,7 +190,7 @@ export default function EmpresasHubView({
             daysRemaining = calculateDaysRemaining(e.certInfo.validTo);
           }
           if (daysRemaining !== null) {
-            if (daysRemaining < 0) certStatus = "expired";
+            if (daysRemaining <= 0) certStatus = "expired";
             else if (daysRemaining <= 30) certStatus = "expiring_soon";
             else certStatus = "valid";
           }
@@ -321,6 +329,10 @@ export default function EmpresasHubView({
       if (statusFilter === "expired" && m.certStatus !== "expired") return false;
       if (statusFilter === "valid" && m.certStatus !== "valid") return false;
       if (statusFilter === "with_docs" && m.totalDocs === 0) return false;
+      if (statusFilter === "procurador") {
+        const isProc = m.isProcuradorNfse || empresas.find((e) => e.id === m.id)?.usarProcuradorNfse;
+        if (!isProc) return false;
+      }
 
       if (regimeFilter !== "todos" && m.regime !== regimeFilter) return false;
 
@@ -690,6 +702,33 @@ export default function EmpresasHubView({
             </button>
           )}
 
+          {onOpenProcurador && (
+            <button
+              type="button"
+              onClick={onOpenProcurador}
+              className="vb-btn font-semibold text-[#003366]"
+              title="Configurar Certificado Digital do Contador / Procurador para Captação de NFS-e (Portal Nacional ADN)"
+            >
+              <Scale size={12} className={procuradorConfig?.ativo ? "text-[#107c41]" : "text-[#005a9e]"} />
+              <span>Certificado do Procurador (NFS-e)</span>
+              {procuradorConfig?.ativo && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block ml-0.5" title="Certificado Ativo" />
+              )}
+            </button>
+          )}
+
+          {onOpenBulkImport && (
+            <button
+              type="button"
+              onClick={onOpenBulkImport}
+              className="vb-btn font-semibold text-[#003366] flex items-center gap-1.5"
+              title="Cadastrar múltiplas empresas em massa colando CNPJs ou importando planilha CSV"
+            >
+              <UploadCloud size={12} className="text-[#005a9e]" />
+              <span>Cadastro em Massa (CSV / CNPJs)</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => handleOpenFolder(selectedRawEmpresa)}
@@ -838,6 +877,7 @@ export default function EmpresasHubView({
                 className="vb-input"
               >
                 <option value="todas">Todas as Situações</option>
+                <option value="procurador">Apenas Vinculadas ao Procurador (NFS-e)</option>
                 <option value="valid">Apenas Certificados Válidos</option>
                 <option value="expiring">Apenas Vencendo em até 30 dias</option>
                 <option value="expired">Apenas Certificados Vencidos / Expirados</option>
@@ -1181,7 +1221,15 @@ export default function EmpresasHubView({
                       fontWeight: 600,
                     };
 
-                    if (
+                    const isLinkedProc = item.isProcuradorNfse || empresas.find((e) => e.id === item.id)?.usarProcuradorNfse;
+
+                    if (isLinkedProc) {
+                      statusCertText = "⚖️ Procurador";
+                      statusColorStyle = {
+                        color: isSelected ? "#ffffff" : "#005a9e",
+                        fontWeight: "bold",
+                      };
+                    } else if (
                       item.certStatus === "expired" ||
                       (daysRemaining !== null &&
                         daysRemaining !== undefined &&

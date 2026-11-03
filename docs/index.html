@@ -196,7 +196,11 @@
       <nav class="hidden lg:flex items-center gap-4 text-xs font-semibold text-[#333333]">
         <a href="#funcionalidades" class="hover:text-[#005a9e] transition">Módulos Fiscais</a>
         <a href="#telas" class="hover:text-[#005a9e] transition">Demonstração das 17 Telas</a>
-        <a href="#mapeamento" class="hover:text-[#005a9e] text-[#003366] font-bold transition">Mapeamento de Funções & Botões</a>
+        <a href="#mapeamento" class="hover:text-[#005a9e] transition">Mapeamento de Funções & Botões</a>
+        <a href="#noticias" class="text-[#005a9e] hover:text-[#003366] font-bold flex items-center gap-1.5 transition">
+          <span>📰 Notícias & Atualizações</span>
+          <span class="text-[9px] bg-red-600 text-white font-bold px-1.5 py-0.2 rounded-full animate-pulse">Novo</span>
+        </a>
         <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition">Apoiar (PIX)</a>
         <a href="#autor" class="hover:text-[#005a9e] transition">Autor</a>
       </nav>
@@ -551,6 +555,12 @@
                   </tr>
                 </thead>
                 <tbody>
+                  <tr>
+                    <td><span class="btn-badge btn-badge-primary">⚖️ Certificado do Procurador (NFS-e)</span></td>
+                    <td>Botão de Ação / Ribbon</td>
+                    <td>Abre o gerenciador do certificado digital do contador/procurador para vincular empresas outorgantes em lote.</td>
+                    <td>Permite capturar NFS-e Nacional (Portal ADN) utilizando a procuração eletrônica do contador, sem exigir o certificado individual de cada cliente.</td>
+                  </tr>
                   <tr>
                     <td><span class="btn-badge btn-badge-success">+ Cadastrar Nova Empresa</span></td>
                     <td>Botão de Ação</td>
@@ -1057,6 +1067,153 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Seção de Notícias & Atualizações por Data -->
+    <section id="noticias" class="py-12 bg-[#ffffff] border-b border-[#c0c0c0]">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="text-center max-w-3xl mx-auto mb-8">
+          <div class="inline-flex items-center gap-1.5 bg-[#e6f0fa] border border-[#99c2eb] px-3 py-1 rounded text-xs text-[#004085] font-bold mb-2">
+            <span>📅 Histórico Oficial de Versões & Changelog</span>
+          </div>
+          <h2 class="text-xl sm:text-3xl font-bold text-[#003366]">Notícias & Atualizações do Sistema</h2>
+          <p class="text-xs sm:text-sm text-[#555555] mt-1">
+            Acompanhe a evolução do CONT-AI: melhorias fiscais, novas integrações de prefeituras e atualizações normativas por data de lançamento.
+          </p>
+        </div>
+
+        <div class="max-w-5xl mx-auto space-y-6">
+
+          <!-- Release 03/11/2026 - v2.2.0 -->
+          <div class="vb-groupbox border-l-4 border-l-[#107c41] bg-[#fdfdfd] shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#e0e0e0] pb-2 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="bg-[#107c41] text-white text-[11px] font-bold px-2.5 py-0.5 rounded font-mono">v2.2.0</span>
+                <span class="font-bold text-sm text-[#003366]">Lançamento Oficial: Procuração Eletrônica para NFS-e Nacional (Portal ADN) & Isenção de Devoluções no DIFAL</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-bold text-[#107c41] bg-[#e2f0d9] border border-[#a9d18e] px-2 py-0.5 rounded">Última Versão</span>
+                <span class="text-xs font-mono text-[#666666] font-semibold">📅 03/11/2026</span>
+              </div>
+            </div>
+
+            <div class="space-y-4 text-xs text-[#444444]">
+              <!-- Destaque 1: Procurador -->
+              <div class="bg-[#f0f7ff] border border-[#b8daff] p-3 rounded">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="font-bold text-[#004085] text-xs">⚖️ Suporte a Certificado do Contador / Procurador (NFS-e Nacional ADN):</span>
+                </div>
+                <ul class="list-disc list-inside space-y-1 text-[#333333] ml-1">
+                  <li><strong>Acesso Imediato na Tela Inicial:</strong> Adicionado botão de atalho e card de boas-vindas diretamente no <em>Launcher Portal</em> e no <em>Hub de Empresas</em> para configuração rápida do certificado do escritório contábil.</li>
+                  <li><strong>Leitura em 1 Clique da Windows Store:</strong> Reconhece instantaneamente o e-CPF ou e-CNPJ da contabilidade instalado no Windows (<code class="text-[#004085]">CurrentUser\My</code>) ou via arquivo local <code class="text-[#004085]">.pfx</code> com teste em tempo real de validade e senha.</li>
+                  <li><strong>Vinculação em Lote de Clientes Outorgantes:</strong> Gerencie em uma única tabela quais empresas clientes utilizam a procuração do contador para busca de notas fiscais de serviço.</li>
+                  <li><strong>Captação Exclusiva no Portal Nacional ADN:</strong> Busca direta no Ambiente de Dados Nacional (ADN NFS-e) via procuração eletrônica e-CAC do contador, desativando prefeituras municipais que exigem certificado individual.</li>
+                  <li><strong>Cadastro de Empresas em Massa (CSV / Lista):</strong> Importe dezenas de clientes colando CNPJs ou carregando planilha CSV. O sistema consulta automaticamente a Razão Social, UF e Regime na Receita Federal e permite vincular todas em 1 clique ao Certificado do Procurador.</li>
+                  <li><strong>Destaque Automático de Retenções no DANFSe (Nacional e SP):</strong> Grifo amarelo automático nos campos de retenção tributária (IRRF, INSS, CSLL, PIS/COFINS e ISSQN retido) em todos os PDFs gerados nos últimos 90 dias.</li>
+                  <li><strong>Identificação Visual & Alerta de Certificados Vencidos:</strong> Selo azul <span class="btn-badge btn-badge-primary">⚖️ Procurador</span> na tabela de empresas e alerta preventivo em vermelho na tentativa de vincular certificados expirados.</li>
+                </ul>
+              </div>
+
+              <!-- Destaque 2: Devoluções e DIFAL -->
+              <div class="grid sm:grid-cols-2 gap-3">
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">🛡️ Isenção de Devoluções no DIFAL</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Identificação e segregação automática de notas de devolução de mercadorias (CFOPs 1201, 1202, 2201, 2202 e finalidade 4), evitando cálculos e recolhimentos indevidos de diferencial de alíquota.
+                  </p>
+                </div>
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">⏱️ Proteção SEFAZ Anti-Bloqueio (cStat 656)</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Implementação de cadência automática de 1 hora na distribuição DFe quando a SEFAZ acusa consumo indevido ou fim de fila, protegendo o IP e o certificado contra suspensões temporárias.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Destaque 3: Otimizações -->
+              <div class="border-t border-[#e0e0e0] pt-2 text-[11px] text-[#666666] flex flex-wrap items-center justify-between gap-2">
+                <span>⚡ <strong>Desempenho:</strong> Otimização do consumo de memória RAM do Electron com descarte seguro de credenciais mTLS inativas.</span>
+                <span class="font-mono text-[#005a9e]">Branch: main • Release: v2.2.0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Release 27/10/2026 - v2.1.0 -->
+          <div class="vb-groupbox border-l-4 border-l-[#005a9e] bg-[#fdfdfd] shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#e0e0e0] pb-2 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="bg-[#005a9e] text-white text-[11px] font-bold px-2.5 py-0.5 rounded font-mono">v2.1.0</span>
+                <span class="font-bold text-sm text-[#003366]">Emissor Oficial NFS-e Nacional (ADN / SEFIN) & Reforma Tributária</span>
+              </div>
+              <span class="text-xs font-mono text-[#666666] font-semibold">📅 27/10/2026</span>
+            </div>
+
+            <div class="space-y-3 text-xs text-[#444444]">
+              <div class="grid sm:grid-cols-2 gap-3">
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">📄 Emissor NFS-e Nacional Completo</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Emissão oficial de DPS no Ambiente de Dados Nacional via mTLS (arquivo .pfx ou Windows Store). Suporte a emissões normais e retroativas com controle estrito de competência e retenções na fonte.
+                  </p>
+                </div>
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">📚 Catálogo Oficial de 335 Serviços (LC 116)</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Modal interativo para busca instantânea com 335 subitens oficiais (6 dígitos) e preenchimento automático do código de tributação nacional (<code class="text-[#005a9e]">cTribNac</code>).
+                  </p>
+                </div>
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">🏛️ Correlação NBS (9 Dígitos) & NT 004</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Mapeamento pioneiro para a Reforma Tributária com classificação NBS e parâmetros fiscais do IBS/CBS (<code class="text-[#005a9e]">cIndOp</code> e <code class="text-[#005a9e]">cClassTrib</code>).
+                  </p>
+                </div>
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">🗂️ Gestão de Modelos & Meus Clientes</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Gerenciador Master-Detail de padrões de serviços frequentes e cadastro ágil de tomadores para preenchimento de DPS em 1 clique.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Release 25/09/2026 - v2.0.0 -->
+          <div class="vb-groupbox border-l-4 border-l-[#707070] bg-[#fdfdfd] shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#e0e0e0] pb-2 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="bg-[#555555] text-white text-[11px] font-bold px-2.5 py-0.5 rounded font-mono">v2.0.0</span>
+                <span class="font-bold text-sm text-[#003366]">Lançamento da Plataforma CONT-AI Multi-Empresas</span>
+              </div>
+              <span class="text-xs font-mono text-[#666666] font-semibold">📅 25/09/2026</span>
+            </div>
+
+            <div class="space-y-3 text-xs text-[#444444]">
+              <div class="grid sm:grid-cols-3 gap-3">
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">🏢 Hub Multi-CNPJ</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Gestão unificada de múltiplos CNPJs, monitoramento do prazo de validade de certificados digitais A1 e contadores por modelo fiscal.
+                  </p>
+                </div>
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">🔍 Captação Multi-Modelo SEFAZ</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Varredura automática e download de NF-e (55), NFC-e (65), CT-e (57) e manifestação do destinatário (Ciência da Operação).
+                  </p>
+                </div>
+                <div class="border border-[#d0d0d0] p-2.5 rounded bg-white">
+                  <span class="font-bold text-[#003366] block mb-1">📊 Motor de Auditoria DIFAL</span>
+                  <p class="leading-relaxed text-[#555555]">
+                    Cálculo automatizado do diferencial de alíquota interestadual item a item, com suporte a Base Dupla ("Por Dentro") e Base Simples ("Por Fora").
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

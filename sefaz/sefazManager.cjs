@@ -219,14 +219,15 @@ class SefazManager {
     } : target;
     const manager = new CertManager(norm);
     const info = manager.load();
+    const isExpired = Boolean(info.isExpired || (info.daysRemaining !== undefined && info.daysRemaining <= 0));
     return {
-      valid: true,
+      valid: !isExpired,
+      isExpired: isExpired,
       subject: info.subject,
       issuer: info.issuer,
       validFrom: info.validFrom,
       validTo: info.validTo,
       daysRemaining: info.daysRemaining,
-      isExpired: info.isExpired,
       extractedCnpj: info.extractedCnpj
     };
   }

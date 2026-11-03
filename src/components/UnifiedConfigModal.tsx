@@ -38,6 +38,7 @@ import {
   Server,
   HardDrive,
   CheckSquare,
+  Scale,
   Square,
   Tag
 } from "lucide-react";
@@ -65,7 +66,7 @@ import {
   resetAllModelsNsu,
   exportDiagnostics
 } from "../utils/electronBridge";
-import { InstalledCertItem } from "../types";
+import { InstalledCertItem, ProcuradorConfig } from "../types";
 import CertificateBadge from "./CertificateBadge";
 import logoImg from "../../assets/logo.png";
 
@@ -78,6 +79,9 @@ interface UnifiedConfigModalProps {
   onSelectEmpresa: (id: string) => void;
   initialTab?: "empresas" | "schedulers" | "storage";
   onRefreshXmls?: () => void;
+  onOpenProcurador?: () => void;
+  onOpenBulkImport?: () => void;
+  procuradorConfig?: ProcuradorConfig | null;
 }
 
 export default function UnifiedConfigModal({
@@ -89,6 +93,9 @@ export default function UnifiedConfigModal({
   onSelectEmpresa,
   initialTab = "empresas",
   onRefreshXmls,
+  onOpenProcurador,
+  onOpenBulkImport,
+  procuradorConfig,
 }: UnifiedConfigModalProps) {
   const [activeTab, setActiveTab] = useState<"empresas" | "schedulers" | "storage">(initialTab);
 
@@ -496,6 +503,7 @@ export default function UnifiedConfigModal({
         tipoTotTribSN: "Alíquota do Simples Nacional",
       },
       modelosNfse: [],
+      usarProcuradorNfse: Boolean(procuradorConfig?.ativo && procuradorConfig?.padraoNovasEmpresas !== false),
       modelosHabilitados: {
         nfe: true,
         nfce: false,
@@ -884,11 +892,12 @@ export default function UnifiedConfigModal({
   const handleSaveCompany = () => {
     const hasValidCert = Boolean(
       (editingCompany?.certStore === "windows" && editingCompany?.certThumbprint) ||
-      editingCompany?.certPath
+      editingCompany?.certPath ||
+      editingCompany?.usarProcuradorNfse
     );
 
     if (!editingCompany?.razaoSocial || !editingCompany?.cnpj || !hasValidCert) {
-      alert("Por favor, preencha a Razão Social, CNPJ e vincule o Certificado Digital A1 (Arquivo .pfx ou Windows).");
+      alert("Por favor, preencha a Razão Social, CNPJ e vincule o Certificado Digital A1 (Arquivo .pfx ou Windows), ou marque a opção de Usar Certificado do Procurador.");
       return;
     }
 
@@ -896,6 +905,12 @@ export default function UnifiedConfigModal({
     if (cleanCnpj.length !== 14) {
       alert("O CNPJ deve conter exatamente 14 dígitos.");
       return;
+    }
+
+    if (testingStatus.info && (testingStatus.info.isExpired || (testingStatus.info.daysRemaining !== undefined && testingStatus.info.daysRemaining <= 0))) {
+      if (!confirm("Atenção: O Certificado Digital A1 informado está VENCIDO / EXPIRADO. Ele não terá validade jurídica e será rejeitado pela SEFAZ e pelo Portal Nacional ADN.\n\nDeseja salvar mesmo assim para fins de cadastro?")) {
+        return;
+      }
     }
 
     const companyToSave: EmpresaSefaz = {
@@ -912,6 +927,7 @@ export default function UnifiedConfigModal({
       inscricaoMunicipal: editingCompany.inscricaoMunicipal?.trim() || editingCompany.emissaoConfig?.inscricaoMunicipal?.trim() || "",
       emissaoConfig: editingCompany.emissaoConfig,
       modelosNfse: editingCompany.modelosNfse || [],
+      usarProcuradorNfse: Boolean(editingCompany.usarProcuradorNfse),
       modelosHabilitados: {
         nfe: editingCompany.modelosHabilitados?.nfe !== false,
         nfce: editingCompany.modelosHabilitados?.nfce === true,
@@ -924,7 +940,7 @@ export default function UnifiedConfigModal({
             issuer: testingStatus.info.issuer,
             validTo: testingStatus.info.validTo ? new Date(testingStatus.info.validTo).toISOString() : "",
             daysRemaining: testingStatus.info.daysRemaining,
-            isExpired: testingStatus.info.isExpired,
+            isExpired: Boolean(testingStatus.info.isExpired || (testingStatus.info.daysRemaining !== undefined && testingStatus.info.daysRemaining <= 0)),
           }
         : editingCompany.certInfo,
     };
@@ -1232,6 +1248,44 @@ export default function UnifiedConfigModal({
                         <fieldset className="vb-groupbox bg-white">
                           <legend className="vb-legend">Certificado Digital A1 (.pfx ou .p12)</legend>
                           <div className="flex flex-col gap-2">
+                            {/* Opção de Procuração / Procurador para NFS-e */}
+                            <div className="bg-[#f0f4f8] border border-[#b8d4f6] p-2 flex items-center justify-between gap-2">
+                              <label className="flex items-center gap-1.5 cursor-pointer font-bold text-[11px] text-[#003366]">
+                                <input
+                                  type="checkbox"
+                                  checked={!!editingCompany.usarProcuradorNfse}
+                                  onChange={(e) => {
+                                    setEditingCompany({
+                                      ...editingCompany,
+                                      usarProcuradorNfse: e.target.checked,
+                                    });
+                                  }}
+                                  className="accent-[#003366]"
+                                />
+                                <Scale size={13} className="text-[#005a9e]" />
+                                <span>Usar Certificado do Procurador / Contador para NFS-e (Procuração Eletrônica)</span>
+                              </label>
+
+                              {onOpenProcurador && (
+                                <button
+                                  type="button"
+                                  onClick={onOpenProcurador}
+                                  className="text-[10px] text-[#003366] hover:underline font-bold flex items-center gap-1"
+                                >
+                                  <span>Gerenciar Procurador</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {editingCompany.usarProcuradorNfse && (
+                              <div className="p-2 bg-[#e6f2ff] border border-[#7dd3fc] text-[#003366] text-[10.5px] flex items-center gap-2">
+                                <CheckCircle2 size={15} className="text-[#005a9e] shrink-0" />
+                                <div>
+                                  <strong>Procuração Eletrônica Ativa para NFS-e (Portal Nacional ADN):</strong> As consultas serão realizadas <strong>exclusivamente pelo Portal Nacional ADN</strong> utilizando o Certificado do Procurador cadastrado (não busca em prefeituras municipais). O certificado individual abaixo pode ser mantido para outras consultas (SEFAZ) ou deixado em branco.
+                                </div>
+                              </div>
+                            )}
+
                             <div>
                               <div className="flex items-center justify-between mb-0.5">
                                 <label className="block text-[10px] font-bold text-[#333333]">
@@ -1294,9 +1348,20 @@ export default function UnifiedConfigModal({
                                   </div>
                                   <div className="text-[10px] text-[#475569] font-mono flex flex-wrap items-center gap-3">
                                     <span><strong>Thumbprint:</strong> {editingCompany.certThumbprint}</span>
-                                    {editingCompany.certInfo?.validTo && (
-                                      <span><strong>Validade:</strong> {formatDateBr(editingCompany.certInfo.validTo)} ({editingCompany.certInfo.daysRemaining} dias restantes)</span>
-                                    )}
+                                    {editingCompany.certInfo?.validTo && (() => {
+                                      const days = editingCompany.certInfo.daysRemaining ?? 0;
+                                      const isExpired = Boolean(editingCompany.certInfo.isExpired || days <= 0);
+                                      return (
+                                        <span className={isExpired ? "text-rose-700 font-bold" : days <= 30 ? "text-amber-700 font-bold" : "text-[#475569]"}>
+                                          <strong>Validade:</strong> {formatDateBr(editingCompany.certInfo.validTo)}{" "}
+                                          {isExpired ? (
+                                            <span className="text-rose-700 font-bold">({days === 0 ? "venceu hoje" : `vencido há ${Math.abs(days)} dias`}) - EXPIRADO</span>
+                                          ) : (
+                                            <span>({days} dias restantes)</span>
+                                          )}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
                               ) : (
@@ -1399,15 +1464,70 @@ export default function UnifiedConfigModal({
                             </div>
 
                             {/* Status de Teste do Certificado */}
-                            {testingStatus.success && testingStatus.info && (
-                              <div className="p-2 bg-[#eaf7ea] border border-[#7bc97b] text-emerald-900 text-[11px] flex items-center gap-2">
-                                <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
-                                <div>
-                                  <strong>Certificado A1 Válido e Operacional!</strong> Titular: <strong>{testingStatus.info.subject}</strong> | Validade:{" "}
-                                  <strong>{formatDateBr(testingStatus.info.validTo)}</strong> ({testingStatus.info.daysRemaining} dias restantes)
+                            {testingStatus.success && testingStatus.info && (() => {
+                              const days = testingStatus.info.daysRemaining ?? 0;
+                              const isExpired = Boolean(testingStatus.info.isExpired || days <= 0);
+                              const isExpiringSoon = !isExpired && days <= 30;
+
+                              if (isExpired) {
+                                const diasVencido = Math.abs(days);
+                                return (
+                                  <div className="p-2.5 bg-[#fdeaea] border border-[#e57373] text-rose-950 text-[11px] flex items-start gap-2 shadow-xs">
+                                    <AlertTriangle size={16} className="text-rose-700 shrink-0 mt-0.5" />
+                                    <div className="leading-tight">
+                                      <div>
+                                        <strong className="text-rose-900 font-bold">Certificado A1 Vencido / Expirado!</strong>{" "}
+                                        Titular: <span className="font-semibold">{testingStatus.info.subject}</span>
+                                      </div>
+                                      <div className="text-[10.5px] text-rose-800 mt-0.5">
+                                        Validade expirou em: <strong>{formatDateBr(testingStatus.info.validTo)}</strong>{" "}
+                                        <span className="font-bold font-mono">({diasVencido === 0 ? "Venceu hoje" : `Vencido há ${diasVencido} dias`})</span>
+                                      </div>
+                                      <div className="text-[10px] text-rose-700 mt-1">
+                                        ⚠️ <strong>Atenção:</strong> O certificado foi lido, mas perdeu a validade jurídica e será rejeitado pela SEFAZ e pelo Portal Nacional ADN. Providencie a renovação do certificado A1.
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (isExpiringSoon) {
+                                return (
+                                  <div className="p-2.5 bg-[#fff8e6] border border-[#f5c26b] text-amber-950 text-[11px] flex items-start gap-2 shadow-xs">
+                                    <AlertTriangle size={16} className="text-amber-700 shrink-0 mt-0.5" />
+                                    <div className="leading-tight">
+                                      <div>
+                                        <strong className="text-amber-900 font-bold">Certificado A1 Próximo do Vencimento!</strong>{" "}
+                                        Titular: <span className="font-semibold">{testingStatus.info.subject}</span>
+                                      </div>
+                                      <div className="text-[10.5px] text-amber-800 mt-0.5">
+                                        Validade: <strong>{formatDateBr(testingStatus.info.validTo)}</strong>{" "}
+                                        <span className="font-bold font-mono">({days} dias restantes)</span>
+                                      </div>
+                                      <div className="text-[10px] text-amber-700 mt-0.5">
+                                        Recomendamos providenciar a renovação com antecedência para evitar interrupções.
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="p-2.5 bg-[#eaf7ea] border border-[#7bc97b] text-emerald-950 text-[11px] flex items-start gap-2 shadow-xs">
+                                  <CheckCircle2 size={16} className="text-emerald-700 shrink-0 mt-0.5" />
+                                  <div className="leading-tight">
+                                    <div>
+                                      <strong className="text-emerald-900 font-bold">Certificado A1 Válido e Operacional!</strong>{" "}
+                                      Titular: <span className="font-semibold">{testingStatus.info.subject}</span>
+                                    </div>
+                                    <div className="text-[10.5px] text-emerald-800 mt-0.5">
+                                      Validade: <strong>{formatDateBr(testingStatus.info.validTo)}</strong>{" "}
+                                      <span className="font-semibold font-mono">({days} dias restantes)</span>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              );
+                            })()}
 
                             {testingStatus.error && (
                               <div className="p-2 bg-[#fdeaea] border border-[#e57373] text-rose-900 text-[11px] flex items-center gap-2">
@@ -1937,6 +2057,17 @@ export default function UnifiedConfigModal({
                         <Laptop size={13} className="text-[#1e40af]" />
                         <span>Importar do Windows</span>
                       </button>
+                      {onOpenBulkImport && (
+                        <button
+                          type="button"
+                          onClick={onOpenBulkImport}
+                          className="vb-btn font-bold flex items-center gap-1.5 bg-[#f0fdf4] hover:bg-[#dcfce7] border-[#86efac] text-[#166534]"
+                          title="Cadastrar empresas em massa a partir de lista colada de CNPJs ou planilha CSV"
+                        >
+                          <UploadCloud size={13} className="text-[#16a34a]" />
+                          <span>Importar em Massa (CNPJs)</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={handleStartSyncAll}
@@ -2825,8 +2956,10 @@ export default function UnifiedConfigModal({
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="text-right">
                             <div className="text-[10px] font-bold">
-                              {cert.isExpired ? (
-                                <span className="text-rose-700">EXPIRADO</span>
+                              {cert.isExpired || (cert.daysRemaining !== undefined && cert.daysRemaining <= 0) ? (
+                                <span className="text-rose-700">EXPIRADO ({cert.daysRemaining !== undefined ? Math.abs(cert.daysRemaining) : 0}d)</span>
+                              ) : cert.daysRemaining !== undefined && cert.daysRemaining <= 30 ? (
+                                <span className="text-amber-700">Expira em {cert.daysRemaining}d</span>
                               ) : (
                                 <span className="text-emerald-700">{cert.daysRemaining} dias restantes</span>
                               )}

@@ -49,6 +49,7 @@ class CertManager {
       const validToDate = new Date(storeCert.validTo);
       const validFromDate = new Date(storeCert.validFrom);
       const now = new Date();
+      const daysRemaining = Math.ceil((validToDate - now) / (1000 * 60 * 60 * 24));
 
       this.info = {
         subject: storeCert.subject || storeCert.commonName || 'Desconhecido',
@@ -56,8 +57,8 @@ class CertManager {
         extractedCnpj: storeCert.extractedCnpj || '',
         validFrom: validFromDate,
         validTo: validToDate,
-        isExpired: now > validToDate,
-        daysRemaining: Math.ceil((validToDate - now) / (1000 * 60 * 60 * 24))
+        isExpired: Boolean(now > validToDate || daysRemaining <= 0),
+        daysRemaining
       };
 
       return this.info;
@@ -130,8 +131,8 @@ class CertManager {
       const validFrom = cert.validity.notBefore;
       const validTo = cert.validity.notAfter;
       const now = new Date();
-      const isExpired = now > validTo;
       const daysRemaining = Math.ceil((validTo - now) / (1000 * 60 * 60 * 24));
+      const isExpired = Boolean(now > validTo || daysRemaining <= 0);
 
       // Extrair CNPJ se presente no CommonName (ex: EMPRESA:12345678000199)
       const cn = subjectAttrs.CN || '';
