@@ -403,7 +403,7 @@ export default function LauncherPortalView({
       {/* Classic Windows-style Status Bar */}
       <footer className="shrink-0 h-6 bg-[#f0f0f0] border-t border-[#b0b0b0] px-3 flex items-center justify-between text-[11px] text-[#444444]">
         <div className="flex items-center gap-3">
-          <span>CONT-AI v2.1 • Gestor de Movimento Fiscal & Emissor NFS-e</span>
+          <span>CONT-AI v2.2 • Gestor de Movimento Fiscal & Emissor NFS-e</span>
           <span>|</span>
           <span>Zero-Cloud Storage (Conexão Direta mTLS)</span>
         </div>
