@@ -13,6 +13,7 @@ import {
   EmpresaSefaz,
   CnpjConsultaResult,
   ProcuradorConfig,
+  isModeloHabilitado,
 } from "./types";
 import {
   calculateLegal,
@@ -243,6 +244,27 @@ export default function App() {
   };
 
   const activeEmpresa = empresas.find((e) => e.id === activeEmpresaId) || (empresas.length > 0 ? empresas[0] : null);
+
+  // Redireciona automaticamente se a guia ativa não for habilitada para a empresa selecionada
+  useEffect(() => {
+    if (!activeEmpresa || appModule === "hub" || appModule === "acompanhamento") return;
+
+    let isAllowed = true;
+    if (appModule === "captacao" || appModule === "difal") {
+      isAllowed = isModeloHabilitado(activeEmpresa, "nfe");
+    } else if (appModule === "nfce") {
+      isAllowed = isModeloHabilitado(activeEmpresa, "nfce");
+    } else if (appModule === "cte") {
+      isAllowed = isModeloHabilitado(activeEmpresa, "cte");
+    } else if (appModule === "nfse") {
+      isAllowed = isModeloHabilitado(activeEmpresa, "nfse");
+    }
+
+    if (!isAllowed) {
+      setAppModule("acompanhamento");
+      alertStatus("A guia anterior não está habilitada para esta empresa. Redirecionado para a Guia Geral de Notas.");
+    }
+  }, [activeEmpresaId, activeEmpresa, appModule]);
 
   const handleSaveEmpresas = (updated: EmpresaSefaz[]) => {
     const sorted = [...updated].sort((a, b) =>
@@ -1124,60 +1146,70 @@ export default function App() {
                 <span>Guia Geral de Notas</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setAppModule("captacao")}
-                className={`vb-top-btn ${appModule === "captacao" ? "vb-top-btn-active" : ""}`}
-                title="Captação e Auditoria de NF-e Entradas (Modelo 55)"
-              >
-                <DownloadCloud size={12} className={appModule === "captacao" ? "text-white" : "text-sky-700"} />
-                <span>NF-e Entradas (55)</span>
-              </button>
+              {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "nfe")) && (
+                <button
+                  type="button"
+                  onClick={() => setAppModule("captacao")}
+                  className={`vb-top-btn ${appModule === "captacao" ? "vb-top-btn-active" : ""}`}
+                  title="Captação e Auditoria de NF-e Entradas (Modelo 55)"
+                >
+                  <DownloadCloud size={12} className={appModule === "captacao" ? "text-white" : "text-sky-700"} />
+                  <span>NF-e Entradas (55)</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setAppModule("nfce")}
-                className={`vb-top-btn ${appModule === "nfce" ? "vb-top-btn-active" : ""}`}
-                title="Captação de Cupons Fiscais Eletrônicos NFC-e (Modelo 65)"
-              >
-                <ShoppingBag size={12} className={appModule === "nfce" ? "text-white" : "text-purple-700"} />
-                <span>NFC-e (65)</span>
-              </button>
+              {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "nfce")) && (
+                <button
+                  type="button"
+                  onClick={() => setAppModule("nfce")}
+                  className={`vb-top-btn ${appModule === "nfce" ? "vb-top-btn-active" : ""}`}
+                  title="Captação de Cupons Fiscais Eletrônicos NFC-e (Modelo 65)"
+                >
+                  <ShoppingBag size={12} className={appModule === "nfce" ? "text-white" : "text-purple-700"} />
+                  <span>NFC-e (65)</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setAppModule("cte")}
-                className={`vb-top-btn ${appModule === "cte" ? "vb-top-btn-active" : ""}`}
-                title="Captação de Conhecimentos de Transporte CT-e (Modelo 57)"
-              >
-                <Truck size={12} className={appModule === "cte" ? "text-white" : "text-amber-700"} />
-                <span>CT-e Fretes (57)</span>
-              </button>
+              {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "cte")) && (
+                <button
+                  type="button"
+                  onClick={() => setAppModule("cte")}
+                  className={`vb-top-btn ${appModule === "cte" ? "vb-top-btn-active" : ""}`}
+                  title="Captação de Conhecimentos de Transporte CT-e (Modelo 57)"
+                >
+                  <Truck size={12} className={appModule === "cte" ? "text-white" : "text-amber-700"} />
+                  <span>CT-e Fretes (57)</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setAppModule("nfse")}
-                className={`vb-top-btn ${appModule === "nfse" ? "vb-top-btn-active" : ""}`}
-                title="Captação de Notas Fiscais de Serviço (Portal Nacional ADN & Prefeitura de SP)"
-              >
-                <Landmark size={12} className={appModule === "nfse" ? "text-white" : "text-emerald-700"} />
-                <span>NFS-e (Nac. & SP)</span>
-              </button>
+              {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "nfse")) && (
+                <button
+                  type="button"
+                  onClick={() => setAppModule("nfse")}
+                  className={`vb-top-btn ${appModule === "nfse" ? "vb-top-btn-active" : ""}`}
+                  title="Captação de Notas Fiscais de Serviço (Portal Nacional ADN & Prefeitura de SP)"
+                >
+                  <Landmark size={12} className={appModule === "nfse" ? "text-white" : "text-emerald-700"} />
+                  <span>NFS-e (Nac. & SP)</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setAppModule("difal")}
-                className={`vb-top-btn ${appModule === "difal" ? "vb-top-btn-active" : ""}`}
-                title="Apuração e Memória de Cálculo de DIFAL / Antecipação Tributária"
-              >
-                <Calculator size={12} className={appModule === "difal" ? "text-white" : "text-indigo-700"} />
-                <span>Cálculo DIFAL</span>
-                {notas.length > 0 && (
-                  <span className={`ml-0.5 px-1 rounded text-[9px] font-bold ${appModule === "difal" ? "bg-white text-[#005a9e]" : "bg-indigo-100 text-indigo-900"}`}>
-                    {notas.length}
-                  </span>
-                )}
-              </button>
+              {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "nfe")) && (
+                <button
+                  type="button"
+                  onClick={() => setAppModule("difal")}
+                  className={`vb-top-btn ${appModule === "difal" ? "vb-top-btn-active" : ""}`}
+                  title="Apuração e Memória de Cálculo de DIFAL / Antecipação Tributária"
+                >
+                  <Calculator size={12} className={appModule === "difal" ? "text-white" : "text-indigo-700"} />
+                  <span>Cálculo DIFAL</span>
+                  {notas.length > 0 && (
+                    <span className={`ml-0.5 px-1 rounded text-[9px] font-bold ${appModule === "difal" ? "bg-white text-[#005a9e]" : "bg-indigo-100 text-indigo-900"}`}>
+                      {notas.length}
+                    </span>
+                  )}
+                </button>
+              )}
             </nav>
           </div>
 

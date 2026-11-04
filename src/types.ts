@@ -296,6 +296,27 @@ export interface EmpresaSefaz {
   usarProcuradorNfse?: boolean;
 }
 
+/**
+ * Retorna se um modelo fiscal específico está habilitado para a empresa.
+ * Se nenhuma empresa for informada (null/undefined), retorna true para exibir por padrão.
+ * Por padrão fiscal brasileiro: NF-e, CT-e e NFS-e são ativados (true a menos que explicitamente false);
+ * NFC-e (cupons de varejo) é ativado apenas se for explicitamente marcado como true.
+ */
+export function isModeloHabilitado(
+  empresa: EmpresaSefaz | null | undefined,
+  modelo: "nfe" | "nfce" | "cte" | "nfse"
+): boolean {
+  if (!empresa) return true;
+  const mh = empresa.modelosHabilitados;
+  if (!mh) {
+    return modelo === "nfce" ? false : true;
+  }
+  if (modelo === "nfce") {
+    return mh.nfce === true;
+  }
+  return mh[modelo] !== false;
+}
+
 export interface SefazSyncStatus {
   syncing: boolean;
   message: string;

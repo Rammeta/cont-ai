@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { EmpresaSefaz, ParsedNfse, NotaAcompanhamentoItem } from "../types";
+import { EmpresaSefaz, ParsedNfse, NotaAcompanhamentoItem, isModeloHabilitado } from "../types";
 import { EmpresaSearchSelect } from "./EmpresaSearchSelect";
 import { useDebounce } from "../utils/useDebounce";
 import {
@@ -90,6 +90,45 @@ export default function GuiaAcompanhamentoView({
   const [sortColumn, setSortColumn] = useState<string>("emissao");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
+  // Modelos fiscais habilitados para a empresa ativa
+  const showNfe = isModeloHabilitado(activeEmpresa, "nfe");
+  const showNfce = isModeloHabilitado(activeEmpresa, "nfce");
+  const showCte = isModeloHabilitado(activeEmpresa, "cte");
+  const showNfse = isModeloHabilitado(activeEmpresa, "nfse");
+
+  // Redefine o filtro de modelo caso a empresa ativa não suporte o modelo atualmente filtrado
+  useEffect(() => {
+    if (activeTabFilter === "nfe" && !showNfe) setActiveTabFilter("todas");
+    if (activeTabFilter === "nfce" && !showNfce) setActiveTabFilter("todas");
+    if (activeTabFilter === "cte" && !showCte) setActiveTabFilter("todas");
+    if (
+      (activeTabFilter === "nfse_tomadas" || activeTabFilter === "nfse_prestadas") &&
+      !showNfse
+    ) {
+      setActiveTabFilter("todas");
+    }
+  }, [showNfe, showNfce, showCte, showNfse, activeTabFilter]);
+
+  const visibleCardsCount =
+    (showNfe ? 1 : 0) +
+    (showNfce ? 1 : 0) +
+    (showCte ? 1 : 0) +
+    (showNfse ? 2 : 0) +
+    1; // Movimento Geral sempre visível
+
+  const gridColsClass =
+    visibleCardsCount === 6
+      ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+      : visibleCardsCount === 5
+      ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+      : visibleCardsCount === 4
+      ? "grid-cols-2 sm:grid-cols-2 lg:grid-cols-4"
+      : visibleCardsCount === 3
+      ? "grid-cols-1 sm:grid-cols-3 lg:grid-cols-3"
+      : visibleCardsCount === 2
+      ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2"
+      : "grid-cols-1";
+
   const handleHeaderSort = (col: string) => {
     if (sortColumn === col) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -177,260 +216,270 @@ export default function GuiaAcompanhamentoView({
       const itens: NotaAcompanhamentoItem[] = [];
 
       // 1. CARREGA NFS-e (Serviços Tomados e Prestados)
-      const nfseRes = await listNfseNotas(
-        targetCnpj,
-        targetRazao,
-        selectedAno,
-        selectedMes,
-        "todos"
-      );
-      if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
+      if (showNfse) {
+        try {
+          const nfseRes = await listNfseNotas(
+            targetCnpj,
+            targetRazao,
+            selectedAno,
+            selectedMes,
+            "todos"
+          );
+          if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
 
-      if (nfseRes.success && nfseRes.notas) {
-        nfseRes.notas.forEach((n: ParsedNfse) => {
-          // Filtro estrito por Competência Fiscal (ignora data de emissão retroativa)
-          if (selectedAno !== "todos" || selectedMes !== "todos") {
-            const normComp = normalizeCompetencia(n.competencia || n.dataGeracao);
-            if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
-              return;
-            }
-            if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
-              return;
-            }
+          if (nfseRes.success && nfseRes.notas) {
+            nfseRes.notas.forEach((n: ParsedNfse) => {
+              // Filtro estrito por Competência Fiscal (ignora data de emissão retroativa)
+              if (selectedAno !== "todos" || selectedMes !== "todos") {
+                const normComp = normalizeCompetencia(n.competencia || n.dataGeracao);
+                if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
+                  return;
+                }
+                if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
+                  return;
+                }
+              }
+
+              const isPrestada = (n.tipo || "").toLowerCase().includes("prest");
+              const isCancelada = n.isCancelada || (n.situacao || "").toLowerCase().includes("cancelada");
+              const valorBruto = Number(n.valorServicos) || 0;
+              const valorLiquido = (n.valorLiquido !== undefined && n.valorLiquido !== null && Number(n.valorLiquido) > 0)
+                ? Number(n.valorLiquido)
+                : valorBruto;
+              const vDescIncond = Number(n.descIncond) || 0;
+              const vDescCond = Number(n.descCond) || 0;
+              const totalDescontos = vDescIncond + vDescCond;
+              const temDescontoCond = Boolean(n.temDescontoCond || vDescCond > 0);
+              const temDescontoIncond = Boolean(n.temDescontoIncond || vDescIncond > 0);
+              const difValores = Math.max(0, valorBruto - valorLiquido);
+              const retencaoRestante = Math.max(0, difValores - totalDescontos);
+              const temRetencao = Boolean(valorBruto > 0 && valorLiquido > 0 && retencaoRestante >= 0.01);
+              const temDesconto = Boolean(n.temDesconto || temDescontoCond || temDescontoIncond || (difValores > 0 && !temRetencao));
+              const retTotal = temRetencao ? retencaoRestante : 0;
+              const valorDescFinal = totalDescontos > 0 ? totalDescontos : (temDesconto ? difValores : 0);
+
+              let detalheTrib = "Sem Retenções";
+              if (temRetencao && retTotal > 0) {
+                detalheTrib = `Retenção Impostos: ${formatBRL(retTotal)}`;
+              } else if (temDesconto && valorDescFinal > 0) {
+                detalheTrib = `Desconto: ${formatBRL(valorDescFinal)}`;
+              }
+
+              const origemCaptacao =
+                n.origemCaptacao ||
+                ((n.tipo || "").toLowerCase().includes("são paulo") ? "PORTAL_SP" : "PORTAL_NACIONAL");
+
+              itens.push({
+                id: `nfse_${n.numeroNFe}_${n.prestadorCnpj}_${n.dataGeracao}`,
+                origem: isPrestada ? "NFSE_PRESTADA" : "NFSE_TOMADA",
+                origemCaptacao,
+                tipoBadge: isPrestada ? "NFS-e Prestada" : "NFS-e Tomada",
+                numero: n.numeroNFe || "S/N",
+                serie: n.dpsSerie || "1",
+                dataEmissao: n.dataGeracao || "",
+                competencia: n.competencia || "",
+                parceiroNome: isPrestada ? (n.tomadorNome || "Tomador não informado") : (n.prestadorNome || "Prestador não informado"),
+                parceiroCnpj: isPrestada ? (n.tomadorCnpj || "") : (n.prestadorCnpj || ""),
+                papelParceiro: isPrestada ? "Tomador" : "Prestador",
+                valorTotal: valorBruto,
+                valorLiquido,
+                temRetencao,
+                temDesconto,
+                temDescontoCond,
+                temDescontoIncond,
+                valorDesconto: valorDescFinal,
+                valorTributoRecolher: retTotal,
+                detalheTributario: detalheTrib,
+                temAlertaTributario: temRetencao,
+                status: isCancelada ? "Cancelada" : "Normal",
+                isCancelada,
+                chaveAcesso: n.chaveNotaNacional || "",
+                caminhoXml: n.caminhoXml,
+                caminhoPdf: n.caminhoPdf,
+              });
+            });
           }
-
-          const isPrestada = (n.tipo || "").toLowerCase().includes("prest");
-          const isCancelada = n.isCancelada || (n.situacao || "").toLowerCase().includes("cancelada");
-          const valorBruto = Number(n.valorServicos) || 0;
-          const valorLiquido = (n.valorLiquido !== undefined && n.valorLiquido !== null && Number(n.valorLiquido) > 0)
-            ? Number(n.valorLiquido)
-            : valorBruto;
-          const vDescIncond = Number(n.descIncond) || 0;
-          const vDescCond = Number(n.descCond) || 0;
-          const totalDescontos = vDescIncond + vDescCond;
-          const temDescontoCond = Boolean(n.temDescontoCond || vDescCond > 0);
-          const temDescontoIncond = Boolean(n.temDescontoIncond || vDescIncond > 0);
-          const difValores = Math.max(0, valorBruto - valorLiquido);
-          const retencaoRestante = Math.max(0, difValores - totalDescontos);
-          const temRetencao = Boolean(valorBruto > 0 && valorLiquido > 0 && retencaoRestante >= 0.01);
-          const temDesconto = Boolean(n.temDesconto || temDescontoCond || temDescontoIncond || (difValores > 0 && !temRetencao));
-          const retTotal = temRetencao ? retencaoRestante : 0;
-          const valorDescFinal = totalDescontos > 0 ? totalDescontos : (temDesconto ? difValores : 0);
-
-          let detalheTrib = "Sem Retenções";
-          if (temRetencao && retTotal > 0) {
-            detalheTrib = `Retenção Impostos: ${formatBRL(retTotal)}`;
-          } else if (temDesconto && valorDescFinal > 0) {
-            detalheTrib = `Desconto: ${formatBRL(valorDescFinal)}`;
-          }
-
-          const origemCaptacao =
-            n.origemCaptacao ||
-            ((n.tipo || "").toLowerCase().includes("são paulo") ? "PORTAL_SP" : "PORTAL_NACIONAL");
-
-          itens.push({
-            id: `nfse_${n.numeroNFe}_${n.prestadorCnpj}_${n.dataGeracao}`,
-            origem: isPrestada ? "NFSE_PRESTADA" : "NFSE_TOMADA",
-            origemCaptacao,
-            tipoBadge: isPrestada ? "NFS-e Prestada" : "NFS-e Tomada",
-            numero: n.numeroNFe || "S/N",
-            serie: n.dpsSerie || "1",
-            dataEmissao: n.dataGeracao || "",
-            competencia: n.competencia || "",
-            parceiroNome: isPrestada ? (n.tomadorNome || "Tomador não informado") : (n.prestadorNome || "Prestador não informado"),
-            parceiroCnpj: isPrestada ? (n.tomadorCnpj || "") : (n.prestadorCnpj || ""),
-            papelParceiro: isPrestada ? "Tomador" : "Prestador",
-            valorTotal: valorBruto,
-            valorLiquido,
-            temRetencao,
-            temDesconto,
-            temDescontoCond,
-            temDescontoIncond,
-            valorDesconto: valorDescFinal,
-            valorTributoRecolher: retTotal,
-            detalheTributario: detalheTrib,
-            temAlertaTributario: temRetencao,
-            status: isCancelada ? "Cancelada" : "Normal",
-            isCancelada,
-            chaveAcesso: n.chaveNotaNacional || "",
-            caminhoXml: n.caminhoXml,
-            caminhoPdf: n.caminhoPdf,
-          });
-        });
+        } catch (_) {}
       }
 
       // 2. CARREGA NF-e (Mercadorias - Entradas Modelo 55)
-      try {
-        const nfeTargetMonth = (selectedAno !== "todos" && selectedMes !== "todos")
-          ? `${selectedAno}-${selectedMes}`
-          : "all";
-        const nfeList = await listCompanyXmls(targetCnpj, nfeTargetMonth, targetRazao);
-        if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
+      if (showNfe) {
+        try {
+          const nfeTargetMonth = (selectedAno !== "todos" && selectedMes !== "todos")
+            ? `${selectedAno}-${selectedMes}`
+            : "all";
+          const nfeList = await listCompanyXmls(targetCnpj, nfeTargetMonth, targetRazao);
+          if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
 
-        if (nfeList && nfeList.length > 0) {
-          nfeList.forEach((nfe: any) => {
-            if (nfe.modelo && String(nfe.modelo) !== "55") return;
-            // Filtro estrito por Competência Fiscal
-            if (selectedAno !== "todos" || selectedMes !== "todos") {
-              const normComp = normalizeCompetencia(nfe.folder || nfe.dhSaiEnt || nfe.dhEmi);
-              if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
-                return;
+          if (nfeList && nfeList.length > 0) {
+            nfeList.forEach((nfe: any) => {
+              if (nfe.modelo && String(nfe.modelo) !== "55") return;
+              // Filtro estrito por Competência Fiscal
+              if (selectedAno !== "todos" || selectedMes !== "todos") {
+                const normComp = normalizeCompetencia(nfe.folder || nfe.dhSaiEnt || nfe.dhEmi);
+                if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
+                  return;
+                }
+                if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
+                  return;
+                }
               }
-              if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
-                return;
-              }
-            }
-            const vNF = Number(nfe.vNF) || 0;
-            const ufEmit = nfe.ufRem || "";
-            const isInterestadual = Boolean(
-              nfe.isInterestadual ?? (ufEmit && targetUf && ufEmit.toUpperCase() !== targetUf.toUpperCase())
-            );
-            const difalEst = isInterestadual ? vNF * 0.06 : 0;
-            const dateOnly = nfe.dhEmi
-              ? nfe.dhEmi.substring(0, 10).split("-").reverse().join("/")
-              : (nfe.formattedDate ? nfe.formattedDate.split(" ")[0] : "");
+              const vNF = Number(nfe.vNF) || 0;
+              const ufEmit = nfe.ufRem || "";
+              const isInterestadual = Boolean(
+                nfe.isInterestadual ?? (ufEmit && targetUf && ufEmit.toUpperCase() !== targetUf.toUpperCase())
+              );
+              const difalEst = isInterestadual ? vNF * 0.06 : 0;
+              const dateOnly = nfe.dhEmi
+                ? nfe.dhEmi.substring(0, 10).split("-").reverse().join("/")
+                : (nfe.formattedDate ? nfe.formattedDate.split(" ")[0] : "");
 
-            itens.push({
-              id: `nfe_${nfe.chNFe}_${nfe.nNF}`,
-              origem: "NFE",
-              tipoBadge: "NF-e Mercadoria",
-              numero: nfe.nNF || "S/N",
-              serie: nfe.serie || "1",
-              dataEmissao: dateOnly,
-              competencia: nfe.folder || "",
-              parceiroNome: nfe.emitente || "Fornecedor Desconhecido",
-              parceiroCnpj: nfe.cnpjEmitente || "",
-              papelParceiro: "Fornecedor",
-              valorTotal: vNF,
-              valorTributoRecolher: difalEst,
-              detalheTributario: isInterestadual ? `Interestadual (${ufEmit} ➔ ${targetUf})` : "Operação Interna",
-              temAlertaTributario: isInterestadual,
-              status: "Normal",
-              isCancelada: false,
-              chaveAcesso: nfe.chNFe || "",
-              caminhoXml: nfe.fullPath,
-              caminhoPdf: null,
-            });
-          });
-        }
-      } catch (_) {}
-
-      // 3. CARREGA NFC-e (Mercadorias - Vendas / Saídas Modelo 65)
-      try {
-        const nfceTargetMonth = (selectedAno !== "todos" && selectedMes !== "todos")
-          ? `${selectedAno}-${selectedMes}`
-          : "all";
-        const nfceRes = await listCompanyNfceXmls(activeEmpresa.cnpj, activeEmpresa.razaoSocial, nfceTargetMonth);
-
-        if (nfceRes.success && nfceRes.list) {
-          nfceRes.list.forEach((n) => {
-            // Filtro estrito por Competência Fiscal
-            if (selectedAno !== "todos" || selectedMes !== "todos") {
-              const normComp = normalizeCompetencia(n.folder || n.dhEmi);
-              if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
-                return;
-              }
-              if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
-                return;
-              }
-            }
-
-            const valorNota = Number(n.vNF) || 0;
-            const isCanc = Boolean(n.isCancelada);
-
-            itens.push({
-              id: `nfce_${n.chNFe}_${n.nNF}`,
-              origem: "NFCE",
-              tipoBadge: "NFC-e 65 (Venda)",
-              numero: n.nNF || "S/N",
-              serie: n.serie || "1",
-              dataEmissao: n.formattedDate || (n.dhEmi ? n.dhEmi.substring(0, 10).split("-").reverse().join("/") : ""),
-              competencia: n.folder || "",
-              parceiroNome: n.destinatario || "Consumidor Final",
-              parceiroCnpj: n.cnpjDest || "",
-              papelParceiro: "Cliente",
-              valorTotal: valorNota,
-              valorLiquido: valorNota,
-              temRetencao: false,
-              valorTributoRecolher: 0,
-              detalheTributario: "Venda Balcão ao Consumidor",
-              temAlertaTributario: false,
-              status: isCanc ? "Cancelada" : "Normal",
-              isCancelada: isCanc,
-              chaveAcesso: n.chNFe,
-              caminhoXml: n.fullPath,
-              caminhoPdf: n.pdfPath,
-            });
-          });
-
-          if (nfceRes.months && nfceRes.months.length > 0) {
-            setAvailableMonths((prev) => {
-              const merged = new Set([...prev, ...nfceRes.months]);
-              return Array.from(merged).sort().reverse();
+              itens.push({
+                id: `nfe_${nfe.chNFe}_${nfe.nNF}`,
+                origem: "NFE",
+                tipoBadge: "NF-e Mercadoria",
+                numero: nfe.nNF || "S/N",
+                serie: nfe.serie || "1",
+                dataEmissao: dateOnly,
+                competencia: nfe.folder || "",
+                parceiroNome: nfe.emitente || "Fornecedor Desconhecido",
+                parceiroCnpj: nfe.cnpjEmitente || "",
+                papelParceiro: "Fornecedor",
+                valorTotal: vNF,
+                valorTributoRecolher: difalEst,
+                detalheTributario: isInterestadual ? `Interestadual (${ufEmit} ➔ ${targetUf})` : "Operação Interna",
+                temAlertaTributario: isInterestadual,
+                status: "Normal",
+                isCancelada: false,
+                chaveAcesso: nfe.chNFe || "",
+                caminhoXml: nfe.fullPath,
+                caminhoPdf: null,
+              });
             });
           }
+        } catch (_) {}
+      }
+
+      // 3. CARREGA NFC-e (Mercadorias - Vendas / Saídas Modelo 65)
+      if (showNfce) {
+        try {
+          const nfceTargetMonth = (selectedAno !== "todos" && selectedMes !== "todos")
+            ? `${selectedAno}-${selectedMes}`
+            : "all";
+          const nfceRes = await listCompanyNfceXmls(activeEmpresa.cnpj, activeEmpresa.razaoSocial, nfceTargetMonth);
+
+          if (nfceRes.success && nfceRes.list) {
+            nfceRes.list.forEach((n) => {
+              // Filtro estrito por Competência Fiscal
+              if (selectedAno !== "todos" || selectedMes !== "todos") {
+                const normComp = normalizeCompetencia(n.folder || n.dhEmi);
+                if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
+                  return;
+                }
+                if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
+                  return;
+                }
+              }
+
+              const valorNota = Number(n.vNF) || 0;
+              const isCanc = Boolean(n.isCancelada);
+
+              itens.push({
+                id: `nfce_${n.chNFe}_${n.nNF}`,
+                origem: "NFCE",
+                tipoBadge: "NFC-e 65 (Venda)",
+                numero: n.nNF || "S/N",
+                serie: n.serie || "1",
+                dataEmissao: n.formattedDate || (n.dhEmi ? n.dhEmi.substring(0, 10).split("-").reverse().join("/") : ""),
+                competencia: n.folder || "",
+                parceiroNome: n.destinatario || "Consumidor Final",
+                parceiroCnpj: n.cnpjDest || "",
+                papelParceiro: "Cliente",
+                valorTotal: valorNota,
+                valorLiquido: valorNota,
+                temRetencao: false,
+                valorTributoRecolher: 0,
+                detalheTributario: "Venda Balcão ao Consumidor",
+                temAlertaTributario: false,
+                status: isCanc ? "Cancelada" : "Normal",
+                isCancelada: isCanc,
+                chaveAcesso: n.chNFe,
+                caminhoXml: n.fullPath,
+                caminhoPdf: n.pdfPath,
+              });
+            });
+
+            if (nfceRes.months && nfceRes.months.length > 0) {
+              setAvailableMonths((prev) => {
+                const merged = new Set([...prev, ...nfceRes.months]);
+                return Array.from(merged).sort().reverse();
+              });
+            }
+          }
+        } catch (errNfce) {
+          console.warn("Aviso ao carregar NFC-e na Guia Geral:", errNfce);
         }
-      } catch (errNfce) {
-        console.warn("Aviso ao carregar NFC-e na Guia Geral:", errNfce);
       }
 
       // 4. CARREGA CT-e (Transportes - Fretes Modelo 57)
-      try {
-        const cteTargetMonth = (selectedAno !== "todos" && selectedMes !== "todos")
-          ? `${selectedAno}-${selectedMes}`
-          : "all";
-        const cteRes = await listCompanyCteXmls(activeEmpresa.cnpj, activeEmpresa.razaoSocial, cteTargetMonth);
+      if (showCte) {
+        try {
+          const cteTargetMonth = (selectedAno !== "todos" && selectedMes !== "todos")
+            ? `${selectedAno}-${selectedMes}`
+            : "all";
+          const cteRes = await listCompanyCteXmls(activeEmpresa.cnpj, activeEmpresa.razaoSocial, cteTargetMonth);
 
-        if (cteRes.success && cteRes.list) {
-          cteRes.list.forEach((c) => {
-            // Filtro estrito por Competência Fiscal
-            if (selectedAno !== "todos" || selectedMes !== "todos") {
-              const normComp = normalizeCompetencia(c.folder || c.dhEmi);
-              if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
-                return;
+          if (cteRes.success && cteRes.list) {
+            cteRes.list.forEach((c) => {
+              // Filtro estrito por Competência Fiscal
+              if (selectedAno !== "todos" || selectedMes !== "todos") {
+                const normComp = normalizeCompetencia(c.folder || c.dhEmi);
+                if (selectedAno !== "todos" && normComp.year !== Number(selectedAno)) {
+                  return;
+                }
+                if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
+                  return;
+                }
               }
-              if (selectedMes !== "todos" && normComp.month !== Number(selectedMes)) {
-                return;
-              }
+
+              const valorCte = Number(c.vTPrest) || 0;
+              const isCanc = Boolean(c.isCancelada);
+
+              itens.push({
+                id: `cte_${c.chCTe}_${c.nCT}`,
+                origem: "CTE",
+                tipoBadge: "CT-e 57 (Frete)",
+                numero: c.nCT || "S/N",
+                serie: c.serie || "1",
+                dataEmissao: c.formattedDate || (c.dhEmi ? c.dhEmi.substring(0, 10).split("-").reverse().join("/") : ""),
+                competencia: c.folder || "",
+                parceiroNome: c.emitente || "Transportadora",
+                parceiroCnpj: c.cnpjEmitente || "",
+                papelParceiro: "Transportadora",
+                valorTotal: valorCte,
+                valorLiquido: valorCte,
+                temRetencao: false,
+                valorTributoRecolher: 0,
+                detalheTributario: `Frete ${c.modal || "Rodoviário"} (${c.ufRem || "?"} ➔ ${c.ufDest || "?"})`,
+                temAlertaTributario: false,
+                status: isCanc ? "Cancelada" : "Normal",
+                isCancelada: isCanc,
+                chaveAcesso: c.chCTe,
+                caminhoXml: c.fullPath,
+                caminhoPdf: c.pdfPath,
+              });
+            });
+
+            if (cteRes.months && cteRes.months.length > 0) {
+              setAvailableMonths((prev) => {
+                const merged = new Set([...prev, ...cteRes.months]);
+                return Array.from(merged).sort().reverse();
+              });
             }
-
-            const valorCte = Number(c.vTPrest) || 0;
-            const isCanc = Boolean(c.isCancelada);
-
-            itens.push({
-              id: `cte_${c.chCTe}_${c.nCT}`,
-              origem: "CTE",
-              tipoBadge: "CT-e 57 (Frete)",
-              numero: c.nCT || "S/N",
-              serie: c.serie || "1",
-              dataEmissao: c.formattedDate || (c.dhEmi ? c.dhEmi.substring(0, 10).split("-").reverse().join("/") : ""),
-              competencia: c.folder || "",
-              parceiroNome: c.emitente || "Transportadora",
-              parceiroCnpj: c.cnpjEmitente || "",
-              papelParceiro: "Transportadora",
-              valorTotal: valorCte,
-              valorLiquido: valorCte,
-              temRetencao: false,
-              valorTributoRecolher: 0,
-              detalheTributario: `Frete ${c.modal || "Rodoviário"} (${c.ufRem || "?"} ➔ ${c.ufDest || "?"})`,
-              temAlertaTributario: false,
-              status: isCanc ? "Cancelada" : "Normal",
-              isCancelada: isCanc,
-              chaveAcesso: c.chCTe,
-              caminhoXml: c.fullPath,
-              caminhoPdf: c.pdfPath,
-            });
-          });
-
-          if (cteRes.months && cteRes.months.length > 0) {
-            setAvailableMonths((prev) => {
-              const merged = new Set([...prev, ...cteRes.months]);
-              return Array.from(merged).sort().reverse();
-            });
           }
+        } catch (errCte) {
+          console.warn("Aviso ao carregar CT-e na Guia Geral:", errCte);
         }
-      } catch (errCte) {
-        console.warn("Aviso ao carregar CT-e na Guia Geral:", errCte);
       }
 
       if (activeEmpresaCnpjRef.current !== targetCnpj || loadRequestIdRef.current !== reqId) return;
@@ -1329,123 +1378,133 @@ export default function GuiaAcompanhamentoView({
         {/* GROUPBOX 2: RESUMO OPERACIONAL DO MOVIMENTO FISCAL */}
         <fieldset className="vb-groupbox">
           <legend className="vb-legend">Resumo Financeiro & Operacional do Movimento (Clique no quadro para filtrar a Grid)</legend>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+          <div className={`grid ${gridColsClass} gap-2 text-xs`}>
             {/* 1. Compras (NF-e 55) */}
-            <div
-              onClick={() => setActiveTabFilter((prev) => (prev === "nfe" ? "todas" : "nfe"))}
-              className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
-                activeTabFilter === "nfe"
-                  ? "bg-[#e6f2ff] border-[#005a9e]"
-                  : "bg-white border-[#c0c0c0] hover:bg-[#f5f9ff]"
-              }`}
-              title="Clique para filtrar apenas compras de NF-e 55"
-            >
-              <div className="flex items-center justify-between text-[#003366] font-semibold text-[11px]">
-                <span>Compras (NF-e 55):</span>
+            {showNfe && (
+              <div
+                onClick={() => setActiveTabFilter((prev) => (prev === "nfe" ? "todas" : "nfe"))}
+                className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
+                  activeTabFilter === "nfe"
+                    ? "bg-[#e6f2ff] border-[#005a9e]"
+                    : "bg-white border-[#c0c0c0] hover:bg-[#f5f9ff]"
+                }`}
+                title="Clique para filtrar apenas compras de NF-e 55"
+              >
+                <div className="flex items-center justify-between text-[#003366] font-semibold text-[11px]">
+                  <span>Compras (NF-e 55):</span>
+                </div>
+                <div className="mt-1">
+                  <span className="text-sm font-bold text-[#003366] block">
+                    {formatBRL(resumo.totalNfeCompras)}
+                  </span>
+                  <span className="text-[10px] text-[#555555] block">
+                    {resumo.qtdNfe} notas | DIFAL: <strong className="text-[#005a9e]">{formatBRL(resumo.difalTotal)}</strong>
+                  </span>
+                </div>
               </div>
-              <div className="mt-1">
-                <span className="text-sm font-bold text-[#003366] block">
-                  {formatBRL(resumo.totalNfeCompras)}
-                </span>
-                <span className="text-[10px] text-[#555555] block">
-                  {resumo.qtdNfe} notas | DIFAL: <strong className="text-[#005a9e]">{formatBRL(resumo.difalTotal)}</strong>
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* 2. Vendas (NFC-e 65) */}
-            <div
-              onClick={() => setActiveTabFilter((prev) => (prev === "nfce" ? "todas" : "nfce"))}
-              className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
-                activeTabFilter === "nfce"
-                  ? "bg-[#f3e8ff] border-[#9333ea]"
-                  : "bg-white border-[#c0c0c0] hover:bg-[#faf5ff]"
-              }`}
-              title="Clique para filtrar apenas vendas de NFC-e 65"
-            >
-              <div className="flex items-center justify-between text-[#6b21a8] font-semibold text-[11px]">
-                <span>Vendas (NFC-e 65):</span>
+            {showNfce && (
+              <div
+                onClick={() => setActiveTabFilter((prev) => (prev === "nfce" ? "todas" : "nfce"))}
+                className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
+                  activeTabFilter === "nfce"
+                    ? "bg-[#f3e8ff] border-[#9333ea]"
+                    : "bg-white border-[#c0c0c0] hover:bg-[#faf5ff]"
+                }`}
+                title="Clique para filtrar apenas vendas de NFC-e 65"
+              >
+                <div className="flex items-center justify-between text-[#6b21a8] font-semibold text-[11px]">
+                  <span>Vendas (NFC-e 65):</span>
+                </div>
+                <div className="mt-1">
+                  <span className="text-sm font-bold text-[#6b21a8] block">
+                    {formatBRL(resumo.totalNfceSaidas)}
+                  </span>
+                  <span className="text-[10px] text-[#555555] block">
+                    {resumo.qtdNfce} cupons emitidos
+                  </span>
+                </div>
               </div>
-              <div className="mt-1">
-                <span className="text-sm font-bold text-[#6b21a8] block">
-                  {formatBRL(resumo.totalNfceSaidas)}
-                </span>
-                <span className="text-[10px] text-[#555555] block">
-                  {resumo.qtdNfce} cupons emitidos
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* 3. Fretes (CT-e 57) */}
-            <div
-              onClick={() => setActiveTabFilter((prev) => (prev === "cte" ? "todas" : "cte"))}
-              className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
-                activeTabFilter === "cte"
-                  ? "bg-[#fef3c7] border-[#d97706]"
-                  : "bg-white border-[#c0c0c0] hover:bg-[#fffbeb]"
-              }`}
-              title="Clique para filtrar apenas fretes de CT-e 57"
-            >
-              <div className="flex items-center justify-between text-[#b45309] font-semibold text-[11px]">
-                <span>Fretes (CT-e 57):</span>
+            {showCte && (
+              <div
+                onClick={() => setActiveTabFilter((prev) => (prev === "cte" ? "todas" : "cte"))}
+                className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
+                  activeTabFilter === "cte"
+                    ? "bg-[#fef3c7] border-[#d97706]"
+                    : "bg-white border-[#c0c0c0] hover:bg-[#fffbeb]"
+                }`}
+                title="Clique para filtrar apenas fretes de CT-e 57"
+              >
+                <div className="flex items-center justify-between text-[#b45309] font-semibold text-[11px]">
+                  <span>Fretes (CT-e 57):</span>
+                </div>
+                <div className="mt-1">
+                  <span className="text-sm font-bold text-[#b45309] block">
+                    {formatBRL(resumo.totalCteFretes)}
+                  </span>
+                  <span className="text-[10px] text-[#555555] block">
+                    {resumo.qtdCte} conhecimentos
+                  </span>
+                </div>
               </div>
-              <div className="mt-1">
-                <span className="text-sm font-bold text-[#b45309] block">
-                  {formatBRL(resumo.totalCteFretes)}
-                </span>
-                <span className="text-[10px] text-[#555555] block">
-                  {resumo.qtdCte} conhecimentos
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* 4. Serviços Tomados (NFS-e) */}
-            <div
-              onClick={() => setActiveTabFilter((prev) => (prev === "nfse_tomadas" ? "todas" : "nfse_tomadas"))}
-              className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
-                activeTabFilter === "nfse_tomadas"
-                  ? "bg-[#e0f2fe] border-[#0284c7]"
-                  : "bg-white border-[#c0c0c0] hover:bg-[#f0f9ff]"
-              }`}
-              title="Clique para filtrar apenas serviços tomados (NFS-e)"
-            >
-              <div className="flex items-center justify-between text-[#0369a1] font-semibold text-[11px]">
-                <span>Serviços Tomados:</span>
-                <span>↙</span>
+            {showNfse && (
+              <div
+                onClick={() => setActiveTabFilter((prev) => (prev === "nfse_tomadas" ? "todas" : "nfse_tomadas"))}
+                className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
+                  activeTabFilter === "nfse_tomadas"
+                    ? "bg-[#e0f2fe] border-[#0284c7]"
+                    : "bg-white border-[#c0c0c0] hover:bg-[#f0f9ff]"
+                }`}
+                title="Clique para filtrar apenas serviços tomados (NFS-e)"
+              >
+                <div className="flex items-center justify-between text-[#0369a1] font-semibold text-[11px]">
+                  <span>Serviços Tomados:</span>
+                  <span>↙</span>
+                </div>
+                <div className="mt-1">
+                  <span className="text-sm font-bold text-[#0369a1] block">
+                    {formatBRL(resumo.totalNfseTomadas)}
+                  </span>
+                  <span className="text-[10px] text-[#555555] block">
+                    {resumo.qtdNfseTomadas} notas | Ret.: <strong className="text-[#b45309]">{formatBRL(resumo.retencoesTomadas)}</strong>
+                  </span>
+                </div>
               </div>
-              <div className="mt-1">
-                <span className="text-sm font-bold text-[#0369a1] block">
-                  {formatBRL(resumo.totalNfseTomadas)}
-                </span>
-                <span className="text-[10px] text-[#555555] block">
-                  {resumo.qtdNfseTomadas} notas | Ret.: <strong className="text-[#b45309]">{formatBRL(resumo.retencoesTomadas)}</strong>
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* 5. Serviços Prestados (NFS-e) */}
-            <div
-              onClick={() => setActiveTabFilter((prev) => (prev === "nfse_prestadas" ? "todas" : "nfse_prestadas"))}
-              className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
-                activeTabFilter === "nfse_prestadas"
-                  ? "bg-[#d1fae5] border-[#059669]"
-                  : "bg-white border-[#c0c0c0] hover:bg-[#f0fdf4]"
-              }`}
-              title="Clique para filtrar apenas serviços prestados (NFS-e)"
-            >
-              <div className="flex items-center justify-between text-[#047857] font-semibold text-[11px]">
-                <span>Serviços Prestados:</span>
-                <span>↗</span>
+            {showNfse && (
+              <div
+                onClick={() => setActiveTabFilter((prev) => (prev === "nfse_prestadas" ? "todas" : "nfse_prestadas"))}
+                className={`p-1.5 flex flex-col justify-between cursor-pointer border transition-colors ${
+                  activeTabFilter === "nfse_prestadas"
+                    ? "bg-[#d1fae5] border-[#059669]"
+                    : "bg-white border-[#c0c0c0] hover:bg-[#f0fdf4]"
+                }`}
+                title="Clique para filtrar apenas serviços prestados (NFS-e)"
+              >
+                <div className="flex items-center justify-between text-[#047857] font-semibold text-[11px]">
+                  <span>Serviços Prestados:</span>
+                  <span>↗</span>
+                </div>
+                <div className="mt-1">
+                  <span className="text-sm font-bold text-[#047857] block">
+                    {formatBRL(resumo.totalNfsePrestadas)}
+                  </span>
+                  <span className="text-[10px] text-[#555555] block">
+                    {resumo.qtdNfsePrestadas} faturadas
+                  </span>
+                </div>
               </div>
-              <div className="mt-1">
-                <span className="text-sm font-bold text-[#047857] block">
-                  {formatBRL(resumo.totalNfsePrestadas)}
-                </span>
-                <span className="text-[10px] text-[#555555] block">
-                  {resumo.qtdNfsePrestadas} faturadas
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* 6. Movimento Total Consolidado */}
             <div
@@ -1466,11 +1525,10 @@ export default function GuiaAcompanhamentoView({
               <div className="mt-1">
                 <span className="text-sm font-bold text-[#0f172a] block">
                   {formatBRL(
-                    resumo.totalNfeCompras +
-                      resumo.totalNfceSaidas +
-                      resumo.totalCteFretes +
-                      resumo.totalNfseTomadas +
-                      resumo.totalNfsePrestadas
+                    (showNfe ? resumo.totalNfeCompras : 0) +
+                      (showNfce ? resumo.totalNfceSaidas : 0) +
+                      (showCte ? resumo.totalCteFretes : 0) +
+                      (showNfse ? (resumo.totalNfseTomadas + resumo.totalNfsePrestadas) : 0)
                   )}
                 </span>
                 <span className="text-[10px] text-[#555555] block">
@@ -1505,60 +1563,70 @@ export default function GuiaAcompanhamentoView({
                 Todas ({itensConsolidados.length})
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTabFilter("nfe");
-                  setExtraFilter("todos");
-                }}
-                className={`vb-btn ${activeTabFilter === "nfe" ? "vb-btn-primary" : ""}`}
-              >
-                NF-e (55) ({resumo.qtdNfe})
-              </button>
+              {showNfe && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTabFilter("nfe");
+                    setExtraFilter("todos");
+                  }}
+                  className={`vb-btn ${activeTabFilter === "nfe" ? "vb-btn-primary" : ""}`}
+                >
+                  NF-e (55) ({resumo.qtdNfe})
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTabFilter("nfce");
-                  setExtraFilter("todos");
-                }}
-                className={`vb-btn ${activeTabFilter === "nfce" ? "vb-btn-primary" : ""}`}
-              >
-                NFC-e (65) ({resumo.qtdNfce})
-              </button>
+              {showNfce && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTabFilter("nfce");
+                    setExtraFilter("todos");
+                  }}
+                  className={`vb-btn ${activeTabFilter === "nfce" ? "vb-btn-primary" : ""}`}
+                >
+                  NFC-e (65) ({resumo.qtdNfce})
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTabFilter("cte");
-                  setExtraFilter("todos");
-                }}
-                className={`vb-btn ${activeTabFilter === "cte" ? "vb-btn-primary" : ""}`}
-              >
-                CT-e (57) ({resumo.qtdCte})
-              </button>
+              {showCte && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTabFilter("cte");
+                    setExtraFilter("todos");
+                  }}
+                  className={`vb-btn ${activeTabFilter === "cte" ? "vb-btn-primary" : ""}`}
+                >
+                  CT-e (57) ({resumo.qtdCte})
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTabFilter("nfse_tomadas");
-                  setExtraFilter("todos");
-                }}
-                className={`vb-btn ${activeTabFilter === "nfse_tomadas" ? "vb-btn-primary" : ""}`}
-              >
-                NFS-e Tomadas ({resumo.qtdNfseTomadas})
-              </button>
+              {showNfse && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTabFilter("nfse_tomadas");
+                    setExtraFilter("todos");
+                  }}
+                  className={`vb-btn ${activeTabFilter === "nfse_tomadas" ? "vb-btn-primary" : ""}`}
+                >
+                  NFS-e Tomadas ({resumo.qtdNfseTomadas})
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTabFilter("nfse_prestadas");
-                  setExtraFilter("todos");
-                }}
-                className={`vb-btn ${activeTabFilter === "nfse_prestadas" ? "vb-btn-primary" : ""}`}
-              >
-                NFS-e Prestadas ({resumo.qtdNfsePrestadas})
-              </button>
+              {showNfse && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTabFilter("nfse_prestadas");
+                    setExtraFilter("todos");
+                  }}
+                  className={`vb-btn ${activeTabFilter === "nfse_prestadas" ? "vb-btn-primary" : ""}`}
+                >
+                  NFS-e Prestadas ({resumo.qtdNfsePrestadas})
+                </button>
+              )}
 
               <button
                 type="button"
