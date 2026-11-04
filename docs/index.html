@@ -203,6 +203,7 @@
           <span>📰 Notícias & Atualizações</span>
           <span class="text-[9px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded-full leading-none animate-pulse">Novo</span>
         </a>
+        <a href="#download" class="text-[#003366] hover:text-[#005a9e] font-bold transition whitespace-nowrap">Download</a>
         <a href="#apoiar" class="text-[#107c41] hover:text-[#0d6334] font-bold transition whitespace-nowrap">Apoiar (PIX)</a>
         <a href="#autor" class="hover:text-[#005a9e] transition whitespace-nowrap">Autor</a>
       </nav>
@@ -211,8 +212,8 @@
         <a href="https://github.com/Rammeta/cont-ai" target="_blank" rel="noopener" class="vb-btn text-xs py-1 px-2.5 whitespace-nowrap">
           <span>GitHub</span>
         </a>
-        <a href="https://github.com/Rammeta/cont-ai/releases/latest" target="_blank" rel="noopener" class="vb-btn vb-btn-primary text-xs py-1 px-3 whitespace-nowrap">
-          <span>Baixar Windows (.exe)</span>
+        <a href="https://github.com/Rammeta/cont-ai/releases/download/v2.2.0/CONT-AI-Setup-2.2.0.exe" class="vb-btn vb-btn-primary text-xs py-1 px-3 whitespace-nowrap flex items-center gap-1 font-bold" title="Download direto do instalador oficial v2.2.0 (.exe)">
+          <span>⬇️ Baixar Windows (.exe)</span>
         </a>
       </div>
     </div>
@@ -260,11 +261,14 @@
 
             <!-- Botões de Ação -->
             <div class="pt-3 flex flex-wrap items-center gap-3">
-              <a href="https://github.com/Rammeta/cont-ai/releases/download/v2.2.0/CONT-AI-Setup-2.2.0.exe" class="vb-btn vb-btn-primary py-2.5 px-4 text-sm shadow">
-                <span>Baixar Instalador Oficial Windows v2.2 (.exe)</span>
+              <a href="https://github.com/Rammeta/cont-ai/releases/download/v2.2.0/CONT-AI-Setup-2.2.0.exe" class="vb-btn vb-btn-primary py-2.5 px-4 text-sm shadow flex items-center gap-1.5 font-bold" title="Download direto do instalador oficial v2.2.0 (.exe)">
+                <span>⬇️ Baixar Instalador Oficial Windows v2.2 (.exe)</span>
               </a>
               <a href="#mapeamento" class="vb-btn py-2.5 px-3.5 text-sm">
                 <span>Ver Mapeamento de Funções</span>
+              </a>
+              <a href="#noticias" class="vb-btn py-2.5 px-3.5 text-sm">
+                <span>Ver Novidades v2.2</span>
               </a>
               <a href="#apoiar" class="vb-btn vb-btn-success py-2.5 px-3.5 text-sm shadow">
                 <span>Apoiar via PIX</span>
@@ -1091,20 +1095,36 @@
 
         <div class="max-w-5xl mx-auto space-y-6">
 
-          <!-- Release 03/11/2026 - v2.2.0 -->
+          <!-- Release 04/11/2026 - v2.2.0 -->
           <div class="vb-groupbox border-l-4 border-l-[#107c41] bg-[#fdfdfd] shadow-xs">
             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#e0e0e0] pb-2 mb-3">
               <div class="flex items-center gap-2">
                 <span class="bg-[#107c41] text-white text-[11px] font-bold px-2.5 py-0.5 rounded font-mono">v2.2.0</span>
-                <span class="font-bold text-sm text-[#003366]">Lançamento Oficial: Procuração Eletrônica para NFS-e Nacional (Portal ADN) & Isenção de Devoluções no DIFAL</span>
+                <span class="font-bold text-sm text-[#003366]">Lançamento Oficial: Ocultação Dinâmica de Guias, Procuração Eletrônica ADN NFS-e & Cadastro em Massa</span>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center flex-wrap gap-2">
                 <span class="text-[11px] font-bold text-[#107c41] bg-[#e2f0d9] border border-[#a9d18e] px-2 py-0.5 rounded">Última Versão</span>
-                <span class="text-xs font-mono text-[#666666] font-semibold">📅 03/11/2026</span>
+                <span class="text-xs font-mono text-[#666666] font-semibold">📅 04/11/2026</span>
+                <a href="https://github.com/Rammeta/cont-ai/releases/download/v2.2.0/CONT-AI-Setup-2.2.0.exe" class="vb-btn vb-btn-primary text-xs py-1 px-3 whitespace-nowrap flex items-center gap-1 font-bold shadow-xs" title="Download direto do instalador oficial v2.2.0 (.exe)">
+                  <span>⬇️ Baixar v2.2.0 (.exe)</span>
+                </a>
               </div>
             </div>
 
             <div class="space-y-4 text-xs text-[#444444]">
+              <!-- Destaque 0: Ocultação Dinâmica -->
+              <div class="bg-[#f0fdf4] border border-[#bbf7d0] p-3 rounded">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="font-bold text-[#166534] text-xs">🎯 Ocultação Dinâmica de Guias e Filtros por Modelo Fiscal Habilitado:</span>
+                </div>
+                <ul class="list-disc list-inside space-y-1 text-[#333333] ml-1">
+                  <li><strong>Abas do Cabeçalho Ribbon:</strong> As guias <em>NF-e Entradas (55)</em>, <em>NFC-e (65)</em>, <em>CT-e Fretes (57)</em>, <em>NFS-e (Nac. & SP)</em> e <em>Cálculo DIFAL</em> se adaptam instantaneamente aos modelos ativos da empresa sob análise. Modelos desativados ficam ocultos.</li>
+                  <li><strong>Quadro de Indicadores da Guia Geral:</strong> Na tela consolidada, os cartões de resumo (KPIs) de compras, vendas, fretes e serviços de modelos desativados são ocultados, com reajuste automático das colunas da grade sem deixar espaços vazios.</li>
+                  <li><strong>Redirecionamento Inteligente:</strong> Ao alternar de empresa estando em uma guia não suportada, o sistema notifica o usuário e redireciona suavemente para a Guia Geral de Notas.</li>
+                  <li><strong>Otimização de Performance:</strong> O sistema deixa de buscar e consolidar arquivos em disco para modelos desabilitados, acelerando o carregamento da grade.</li>
+                </ul>
+              </div>
+
               <!-- Destaque 1: Procurador -->
               <div class="bg-[#f0f7ff] border border-[#b8daff] p-3 rounded">
                 <div class="flex items-center gap-2 mb-1.5">
@@ -1139,8 +1159,13 @@
 
               <!-- Destaque 3: Otimizações -->
               <div class="border-t border-[#e0e0e0] pt-2 text-[11px] text-[#666666] flex flex-wrap items-center justify-between gap-2">
-                <span>⚡ <strong>Desempenho:</strong> Otimização do consumo de memória RAM do Electron com descarte seguro de credenciais mTLS inativas.</span>
-                <span class="font-mono text-[#005a9e]">Branch: main • Release: v2.2.0</span>
+                <span>⚡ <strong>Desempenho:</strong> Otimização do consumo de memória RAM do Electron e padronização visual da versão oficial v2.2.</span>
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-[#005a9e]">Branch: main • Release: v2.2.0</span>
+                  <a href="https://github.com/Rammeta/cont-ai/releases/tag/v2.2.0" target="_blank" rel="noopener" class="text-[#005a9e] hover:underline font-bold">
+                    Ver Release no GitHub ↗
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -1220,6 +1245,34 @@
           </div>
 
         </div>
+      </div>
+    </section>
+
+    <!-- Seção de Download / CTA de Conversão Final -->
+    <section id="download" class="py-12 bg-gradient-to-r from-[#003366] via-[#004b87] to-[#005a9e] text-white border-b border-[#002244]">
+      <div class="max-w-4xl mx-auto px-4 text-center space-y-4">
+        <div class="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1 rounded text-xs text-blue-100 font-bold mb-1">
+          <span>🚀 Instalação Oficial Windows (x64)</span>
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white">
+          Baixe o CONT-AI v2.2 Oficial para Windows
+        </h2>
+        <p class="text-xs sm:text-sm text-blue-100 max-w-2xl mx-auto leading-relaxed">
+          Instale a versão estável completa com todos os módulos fiscais integrados: Emissor NFS-e Nacional, Captação Multi-Modelo SEFAZ, Auditoria de DIFAL e Importação em Massa de Empresas.
+        </p>
+
+        <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <a href="https://github.com/Rammeta/cont-ai/releases/download/v2.2.0/CONT-AI-Setup-2.2.0.exe" class="vb-btn vb-btn-primary bg-white text-[#003366] hover:bg-blue-50 py-3 px-6 text-sm font-bold shadow-lg border-white flex items-center gap-2" title="Download direto do instalador oficial v2.2.0 (.exe)">
+            <span>⬇️ Baixar Instalador Oficial (.exe — 140 MB)</span>
+          </a>
+          <a href="https://github.com/Rammeta/cont-ai/releases/tag/v2.2.0" target="_blank" rel="noopener" class="vb-btn bg-blue-900/60 hover:bg-blue-900 text-white py-3 px-5 text-sm border-blue-300/40">
+            <span>Ver Release & Notas no GitHub ↗</span>
+          </a>
+        </div>
+
+        <p class="text-[11px] text-blue-200 pt-1">
+          Versão Oficial: <strong>v2.2.0</strong> • Atualizado em <strong>04/11/2026</strong> • Compatível com Windows 10 e 11 (64-bit) • Instalação com mTLS Seguro
+        </p>
       </div>
     </section>
 
