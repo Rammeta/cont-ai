@@ -124,11 +124,12 @@ export function mergeNotaEmitida(existing: NfseNotaEmitida, nota: NfseNotaEmitid
     base.dataCancelamento = existing.dataCancelamento || nota.dataCancelamento;
   }
 
-  // Preserva o número de NFS-e válido caso um dos arquivos seja apenas DPS bruta
+  // Preserva o número de NFS-e válido caso um dos arquivos seja apenas DPS bruta ou numeração provisória
+  const isOfficialNum = (n?: string) => Boolean(n && n !== "0" && !/^\d{4}00\d+$/.test(n));
   const nfValido =
-    existing.numeroNfse && existing.numeroNfse !== "0" && existing.numeroNfse !== existing.numeroDps
+    isOfficialNum(existing.numeroNfse) && existing.numeroNfse !== existing.numeroDps
       ? existing.numeroNfse
-      : nota.numeroNfse && nota.numeroNfse !== "0" && nota.numeroNfse !== nota.numeroDps
+      : isOfficialNum(nota.numeroNfse) && nota.numeroNfse !== nota.numeroDps
       ? nota.numeroNfse
       : base.numeroNfse;
   base.numeroNfse = nfValido;
@@ -155,6 +156,7 @@ export function deduplicarNotasNfse(lista: NfseNotaEmitida[]): NfseNotaEmitida[]
   const byChave = new Map<string, number>();
   const byDps = new Map<string, number>();
   const byNf = new Map<number, number[]>();
+  const byTomaDataValor = new Map<string, number[]>();
 
   for (const n of lista) {
     const ch = (n.chaveAcesso || "").replace(/\D/g, "");
@@ -166,6 +168,8 @@ export function deduplicarNotasNfse(lista: NfseNotaEmitida[]): NfseNotaEmitida[]
 
     const kCh = ch.length === 50 ? ch : "";
     const kDps = s && nDps > 0 ? `${s}:${nDps}` : "";
+    const dataRef = (n.dataEmissao || "").slice(0, 10);
+    const kTomador = doc && dataRef && vServ > 0 ? `${doc}|${dataRef}|${vServ.toFixed(2)}` : "";
 
     let idx = -1;
     if (kCh && byChave.has(kCh)) {
@@ -184,6 +188,27 @@ export function deduplicarNotasNfse(lista: NfseNotaEmitida[]): NfseNotaEmitida[]
           break;
         }
       }
+    } else if (kTomador && byTomaDataValor.has(kTomador)) {
+      const candidates = byTomaDataValor.get(kTomador)!;
+      for (let i = 0; i < candidates.length; i++) {
+        const cIdx = candidates[i];
+        const cand = result[cIdx];
+        const candCh = (cand.chaveAcesso || "").replace(/\D/g, "");
+        const candHas50 = candCh.length === 50;
+        const notaHas50 = ch.length === 50;
+
+        if (candHas50 && notaHas50 && candCh !== ch) {
+          continue;
+        }
+
+        const candIsProvisional = !candHas50 || /^\d{4}00\d+$/.test(String(cand.numeroNfse || ""));
+        const notaIsProvisional = !notaHas50 || /^\d{4}00\d+$/.test(String(n.numeroNfse || ""));
+
+        if (candIsProvisional || notaIsProvisional) {
+          idx = cIdx;
+          break;
+        }
+      }
     }
 
     if (idx === -1) {
@@ -198,6 +223,10 @@ export function deduplicarNotasNfse(lista: NfseNotaEmitida[]): NfseNotaEmitida[]
     const mS = (merged.serieDps || "1").trim();
     const mDps = parseInt((merged.numeroDps || "").replace(/\D/g, ""), 10) || 0;
     const mNf = parseInt((merged.numeroNfse || "").replace(/\D/g, ""), 10) || 0;
+    const mDoc = (merged.tomadorDoc || "").replace(/\D/g, "") || doc;
+    const mVServ = Number(merged.valorServicos || 0);
+    const mDataRef = (merged.dataEmissao || "").slice(0, 10) || dataRef;
+    const mKTomador = mDoc && mDataRef && mVServ > 0 ? `${mDoc}|${mDataRef}|${mVServ.toFixed(2)}` : "";
 
     if (mCh.length === 50) byChave.set(mCh, idx);
     if (mS && mDps > 0) byDps.set(`${mS}:${mDps}`, idx);
@@ -206,6 +235,15 @@ export function deduplicarNotasNfse(lista: NfseNotaEmitida[]): NfseNotaEmitida[]
       if (!arr) {
         arr = [idx];
         byNf.set(mNf, arr);
+      } else if (!arr.includes(idx)) {
+        arr.push(idx);
+      }
+    }
+    if (mKTomador) {
+      let arr = byTomaDataValor.get(mKTomador);
+      if (!arr) {
+        arr = [idx];
+        byTomaDataValor.set(mKTomador, arr);
       } else if (!arr.includes(idx)) {
         arr.push(idx);
       }

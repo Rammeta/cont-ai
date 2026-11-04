@@ -12,9 +12,11 @@ const NFSE_RESULT_TTL_MS = 120000;
 function invalidateNfseCache(cnpj) {
     if (!cnpj) {
         memNfseResultCache.clear();
+        memNfseCache.clear();
         return;
     }
     const clean = String(cnpj || '').replace(/\D/g, '');
+    memNfseCache.delete(clean);
     for (const k of memNfseResultCache.keys()) {
         if (k.startsWith(clean + '|')) {
             memNfseResultCache.delete(k);
@@ -94,8 +96,11 @@ function formatarCompetenciaCsv(competencia, dataGeracao) {
 }
 
 function converterDataBrParaIso(dataBr) {
-    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(dataBr || '').trim());
-    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    const raw = String(dataBr || '').trim();
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(raw);
+    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    const mIso = /^(\d{4})[-/.](\d{2})[-/.](\d{2})/.exec(raw);
+    if (mIso) return `${mIso[1]}-${mIso[2]}-${mIso[3]}`;
     return '';
 }
 
@@ -500,10 +505,10 @@ function parseXmlNota(xmlContent, nomeArquivo = '') {
     }
 }
 
-function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro = 'todos', dataInicio = '', dataFim = '') {
+function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro = 'todos', dataInicio = '', dataFim = '', criterioData = 'competencia') {
     const sanitizeFolder = (name) => (name || '').replace(/[\/\\:*?"<>|]/g, '_').replace(/[\x00-\x1F]/g, '').replace(/\s+/g, ' ').trim().substring(0, 80).replace(/[. ]+$/, '') || 'sem-nome';
     const cleanCnpj = String(cnpj || '').replace(/\D/g, '');
-    const resultCacheKey = `${cleanCnpj}|${ano || 'todos'}|${mes || 'todos'}|${tipoFiltro || 'todos'}|${dataInicio || ''}|${dataFim || ''}`;
+    const resultCacheKey = `${cleanCnpj}|${ano || 'todos'}|${mes || 'todos'}|${tipoFiltro || 'todos'}|${dataInicio || ''}|${dataFim || ''}|${criterioData || 'competencia'}`;
     if (cleanCnpj) {
         const cachedRes = memNfseResultCache.get(resultCacheKey);
         if (cachedRes && (Date.now() - cachedRes.ts) < NFSE_RESULT_TTL_MS) {
@@ -692,21 +697,59 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                             }
                         }
 
-                        // Filtro rigoroso por Competência (Ano e Mês)
+                        // Extração rigorosa da Data de Emissão (DD/MM/AAAA e ISO)
+                        let emiAno = '';
+                        let emiMes = '';
+                        let emiDia = '';
+                        let emiIso = '';
+                        if (parsed.dataGeracao) {
+                            const pDg = String(parsed.dataGeracao).trim();
+                            const mBrEmi = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(pDg);
+                            if (mBrEmi) {
+                                emiDia = mBrEmi[1].padStart(2, '0');
+                                emiMes = mBrEmi[2].padStart(2, '0');
+                                emiAno = mBrEmi[3];
+                                emiIso = `${emiAno}-${emiMes}-${emiDia}`;
+                            } else {
+                                const mIsoEmi = /^(\d{4})[-/.](\d{2})[-/.](\d{2})/.exec(pDg);
+                                if (mIsoEmi) {
+                                    emiAno = mIsoEmi[1];
+                                    emiMes = mIsoEmi[2];
+                                    emiDia = mIsoEmi[3];
+                                    emiIso = `${emiAno}-${emiMes}-${emiDia}`;
+                                }
+                            }
+                        }
+                        if (!emiAno || !emiMes) {
+                            emiAno = compAno;
+                            emiMes = compMes;
+                            emiDia = '01';
+                            emiIso = (compAno && compMes) ? `${compAno}-${compMes}-01` : '';
+                        }
+
+                        const targetAno = (criterioData === 'emissao') ? emiAno : compAno;
+                        const targetMes = (criterioData === 'emissao') ? emiMes : compMes;
+                        const targetIso = (criterioData === 'emissao') ? emiIso : ((compAno && compMes) ? `${compAno}-${compMes}-01` : '');
+
+                        // Filtro rigoroso por Período (Ano e Mês) conforme critério (Competência ou Emissão)
                         if (ano && ano !== 'todos') {
-                            if (!compAno || compAno !== String(ano)) continue;
+                            if (!targetAno || targetAno !== String(ano)) continue;
                         }
                         if (mes && mes !== 'todos') {
                             const mesPad = String(mes).padStart(2, '0');
-                            if (!compMes || compMes !== mesPad) continue;
+                            if (!targetMes || targetMes !== mesPad) continue;
                         }
 
-                        // Filtro opcional por intervalo de datas (respeitando competência)
+                        // Filtro opcional por intervalo de datas
                         if (dataInicio || dataFim) {
-                            const compIso = (compAno && compMes) ? `${compAno}-${compMes}-01` : '';
-                            if (compIso) {
-                                if (dataInicio && compIso < dataInicio.slice(0, 7) + '-01') continue;
-                                if (dataFim && compIso > dataFim.slice(0, 7) + '-31') continue;
+                            if (targetIso) {
+                                if (criterioData === 'emissao') {
+                                    if (dataInicio && targetIso < dataInicio) continue;
+                                    if (dataFim && targetIso > dataFim) continue;
+                                } else {
+                                    if (dataInicio && targetIso < dataInicio.slice(0, 7) + '-01') continue;
+                                    if (dataFim && targetIso > dataFim.slice(0, 7) + '-31') continue;
+                                }
                             }
                         }
 
@@ -789,12 +832,17 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
 
     function mergeNotasNfse(existing, nota) {
         // Se qualquer uma das instâncias do documento estiver cancelada, prevalece o evento mais recente (Cancelada)
-        const isCancelada = Boolean(existing.isCancelada || nota.isCancelada);
+        const isCancelada = Boolean(
+            existing.isCancelada || nota.isCancelada ||
+            String(existing.situacao || '').toLowerCase().includes('cancel') ||
+            String(nota.situacao || '').toLowerCase().includes('cancel')
+        );
+        const isOfficialNum = (n) => n && n !== '0' && !/^\d{4}00\d+$/.test(String(n));
         const preferNew = (
             (nota.isCancelada && !existing.isCancelada) ||
             (!existing.caminhoPdf && nota.caminhoPdf) ||
             (nota.origemCaptacao === 'PORTAL_NACIONAL' && existing.origemCaptacao !== 'PORTAL_NACIONAL' && !existing.isCancelada) ||
-            ((!existing.numeroNFe || existing.numeroNFe === '0') && (nota.numeroNFe && nota.numeroNFe !== '0')) ||
+            (!isOfficialNum(existing.numeroNFe) && isOfficialNum(nota.numeroNFe)) ||
             ((!existing.chaveNotaNacional || existing.chaveNotaNacional.length !== 50) && (nota.chaveNotaNacional && nota.chaveNotaNacional.length === 50))
         );
 
@@ -804,8 +852,10 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
             base.situacao = 'Cancelada';
         }
 
-        // Preserva o número de NFS-e válido caso um dos arquivos seja apenas DPS bruto
-        const nfValido = (existing.numeroNFe && existing.numeroNFe !== '0') ? existing.numeroNFe : (nota.numeroNFe && nota.numeroNFe !== '0' ? nota.numeroNFe : base.numeroNFe);
+        // Preserva o número de NFS-e oficial válido
+        const nfValido = isOfficialNum(existing.numeroNFe) 
+            ? (isOfficialNum(nota.numeroNFe) ? (preferNew ? nota.numeroNFe : existing.numeroNFe) : existing.numeroNFe)
+            : (isOfficialNum(nota.numeroNFe) ? nota.numeroNFe : (existing.numeroNFe || nota.numeroNFe || base.numeroNFe));
         base.numeroNFe = nfValido;
 
         // Preserva chave nacional oficial de 50 dígitos
@@ -850,6 +900,7 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
     const byChave = new Map();
     const byDps = new Map();
     const byNf = new Map();
+    const byTomaDataValor = new Map();
 
     for (const nota of resultado) {
         const cleanEmit = String(nota.prestadorCnpj || '').replace(/\D/g, '') || 'ANY';
@@ -863,6 +914,9 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
         const kCh = ch.length === 50 ? `${cleanEmit}|${ch}` : '';
         const kDps = (s && nDps > 0) ? `${cleanEmit}|${s}:${nDps}` : '';
         const kNf = nf > 0 ? `${cleanEmit}|${nf}` : '';
+        const kTomador = (cleanToma && nota.dataGeracao && vServ > 0)
+            ? `${cleanEmit}|${cleanToma}|${nota.dataGeracao}|${vServ.toFixed(2)}`
+            : '';
 
         let idx = -1;
         if (kCh && byChave.has(kCh)) {
@@ -877,6 +931,30 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                 const vCand = Number(cand.valorServicos || 0);
                 const tomaCand = String(cand.tomadorCnpj || '').replace(/\D/g, '');
                 if (Math.abs(vCand - vServ) < 0.05 || (cleanToma && tomaCand && cleanToma === tomaCand)) {
+                    idx = cIdx;
+                    break;
+                }
+            }
+        } else if (kTomador && byTomaDataValor.has(kTomador)) {
+            const candidates = byTomaDataValor.get(kTomador);
+            for (let i = 0; i < candidates.length; i++) {
+                const cIdx = candidates[i];
+                const cand = dedupList[cIdx];
+                const candCh = String(cand.chaveNotaNacional || '').replace(/\D/g, '');
+                const candHas50 = candCh.length === 50;
+                const notaHas50 = ch.length === 50;
+
+                // Se AMBAS as notas possuem chave oficial de 50 dígitos e são chaves diferentes,
+                // são dois documentos fiscais oficiais distintos (ex: cancelou e reemitiu para o mesmo cliente no mesmo dia)! NUNCA mescla.
+                if (candHas50 && notaHas50 && candCh !== ch) {
+                    continue;
+                }
+
+                const candIsProvisional = !candHas50 || /^\d{4}00\d+$/.test(String(cand.numeroNFe)) || (cand.caminhoXml && cand.caminhoXml.includes('emitidas'));
+                const notaIsProvisional = !notaHas50 || /^\d{4}00\d+$/.test(String(nota.numeroNFe)) || (nota.caminhoXml && nota.caminhoXml.includes('emitidas'));
+
+                // Só mescla se pelo menos uma delas for rascunho/provisória/emitidas, unificando com a nota oficial/cancelada
+                if (candIsProvisional || notaIsProvisional) {
                     idx = cIdx;
                     break;
                 }
@@ -897,6 +975,11 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
         const mS = String(merged.dpsSerie || '').trim();
         const mDps = parseInt(String(merged.dpsNumero || '').replace(/\D/g, ''), 10) || 0;
         const mNf = parseInt(String(merged.numeroNFe || '').replace(/\D/g, ''), 10) || 0;
+        const mCleanToma = String(merged.tomadorCnpj || '').replace(/\D/g, '') || cleanToma;
+        const mVServ = Number(merged.valorServicos || 0);
+        const mKTomador = (mCleanToma && merged.dataGeracao && mVServ > 0)
+            ? `${mEmit}|${mCleanToma}|${merged.dataGeracao}|${mVServ.toFixed(2)}`
+            : '';
 
         if (mCh.length === 50) byChave.set(`${mEmit}|${mCh}`, idx);
         if (mS && mDps > 0) byDps.set(`${mEmit}|${mS}:${mDps}`, idx);
@@ -910,16 +993,40 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                 list.push(idx);
             }
         }
+        if (mKTomador) {
+            let list = byTomaDataValor.get(mKTomador);
+            if (!list) {
+                list = [idx];
+                byTomaDataValor.set(mKTomador, list);
+            } else if (!list.includes(idx)) {
+                list.push(idx);
+            }
+        }
     }
 
     let listaDedup = dedupList;
 
     if (dataInicio || dataFim) {
         listaDedup = listaDedup.filter(n => {
-            const iso = converterDataBrParaIso(n.dataGeracao);
+            let iso = '';
+            if (criterioData === 'emissao') {
+                iso = converterDataBrParaIso(n.dataGeracao);
+            } else {
+                const compMatch = /^(\d{1,2})\/(\d{4})$/.exec(String(n.competencia || '').trim());
+                if (compMatch) {
+                    iso = `${compMatch[2]}-${compMatch[1].padStart(2, '0')}-01`;
+                } else {
+                    iso = converterDataBrParaIso(n.dataGeracao);
+                }
+            }
             if (!iso) return true;
-            if (dataInicio && iso < dataInicio) return false;
-            if (dataFim && iso > dataFim) return false;
+            if (criterioData === 'emissao') {
+                if (dataInicio && iso < dataInicio) return false;
+                if (dataFim && iso > dataFim) return false;
+            } else {
+                if (dataInicio && iso < dataInicio.slice(0, 7) + '-01') return false;
+                if (dataFim && iso > dataFim.slice(0, 7) + '-31') return false;
+            }
             return true;
         });
     }
@@ -980,7 +1087,27 @@ function extractBasicMetaFast(xmlContent, fileName = '') {
                xmlContent.match(/<vServ>([\d.,]+)<\/vServ>/i) ||
                xmlContent.match(/<vLiq>([\d.,]+)<\/vLiq>/i) ||
                xmlContent.match(/<vBC>([\d.,]+)<\/vBC>/i);
-    const valorServicos = mVal ? parseFloat(mVal[1].replace(/\./g, '').replace(',', '.')) || 0 : 0;
+    let valorServicos = 0;
+    if (mVal) {
+        const valStr = mVal[1].trim();
+        if (valStr.includes(',')) {
+            valorServicos = parseFloat(valStr.replace(/\./g, '').replace(',', '.')) || 0;
+        } else {
+            valorServicos = parseFloat(valStr) || 0;
+        }
+    }
+
+    let mChave = xmlContent.match(/Id=["'](?:NFS)?(\d{50})["']/i) ||
+                 xmlContent.match(/<chNFSe>(\d{50})<\/chNFSe>/i) ||
+                 xmlContent.match(/<chNFe>(\d{50})<\/chNFe>/i) ||
+                 xmlContent.match(/<chaveAcesso>(\d{50})<\/chaveAcesso>/i) ||
+                 fileName.match(/\b(\d{50})\b/);
+    const chaveNotaNacional = mChave ? mChave[1] : '';
+
+    let mCompet = xmlContent.match(/<dCompet>([^<]+)<\/dCompet>/i) ||
+                  xmlContent.match(/<dhEmi>([^<]{7})/i) ||
+                  xmlContent.match(/<dhProc>([^<]{7})/i);
+    const competencia = mCompet ? mCompet[1].slice(0, 7) : '';
 
     const isCancelada = /<StatusNFe>C<\/StatusNFe>/i.test(xmlContent) ||
                         /<DataCancelamento>/i.test(xmlContent) ||
@@ -995,6 +1122,8 @@ function extractBasicMetaFast(xmlContent, fileName = '') {
         prestadorCnpj,
         tomadorCnpj,
         valorServicos,
+        chaveNotaNacional,
+        competencia,
         isCancelada,
         origemCaptacao
     };
@@ -1072,12 +1201,20 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
                     const pdfPath = path.join(dir, pdfFileName);
                     const info = {
                         key,
+                        chaveNotaNacional: parsed.chaveNotaNacional,
+                        competencia: parsed.competencia,
                         caminhoXml: full,
                         caminhoPdf: pdfPath,
                         hasPdf: fileSet.has(pdfFileName),
                         isCancelada: parsed.isCancelada,
                         origemCaptacao: parsed.origemCaptacao
                     };
+                    if (parsed.chaveNotaNacional && parsed.chaveNotaNacional.length >= 44) {
+                        map.set('CHAVE:' + parsed.chaveNotaNacional, info);
+                    }
+                    if (parsed.competencia) {
+                        map.set(`COMP:${parsed.competencia}|${key}`, info);
+                    }
                     if (!map.has(key) || (info.origemCaptacao === 'PORTAL_NACIONAL' && map.get(key).origemCaptacao !== 'PORTAL_NACIONAL')) {
                         map.set(key, info);
                     }
@@ -1160,6 +1297,10 @@ function gerarCsvRelatorio(listaNotas, tipoRelatorio = 'Tomadas') {
     };
 
     for (const n of listaNotas) {
+        // Exclui notas fiscais canceladas da linha de somatório geral do relatório (notas canceladas não geram receita nem impostos)
+        if (n.isCancelada || String(n.situacao || '').toLowerCase().includes('cancel')) {
+            continue;
+        }
         const vServ = Number(n.valorServicos) || 0;
         const vLiq = (n.valorLiquido !== undefined && n.valorLiquido !== null && Number(n.valorLiquido) > 0)
             ? Number(n.valorLiquido)

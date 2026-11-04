@@ -1982,10 +1982,10 @@ ipcMain.handle('nfse:sync-sp', async (event, { company, params }) => {
 });
 
 // 19. Obter Métricas Consolidadas de NFS-e
-ipcMain.handle('nfse:get-metrics', async (event, { cnpj, razaoSocial, ano, mes, tipo }) => {
+ipcMain.handle('nfse:get-metrics', async (event, { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData }) => {
   try {
     const { companyNfseDir } = resolveCompanyNfseDir(cnpj, razaoSocial);
-    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo);
+    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo, dataInicio, dataFim, criterioData);
     const metricas = calcularMetricas(notas);
     return { success: true, metricas, totalNotas: notas.length };
   } catch (err) {
@@ -1994,10 +1994,10 @@ ipcMain.handle('nfse:get-metrics', async (event, { cnpj, razaoSocial, ano, mes, 
 });
 
 // 20. Listar Notas Fiscais de Serviço (NFS-e)
-ipcMain.handle('nfse:list-notas', async (event, { cnpj, razaoSocial, ano, mes, tipo }) => {
+ipcMain.handle('nfse:list-notas', async (event, { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData }) => {
   try {
     const { companyNfseDir } = resolveCompanyNfseDir(cnpj, razaoSocial);
-    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo);
+    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo, dataInicio, dataFim, criterioData);
     const metricas = calcularMetricas(notas);
     return { success: true, notas, metricas };
   } catch (err) {
@@ -2048,10 +2048,10 @@ ipcMain.handle('sefaz:reset-all-models-nsu', async (event, { cnpj, razaoSocial, 
 });
 
 // 23. Exportar Relatório de NFS-e em CSV (Tomados ou Prestados)
-ipcMain.handle('nfse:export-csv', async (event, { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim }) => {
+ipcMain.handle('nfse:export-csv', async (event, { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData }) => {
   try {
     const { companyNfseDir } = resolveCompanyNfseDir(cnpj, razaoSocial);
-    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo, dataInicio, dataFim);
+    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo, dataInicio, dataFim, criterioData);
     if (!notas || notas.length === 0) {
       return { success: false, error: 'Nenhuma nota localizada para o período e tipo selecionados.' };
     }
@@ -2060,7 +2060,8 @@ ipcMain.handle('nfse:export-csv', async (event, { cnpj, razaoSocial, ano, mes, t
     const periodoSlug = (ano && ano !== 'todos')
       ? `${ano}${mes && mes !== 'todos' ? `_${mes}` : ''}`
       : 'geral';
-    const defaultFilename = `relatorio_nfse_${tipoSlug}_${cnpj || 'empresa'}_${periodoSlug}.csv`;
+    const criterioSlug = criterioData === 'emissao' ? '_emissao' : '';
+    const defaultFilename = `relatorio_nfse_${tipoSlug}_${cnpj || 'empresa'}_${periodoSlug}${criterioSlug}.csv`;
 
     const saveResult = await dialog.showSaveDialog(mainWindow, {
       title: `Exportar Relatório NFS-e (${tipoSlug === 'prestados' ? 'Serviços Prestados' : 'Serviços Tomados'}) em CSV`,
@@ -2080,10 +2081,10 @@ ipcMain.handle('nfse:export-csv', async (event, { cnpj, razaoSocial, ano, mes, t
 });
 
 // 24. Baixar Pacote de Notas NFS-e (ZIP)
-ipcMain.handle('nfse:download-zip', async (event, { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim }) => {
+ipcMain.handle('nfse:download-zip', async (event, { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData }) => {
   try {
     const { companyNfseDir } = resolveCompanyNfseDir(cnpj, razaoSocial);
-    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo, dataInicio, dataFim);
+    const notas = scanNotasEmpresa(companyNfseDir, razaoSocial, cnpj, ano, mes, tipo, dataInicio, dataFim, criterioData);
     if (!notas || notas.length === 0) {
       return { success: false, error: 'Nenhuma nota localizada para o período selecionado.' };
     }

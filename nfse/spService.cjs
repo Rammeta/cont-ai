@@ -439,7 +439,21 @@ async function consultarTomadasSP(empresa, pastaOutputRaiz, opcoes = {}) {
           const temRetencao = Boolean(vBrutoSp > 0 && (retTotalReais >= 0.01 || (vLiqExplicit > 0 && (vBrutoSp - vLiqExplicit) >= 0.01)));
 
           // Verifica duplicidade global na pasta da empresa (mesmo número + mesmo prestador + mesmo tomador + mesmo valor)
-          const existingNota = dedupKey ? existingIndex.get(dedupKey) : null;
+          const compMes = `${ano}-${mes}`;
+          const dedupKey = gerarChaveDedupNfse(numeroNFe, prestCnpj, tomaCnpj, vBrutoSp);
+          let existingNota = null;
+          if (compMes && dedupKey) {
+            existingNota = existingIndex.get(`COMP:${compMes}|${dedupKey}`);
+          }
+          if (!existingNota && dedupKey) {
+            const cand = existingIndex.get(dedupKey);
+            if (cand) {
+              const candComp = cand.competencia || '';
+              if (!candComp || candComp === compMes) {
+                existingNota = cand;
+              }
+            }
+          }
 
           if (existingNota && fs.existsSync(existingNota.caminhoXml)) {
             // Se a nota já foi captada pelo Portal Nacional (onde as informações vêm melhor discriminadas), mantém a versão do Portal Nacional
@@ -502,12 +516,15 @@ async function consultarTomadasSP(empresa, pastaOutputRaiz, opcoes = {}) {
           if (fs.existsSync(xmlPath) && fs.existsSync(pdfPath)) {
             jaExistentes++;
             if (dedupKey) {
-              existingIndex.set(dedupKey, {
+              const spInfo = {
                 caminhoXml: xmlPath,
                 caminhoPdf: pdfPath,
                 origemCaptacao: 'PORTAL_SP',
-                isCancelada
-              });
+                isCancelada,
+                competencia: compMes
+              };
+              existingIndex.set(dedupKey, spInfo);
+              if (compMes) existingIndex.set(`COMP:${compMes}|${dedupKey}`, spInfo);
             }
             continue;
           }
@@ -523,12 +540,15 @@ async function consultarTomadasSP(empresa, pastaOutputRaiz, opcoes = {}) {
 
           // Atualiza índice de existentes
           if (dedupKey) {
-            existingIndex.set(dedupKey, {
+            const spInfo = {
               caminhoXml: xmlPath,
               caminhoPdf: pdfPath,
               origemCaptacao: 'PORTAL_SP',
-              isCancelada
-            });
+              isCancelada,
+              competencia: compMes
+            };
+            existingIndex.set(dedupKey, spInfo);
+            if (compMes) existingIndex.set(`COMP:${compMes}|${dedupKey}`, spInfo);
           }
 
           // Respiro para o loop de eventos a cada 5 notas processadas

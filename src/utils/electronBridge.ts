@@ -720,11 +720,14 @@ export const getNfseMetrics = async (
   razaoSocial?: string,
   ano?: string,
   mes?: string,
-  tipo?: string
+  tipo?: string,
+  dataInicio?: string,
+  dataFim?: string,
+  criterioData?: "competencia" | "emissao"
 ): Promise<{ success: boolean; metricas?: NfseMetricas; totalNotas?: number; error?: string }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
-  return await ipc.invoke("nfse:get-metrics", { cnpj, razaoSocial, ano, mes, tipo });
+  return await ipc.invoke("nfse:get-metrics", { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData });
 };
 
 export const listNfseNotas = async (
@@ -732,11 +735,14 @@ export const listNfseNotas = async (
   razaoSocial?: string,
   ano?: string,
   mes?: string,
-  tipo?: string
+  tipo?: string,
+  dataInicio?: string,
+  dataFim?: string,
+  criterioData?: "competencia" | "emissao"
 ): Promise<{ success: boolean; notas: ParsedNfse[]; error?: string }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, notas: [], error: "Ambiente não é Electron." };
-  return await ipc.invoke("nfse:list-notas", { cnpj, razaoSocial, ano, mes, tipo });
+  return await ipc.invoke("nfse:list-notas", { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData });
 };
 
 export const getNfseState = async (
@@ -765,11 +771,12 @@ export const exportNfseCsv = async (
   mes?: string,
   tipo?: string,
   dataInicio?: string,
-  dataFim?: string
+  dataFim?: string,
+  criterioData?: "competencia" | "emissao"
 ): Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
-  return await ipc.invoke("nfse:export-csv", { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim });
+  return await ipc.invoke("nfse:export-csv", { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData });
 };
 
 export const downloadNfseZip = async (
@@ -779,11 +786,12 @@ export const downloadNfseZip = async (
   mes?: string,
   tipo?: string,
   dataInicio?: string,
-  dataFim?: string
+  dataFim?: string,
+  criterioData?: "competencia" | "emissao"
 ): Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }> => {
   const ipc = getIpc();
   if (!ipc) return { success: false, error: "Ambiente não é Electron." };
-  return await ipc.invoke("nfse:download-zip", { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim });
+  return await ipc.invoke("nfse:download-zip", { cnpj, razaoSocial, ano, mes, tipo, dataInicio, dataFim, criterioData });
 };
 
 export const openNfsePdf = async (

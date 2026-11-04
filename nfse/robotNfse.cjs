@@ -692,9 +692,42 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
           }
         }
 
-        // Verifica duplicidade: mesmo número + mesmo CNPJ prestador + mesmo CNPJ tomador + mesmo valor
+        // Verifica duplicidade com proteção absoluta contra falsos positivos:
+        // 1. Chave oficial nacional de 50 dígitos (identificador global único e infalível)
+        const chaveIncoming = (doc.ChaveAcesso || meta.chaveNotaNacional || '').replace(/\D/g, '');
+        const compMes = (meta.competenciaMes || meta.dataEmissaoISO || '').slice(0, 7);
+        let existingNota = null;
+
+        if (chaveIncoming && chaveIncoming.length >= 44) {
+          existingNota = existingIndex.get('CHAVE:' + chaveIncoming);
+        }
+
         const dedupKey = gerarChaveDedupNfse(meta.numero, cleanPrest, cleanToma || cleanCnpj, meta.valorServicos);
-        const existingNota = dedupKey ? existingIndex.get(dedupKey) : null;
+
+        if (!existingNota) {
+          // 2. Busca pela competência específica (mês/ano + número + prestador + tomador + valor)
+          if (compMes && dedupKey) {
+            existingNota = existingIndex.get(`COMP:${compMes}|${dedupKey}`);
+          }
+
+          // 3. Fallback pela chave composta geral: só aceita duplicata se NÃO forem de meses diferentes
+          // nem possuírem chaves oficiais de 50 dígitos diferentes
+          if (!existingNota && dedupKey) {
+            const cand = existingIndex.get(dedupKey);
+            if (cand) {
+              const candChave = (cand.chaveNotaNacional || cand.chave || '').replace(/\D/g, '');
+              const bothHave50 = candChave.length === 50 && chaveIncoming.length === 50;
+              const diffChaves = bothHave50 && candChave !== chaveIncoming;
+
+              const candComp = cand.competencia || '';
+              const diffComp = candComp && compMes && candComp !== compMes;
+
+              if (!diffChaves && !diffComp) {
+                existingNota = cand;
+              }
+            }
+          }
+        }
 
         if (existingNota && fs.existsSync(existingNota.caminhoXml)) {
           // O Portal Nacional TEM PRIORIDADE sobre o Portal SP por ter informações fiscais mais detalhadas
@@ -720,13 +753,22 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
         fs.writeFileSync(caminhoXmlSalvo, xmlContent, 'utf-8');
         salvosNoLote++;
 
+        const infoNovo = {
+          caminhoXml: caminhoXmlSalvo,
+          caminhoPdf: caminhoPdfSalvo,
+          origemCaptacao: 'PORTAL_NACIONAL',
+          isCancelada: meta.isCancelada,
+          chaveNotaNacional: chaveIncoming,
+          competencia: compMes
+        };
+        if (chaveIncoming && chaveIncoming.length >= 44) {
+          existingIndex.set('CHAVE:' + chaveIncoming, infoNovo);
+        }
+        if (compMes && dedupKey) {
+          existingIndex.set(`COMP:${compMes}|${dedupKey}`, infoNovo);
+        }
         if (dedupKey) {
-          existingIndex.set(dedupKey, {
-            caminhoXml: caminhoXmlSalvo,
-            caminhoPdf: caminhoPdfSalvo,
-            origemCaptacao: 'PORTAL_NACIONAL',
-            isCancelada: meta.isCancelada
-          });
+          existingIndex.set(dedupKey, infoNovo);
         }
 
         const chaveLimpa = (doc.ChaveAcesso || '').replace(/\D/g, '');

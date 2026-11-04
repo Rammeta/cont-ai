@@ -76,6 +76,7 @@ export default function NfseCaptacaoView({
   refreshKey,
 }: NfseCaptacaoViewProps) {
   // Filtros Padrão
+  const [criterioData, setCriterioData] = useState<"competencia" | "emissao">("competencia");
   const [selectedCompetencia, setSelectedCompetencia] = useState<string>("all");
   const [dataInicioFilter, setDataInicioFilter] = useState<string>("" );
   const [dataFimFilter, setDataFimFilter] = useState<string>("");
@@ -415,7 +416,8 @@ export default function NfseCaptacaoView({
       selectedMes,
       tipoEscolhido,
       dataInicioFilter || undefined,
-      dataFimFilter || undefined
+      dataFimFilter || undefined,
+      criterioData
     );
     if (res.success) {
       onNotify(
@@ -437,7 +439,8 @@ export default function NfseCaptacaoView({
       selectedMes,
       selectedTipo,
       dataInicioFilter || undefined,
-      dataFimFilter || undefined
+      dataFimFilter || undefined,
+      criterioData
     );
     if (res.success) {
       onNotify("Pacote ZIP com XMLs e PDFs gerado com sucesso!", "success");
@@ -550,11 +553,37 @@ export default function NfseCaptacaoView({
     return { compAno: "", compMes: "", key: "", label: "" };
   };
 
-  // Competências disponíveis (MM/YYYY)
+  // Helper robusto para extração de Data de Emissão da NFS-e
+  const parseNfseEmissao = (n: ParsedNfse): { emiAno: string; emiMes: string; emiDia: string; emiIso: string; key: string; label: string } => {
+    if (n.dataGeracao) {
+      const raw = String(n.dataGeracao).trim();
+      const mBr = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (mBr) {
+        const dia = mBr[1].padStart(2, "0");
+        const mes = mBr[2].padStart(2, "0");
+        const ano = mBr[3];
+        return { emiAno: ano, emiMes: mes, emiDia: dia, emiIso: `${ano}-${mes}-${dia}`, key: `${ano}-${mes}`, label: `${mes}/${ano}` };
+      }
+      const mIso = raw.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
+      if (mIso) {
+        const ano = mIso[1];
+        const mes = mIso[2];
+        const dia = mIso[3];
+        return { emiAno: ano, emiMes: mes, emiDia: dia, emiIso: `${ano}-${mes}-${dia}`, key: `${ano}-${mes}`, label: `${mes}/${ano}` };
+      }
+    }
+    const comp = parseNfseCompetencia(n);
+    if (comp.compAno && comp.compMes) {
+      return { emiAno: comp.compAno, emiMes: comp.compMes, emiDia: "01", emiIso: `${comp.compAno}-${comp.compMes}-01`, key: comp.key, label: comp.label };
+    }
+    return { emiAno: "", emiMes: "", emiDia: "", emiIso: "", key: "", label: "" };
+  };
+
+  // Períodos disponíveis (MM/YYYY) conforme critério (Competência ou Emissão)
   const availableCompetencias = useMemo(() => {
     const map = new Map<string, string>();
     notas.forEach((n) => {
-      const info = parseNfseCompetencia(n);
+      const info = criterioData === "emissao" ? parseNfseEmissao(n) : parseNfseCompetencia(n);
       if (info.key && info.label) {
         map.set(info.key, info.label);
       }
@@ -562,9 +591,13 @@ export default function NfseCaptacaoView({
     return Array.from(map.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map((entry) => entry[1]);
-  }, [notas]);
+  }, [notas, criterioData]);
 
   const getNotaIsoDate = (n: ParsedNfse): string => {
+    if (criterioData === "emissao") {
+      const emi = parseNfseEmissao(n);
+      return emi.emiIso || "";
+    }
     const info = parseNfseCompetencia(n);
     if (info.compAno && info.compMes) {
       return `${info.compAno}-${info.compMes}-01`;
@@ -575,8 +608,19 @@ export default function NfseCaptacaoView({
   const matchesPeriodo = (n: ParsedNfse, ano: string, mes: string) => {
     if (ano === "todos" && mes === "todos") return true;
     const mesPad = mes !== "todos" ? mes.padStart(2, "0") : null;
-    const info = parseNfseCompetencia(n);
 
+    if (criterioData === "emissao") {
+      const emi = parseNfseEmissao(n);
+      if (ano !== "todos") {
+        if (!emi.emiAno || emi.emiAno !== String(ano)) return false;
+      }
+      if (mesPad) {
+        if (!emi.emiMes || emi.emiMes !== mesPad) return false;
+      }
+      return true;
+    }
+
+    const info = parseNfseCompetencia(n);
     if (ano !== "todos") {
       if (!info.compAno || info.compAno !== String(ano)) return false;
     }
@@ -593,13 +637,44 @@ export default function NfseCaptacaoView({
       if (dataInicioFilter || dataFimFilter) {
         const isoDate = getNotaIsoDate(n);
         if (isoDate) {
-          if (dataInicioFilter && isoDate < dataInicioFilter) return false;
-          if (dataFimFilter && isoDate > dataFimFilter) return false;
+          if (criterioData === "emissao") {
+            if (dataInicioFilter && isoDate < dataInicioFilter) return false;
+            if (dataFimFilter && isoDate > dataFimFilter) return false;
+          } else {
+            if (dataInicioFilter && isoDate < dataInicioFilter.slice(0, 7) + "-01") return false;
+            if (dataFimFilter && isoDate > dataFimFilter.slice(0, 7) + "-31") return false;
+          }
         }
       }
       return true;
     });
-  }, [notas, selectedAno, selectedMes, dataInicioFilter, dataFimFilter]);
+  }, [notas, selectedAno, selectedMes, dataInicioFilter, dataFimFilter, criterioData]);
+
+  // Helpers de classificação e status da NFS-e
+  const isNotaCancelada = (n: ParsedNfse): boolean => {
+    return Boolean(
+      n.isCancelada ||
+      (n.situacao || "").toLowerCase().includes("cancel") ||
+      (n.situacaoNFSe || "").toLowerCase().includes("cancel") ||
+      (n.nomeArquivoXml || "").toLowerCase().includes("cancelad") ||
+      Boolean(n.caminhoEventoXml)
+    );
+  };
+
+  const isNotaPrestada = (n: ParsedNfse): boolean => {
+    return (n.tipo || "").toLowerCase().includes("prest") || (n.tipo || "").toLowerCase().includes("emit");
+  };
+
+  const isNotaComRetencao = (n: ParsedNfse): boolean => {
+    const v = Number(n.valorServicos) || 0;
+    const valorLiquido = (n.valorLiquido !== undefined && n.valorLiquido !== null && Number(n.valorLiquido) > 0)
+      ? Number(n.valorLiquido)
+      : v;
+    const descIncond = Number(n.descIncond) || 0;
+    const descCond = Number(n.descCond) || 0;
+    const totalDesconto = descIncond + descCond;
+    return Boolean(v > 0 && valorLiquido > 0 && (v - valorLiquido - totalDesconto) >= 0.01);
+  };
 
   const metrics = useMemo(() => {
     const totalNotas = notasPeriodo.length;
@@ -612,8 +687,10 @@ export default function NfseCaptacaoView({
     let totalRetencoes = 0;
 
     notasPeriodo.forEach((n) => {
-      const isPrestada = (n.tipo || "").toLowerCase().includes("prest") || (n.tipo || "").toLowerCase().includes("emit");
-      const isCancelada = n.isCancelada || (n.situacao || "").toLowerCase().includes("cancelada");
+      const isPrestada = isNotaPrestada(n);
+      const isCancelada = isNotaCancelada(n);
+      const temRet = isNotaComRetencao(n);
+
       const v = Number(n.valorServicos) || 0;
       const valorLiquido = (n.valorLiquido !== undefined && n.valorLiquido !== null && Number(n.valorLiquido) > 0)
         ? Number(n.valorLiquido)
@@ -621,22 +698,30 @@ export default function NfseCaptacaoView({
       const descIncond = Number(n.descIncond) || 0;
       const descCond = Number(n.descCond) || 0;
       const totalDesconto = descIncond + descCond;
-      const temRet = Boolean(v > 0 && valorLiquido > 0 && (v - valorLiquido - totalDesconto) >= 0.01);
       const ret = temRet ? Math.max(0, v - valorLiquido - totalDesconto) : 0;
-      totalRetencoes += ret;
-      if (temRet) comRetencaoCount++;
 
-      if (isCancelada) {
-        canceladasCount++;
-        return;
-      }
-
+      // Classificação operacional (Prestada vs Tomada) conta todas as notas do período
       if (isPrestada) {
         prestadasCount++;
-        totalPrestadas += v;
       } else {
         tomadasCount++;
-        totalTomadas += v;
+      }
+
+      // Status especial
+      if (isCancelada) {
+        canceladasCount++;
+      } else {
+        // Valores e retenções apenas de notas ativas (notas canceladas não somam financeiramente)
+        if (isPrestada) {
+          totalPrestadas += v;
+        } else {
+          totalTomadas += v;
+        }
+
+        if (temRet) {
+          comRetencaoCount++;
+          totalRetencoes += ret;
+        }
       }
     });
 
@@ -657,22 +742,15 @@ export default function NfseCaptacaoView({
 
   const filteredNotas = useMemo(() => {
     return notasPeriodo.filter((n) => {
-      const isPrestada = (n.tipo || "").toLowerCase().includes("prest") || (n.tipo || "").toLowerCase().includes("emit");
-      const isCancelada = n.isCancelada || (n.situacao || "").toLowerCase().includes("cancelada");
-      const v = Number(n.valorServicos) || 0;
-      const valorLiquido = (n.valorLiquido !== undefined && n.valorLiquido !== null && Number(n.valorLiquido) > 0)
-        ? Number(n.valorLiquido)
-        : v;
-      const descIncond = Number(n.descIncond) || 0;
-      const descCond = Number(n.descCond) || 0;
-      const totalDesconto = descIncond + descCond;
-      const temRet = Boolean(v > 0 && valorLiquido > 0 && (v - valorLiquido - totalDesconto) >= 0.01);
+      const isPrestada = isNotaPrestada(n);
+      const isCancelada = isNotaCancelada(n);
+      const temRet = isNotaComRetencao(n);
+
+      if (statusFilter === "Canceladas" && !isCancelada) return false;
+      if (statusFilter === "Retencoes" && (!temRet || isCancelada)) return false;
 
       if (selectedTipo === "Tomadas" && isPrestada) return false;
       if (selectedTipo === "Prestadas" && !isPrestada) return false;
-
-      if (statusFilter === "Canceladas" && !isCancelada) return false;
-      if (statusFilter === "Retencoes" && !temRet) return false;
 
       if (!debouncedSearchTerm.trim()) return true;
       const term = debouncedSearchTerm.trim().toLowerCase();
@@ -716,21 +794,13 @@ export default function NfseCaptacaoView({
 
   const totalTomadasFiltrado = useMemo(() => {
     return filteredNotas
-      .filter((n) => {
-        const isCancelada = n.isCancelada || (n.situacao || "").toLowerCase().includes("cancelada");
-        const isPrestada = (n.tipo || "").toLowerCase().includes("prest") || (n.tipo || "").toLowerCase().includes("emit");
-        return !isCancelada && !isPrestada;
-      })
+      .filter((n) => !isNotaCancelada(n) && !isNotaPrestada(n))
       .reduce((sum, n) => sum + (Number(n.valorServicos) || 0), 0);
   }, [filteredNotas]);
 
   const totalPrestadasFiltrado = useMemo(() => {
     return filteredNotas
-      .filter((n) => {
-        const isCancelada = n.isCancelada || (n.situacao || "").toLowerCase().includes("cancelada");
-        const isPrestada = (n.tipo || "").toLowerCase().includes("prest") || (n.tipo || "").toLowerCase().includes("emit");
-        return !isCancelada && isPrestada;
-      })
+      .filter((n) => !isNotaCancelada(n) && isNotaPrestada(n))
       .reduce((sum, n) => sum + (Number(n.valorServicos) || 0), 0);
   }, [filteredNotas]);
 
@@ -1190,11 +1260,23 @@ export default function NfseCaptacaoView({
             {/* Controles de Filtros */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-[#444444]">Competência:</span>
+                <select
+                  value={criterioData}
+                  onChange={(e) => {
+                    setCriterioData(e.target.value as "competencia" | "emissao");
+                    setSelectedCompetencia("all");
+                  }}
+                  className="vb-input font-bold text-[#003366] bg-[#f0f4f8] border-[#a0b8d0] cursor-pointer"
+                  title="Critério de Data: Competência Contábil ou Data de Emissão"
+                >
+                  <option value="competencia">Competência:</option>
+                  <option value="emissao">Data Emissão:</option>
+                </select>
                 <select
                   value={selectedCompetencia}
                   onChange={(e) => setSelectedCompetencia(e.target.value)}
-                  className="vb-input font-bold text-[#003366] bg-white cursor-pointer w-36"
+                  className="vb-input font-bold text-[#003366] bg-white cursor-pointer w-32"
+                  title={criterioData === "emissao" ? "Filtrar por mês de emissão" : "Filtrar por mês de competência"}
                 >
                   <option value="all">Todas</option>
                   {availableCompetencias.map((comp) => (
@@ -1212,6 +1294,7 @@ export default function NfseCaptacaoView({
                   value={dataInicioFilter}
                   onChange={(e) => setDataInicioFilter(e.target.value)}
                   className="vb-input w-28"
+                  title={criterioData === "emissao" ? "Filtrar a partir do dia de emissão" : "Filtrar a partir do mês de competência"}
                 />
                 <span className="font-semibold text-[#444444]">Até:</span>
                 <input
@@ -1219,10 +1302,24 @@ export default function NfseCaptacaoView({
                   value={dataFimFilter}
                   onChange={(e) => setDataFimFilter(e.target.value)}
                   className="vb-input w-28"
+                  title={criterioData === "emissao" ? "Filtrar até o dia de emissão" : "Filtrar até o mês de competência"}
                 />
+                {(dataInicioFilter || dataFimFilter) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDataInicioFilter("");
+                      setDataFimFilter("");
+                    }}
+                    className="vb-button px-1.5 py-0.5 text-[10px] text-red-600 hover:bg-red-50 font-bold"
+                    title="Limpar intervalo de datas"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
-              {/* Botões de Seleção de Operação (Tomadas vs Prestadas) */}
+              {/* Botões de Seleção de Operação (Tomadas vs Prestadas vs Canceladas vs Retenções) */}
               <div className="inline-flex items-center border border-[#b0b0b0] bg-white">
                 <button
                   type="button"
@@ -1240,10 +1337,11 @@ export default function NfseCaptacaoView({
                   type="button"
                   onClick={() => {
                     setSelectedTipo("Tomadas");
+                    setStatusFilter("todas");
                     setReportTipo("Tomadas");
                   }}
                   className={`px-2 py-0.5 text-[10px] font-semibold border-r border-[#d0d0d0] cursor-pointer ${
-                    selectedTipo === "Tomadas" ? "bg-[#005a9e] text-white" : "hover:bg-[#f0f0f0] text-sky-800"
+                    selectedTipo === "Tomadas" && statusFilter === "todas" ? "bg-[#005a9e] text-white" : "hover:bg-[#f0f0f0] text-sky-800"
                   }`}
                 >
                   Tomadas ({metrics.tomadasCount})
@@ -1252,10 +1350,11 @@ export default function NfseCaptacaoView({
                   type="button"
                   onClick={() => {
                     setSelectedTipo("Prestadas");
+                    setStatusFilter("todas");
                     setReportTipo("Prestadas");
                   }}
                   className={`px-2 py-0.5 text-[10px] font-semibold border-r border-[#d0d0d0] cursor-pointer ${
-                    selectedTipo === "Prestadas" ? "bg-[#005a9e] text-white" : "hover:bg-[#f0f0f0] text-emerald-800"
+                    selectedTipo === "Prestadas" && statusFilter === "todas" ? "bg-[#005a9e] text-white" : "hover:bg-[#f0f0f0] text-emerald-800"
                   }`}
                 >
                   Prestadas ({metrics.prestadasCount})
@@ -1263,7 +1362,14 @@ export default function NfseCaptacaoView({
                 {metrics.canceladasCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => setStatusFilter((p) => (p === "Canceladas" ? "todas" : "Canceladas"))}
+                    onClick={() => {
+                      if (statusFilter === "Canceladas") {
+                        setStatusFilter("todas");
+                      } else {
+                        setSelectedTipo("todos");
+                        setStatusFilter("Canceladas");
+                      }
+                    }}
                     className={`px-2 py-0.5 text-[10px] font-semibold border-r border-[#d0d0d0] cursor-pointer ${
                       statusFilter === "Canceladas" ? "bg-rose-700 text-white" : "hover:bg-[#f0f0f0] text-rose-700"
                     }`}
@@ -1274,7 +1380,14 @@ export default function NfseCaptacaoView({
                 {metrics.comRetencaoCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => setStatusFilter((p) => (p === "Retencoes" ? "todas" : "Retencoes"))}
+                    onClick={() => {
+                      if (statusFilter === "Retencoes") {
+                        setStatusFilter("todas");
+                      } else {
+                        setSelectedTipo("todos");
+                        setStatusFilter("Retencoes");
+                      }
+                    }}
                     className={`px-2 py-0.5 text-[10px] font-semibold cursor-pointer ${
                       statusFilter === "Retencoes" ? "bg-amber-700 text-white" : "hover:bg-[#f0f0f0] text-amber-900"
                     }`}
