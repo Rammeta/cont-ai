@@ -1123,10 +1123,23 @@ export default function GuiaAcompanhamentoView({
           box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
         }
         .vb-btn-primary {
-          background: linear-gradient(180deg, #f0f6ff 0%, #d6e6ff 50%, #bad5ff 100%);
-          border: 1px solid #336699;
+          background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+          border: 1px solid #002e50;
           font-weight: 600;
-          color: #002244;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .vb-btn-primary:hover {
+          background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
+          border-color: #001f38;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(0,90,158,0.25);
+        }
+        .vb-btn-primary:active {
+          background: #003862 !important;
+          border-color: #00182b !important;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+          transform: translateY(1px) scale(0.98);
         }
         .vb-input {
           background-color: #ffffff;
@@ -1215,7 +1228,7 @@ export default function GuiaAcompanhamentoView({
             className="vb-btn vb-btn-primary"
             title="Sincronizar todos os 4 modelos fiscais (NF-e 55, NFC-e 65, CT-e 57 e NFS-e) desta empresa"
           >
-            <RefreshCw size={13} className="text-[#003366]" />
+            <RefreshCw size={13} className="text-white" />
             <span>Sincronizar Tudo (Empresa)</span>
           </button>
 
@@ -1631,7 +1644,7 @@ export default function GuiaAcompanhamentoView({
               <button
                 type="button"
                 onClick={() => setExtraFilter((prev) => (prev === "canceladas" ? "todos" : "canceladas"))}
-                className={`vb-btn ${extraFilter === "canceladas" ? "vb-btn-primary text-[#a80000]" : ""}`}
+                className={`vb-btn ${extraFilter === "canceladas" ? "bg-rose-700 text-white font-bold border-rose-800" : "text-rose-700"}`}
               >
                 ⚠️ Canceladas ({resumo.totalCanceladas})
               </button>

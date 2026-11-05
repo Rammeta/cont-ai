@@ -175,15 +175,49 @@ export function deduplicarNotasNfse(lista: NfseNotaEmitida[]): NfseNotaEmitida[]
     if (kCh && byChave.has(kCh)) {
       idx = byChave.get(kCh)!;
     } else if (kDps && byDps.has(kDps)) {
-      idx = byDps.get(kDps)!;
+      const candIdx = byDps.get(kDps)!;
+      const cand = result[candIdx];
+      const candCh = (cand.chaveAcesso || "").replace(/\D/g, "");
+      const candHas50 = candCh.length === 50;
+      const notaHas50 = ch.length === 50;
+      const candComp = String(cand.competencia || "").trim();
+      const notaComp = String(n.competencia || "").trim();
+      if (!(candHas50 && notaHas50 && candCh !== ch) && (!candComp || !notaComp || candComp === notaComp)) {
+        idx = candIdx;
+      }
     } else if (nf > 0 && byNf.has(nf)) {
       const candidates = byNf.get(nf)!;
       for (let i = 0; i < candidates.length; i++) {
         const cIdx = candidates[i];
         const cand = result[cIdx];
+        const candCh = (cand.chaveAcesso || "").replace(/\D/g, "");
+        const candHas50 = candCh.length === 50;
+        const notaHas50 = ch.length === 50;
+
+        // Se ambas possuem chave oficial de 50 dígitos e são chaves diferentes, NUNCA mescla
+        if (candHas50 && notaHas50 && candCh !== ch) {
+          continue;
+        }
+
+        // Se competências são diferentes, NUNCA mescla
+        const candComp = String(cand.competencia || "").trim();
+        const notaComp = String(n.competencia || "").trim();
+        if (candComp && notaComp && candComp !== notaComp) {
+          continue;
+        }
+
+        // Se série DPS é diferente, NUNCA mescla
+        const candS = (cand.serieDps || "1").trim();
+        if (candS && s && candS !== s) {
+          continue;
+        }
+
         const vCand = Number(cand.valorServicos || 0);
         const docCand = (cand.tomadorDoc || "").replace(/\D/g, "");
-        if (Math.abs(vCand - vServ) < 0.05 || (doc && docCand && doc === docCand)) {
+        const candIsProvisional = !candHas50 || /^\d{4}00\d+$/.test(String(cand.numeroNfse || ""));
+        const notaIsProvisional = !notaHas50 || /^\d{4}00\d+$/.test(String(n.numeroNfse || ""));
+
+        if (Math.abs(vCand - vServ) < 0.05 || (doc && docCand && doc === docCand) || candIsProvisional || notaIsProvisional) {
           idx = cIdx;
           break;
         }
@@ -198,6 +232,12 @@ export function deduplicarNotasNfse(lista: NfseNotaEmitida[]): NfseNotaEmitida[]
         const notaHas50 = ch.length === 50;
 
         if (candHas50 && notaHas50 && candCh !== ch) {
+          continue;
+        }
+
+        const candComp = String(cand.competencia || "").trim();
+        const notaComp = String(n.competencia || "").trim();
+        if (candComp && notaComp && candComp !== notaComp) {
           continue;
         }
 
@@ -799,7 +839,13 @@ export default function NfseEmissorView({
             dataEmissao: n.dataGeracao || "",
             competencia: n.competencia || "",
             tomadorDoc: n.tomadorCnpj || "",
-            tomadorNome: n.tomadorNome || "",
+            tomadorNome: n.tomadorNome || (() => {
+              if (n.nomeArquivoXml) {
+                const m = n.nomeArquivoXml.replace(/\.xml$/i, "").match(/^NF\s*\d+\s*-\s*(.+?)(?:\s*-\s*(?:COM RETEN[CÇ][AÃ]O|RETEN[CÇ][AÃ]O|CANCELAD[AO]))?$/i);
+                if (m && m[1]) return m[1].trim();
+              }
+              return "NÃO INFORMADO";
+            })(),
             discriminacao: n.descricaoServico || "PRESTAÇÃO DE SERVIÇOS",
             cTribNac: n.codTribNac || "170101",
             cNBS: n.itemNBS || undefined,
@@ -813,7 +859,7 @@ export default function NfseEmissorView({
             issRetido: Boolean(n.temRetencao),
             totalRetencoes: Math.max(0, Number(n.valorServicos || 0) - Number(n.valorLiquido || n.valorServicos || 0)),
             valorLiquido: Number(n.valorLiquido || n.valorServicos || 0),
-            status: n.isCancelada ? ("Cancelada" as const) : ("Autorizada" as const),
+            status: (n.isCancelada || String(n.situacao || "").toLowerCase().includes("cancel") || Boolean(n.caminhoEventoXml)) ? ("Cancelada" as const) : ("Autorizada" as const),
             caminhoXml: n.caminhoXml,
             caminhoPdf: n.caminhoPdf || undefined,
           };
@@ -1416,14 +1462,23 @@ export default function NfseEmissorView({
           box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
         }
         .vb-btn-primary {
-          background: linear-gradient(180deg, #f0f6ff 0%, #d6e6ff 50%, #bad5ff 100%);
-          border: 1px solid #336699;
+          background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+          border: 1px solid #002e50;
           font-weight: 600;
-          color: #002244;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.2);
         }
         .vb-btn-primary:hover {
-          background: linear-gradient(180deg, #e1effe 0%, #c3ddfd 50%, #a4cafe 100%);
-          border-color: #003366;
+          background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
+          border-color: #001f38;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(0,90,158,0.25);
+        }
+        .vb-btn-primary:active {
+          background: #003862 !important;
+          border-color: #00182b !important;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+          transform: translateY(1px) scale(0.98);
         }
         .vb-btn-success {
           background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 50%, #bbf7d0 100%);
@@ -2123,7 +2178,7 @@ export default function NfseEmissorView({
                         <button
                           type="button"
                           onClick={() => setIsAtividadesModalOpen(true)}
-                          className="vb-btn vb-btn-primary font-bold text-[#002244] border-[#005a9e] text-[10px]"
+                          className="vb-btn vb-btn-primary font-bold text-[10px]"
                           title="Consultar Tabela Oficial de Correlação: Atividades x NBS x LC 116 x IBS / CBS"
                         >
                           <Sparkles size={11} className="text-amber-500" />
@@ -2708,7 +2763,7 @@ export default function NfseEmissorView({
                       className="vb-btn vb-btn-primary"
                       title="Abrir DANFSe oficial da NFS-e em PDF no leitor padrão do Windows (Pressione Enter)"
                     >
-                      <FileText size={11} className="text-rose-700" />
+                      <FileText size={11} className="text-white" />
                       <span>➔ Abrir DANFSe (Enter)</span>
                     </button>
                     <button
@@ -2899,7 +2954,7 @@ export default function NfseEmissorView({
                                   </td>
                                   <td className="px-2.5 py-1.5">{n.dataEmissao}</td>
                                   <td className="px-2.5 py-1.5">
-                                    <div className="font-bold text-[#222222] truncate max-w-xs">{n.tomadorNome}</div>
+                                    <div className="font-bold text-[#222222] truncate max-w-xs">{n.tomadorNome || "NÃO INFORMADO"}</div>
                                     <div className="font-mono text-[10px] text-[#666666]">{n.tomadorDoc}</div>
                                   </td>
                                   <td className="px-2.5 py-1.5 font-mono text-right font-bold text-[#222222]">

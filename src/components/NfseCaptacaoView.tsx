@@ -126,6 +126,7 @@ export default function NfseCaptacaoView({
   const [spMes, setSpMes] = useState((new Date().getMonth() + 1).toString().padStart(2, "0"));
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [customResetNsu, setCustomResetNsu] = useState("0");
+  const [resetSyncNow, setResetSyncNow] = useState<boolean>(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Agendador Diário de NFS-e (Horário Específico)
@@ -388,7 +389,11 @@ export default function NfseCaptacaoView({
       setUltimoNsu(target);
       setIsResetModalOpen(false);
       onNotify(`Ponteiro de NSU da NFS-e redefinido para ${target}.`, "success");
-      await loadCompanyData();
+      if (resetSyncNow) {
+        await handleSyncNacional();
+      } else {
+        await loadCompanyData();
+      }
     } else {
       onNotify(`Erro ao redefinir NSU: ${res.error}`, "error");
     }
@@ -757,7 +762,13 @@ export default function NfseCaptacaoView({
       const numQuery = term.replace(/^(n[º°o]?|nf(?:s?-?e)?|rps|#)\s*/i, "").trim();
       const isShortNumeric = /^\d{1,10}$/.test(numQuery);
 
-      const parceiroNome = isPrestada ? (n.tomadorNome || "") : (n.prestadorNome || "");
+      const rawParceiro = isPrestada ? (n.tomadorNome || "") : (n.prestadorNome || "");
+      let fallbackName = "";
+      if (!rawParceiro && n.nomeArquivoXml) {
+        const m = n.nomeArquivoXml.replace(/\.xml$/i, "").match(/^NF\s*\d+\s*-\s*(.+?)(?:\s*-\s*(?:COM RETEN[CÇ][AÃ]O|RETEN[CÇ][AÃ]O|CANCELAD[AO]))?$/i);
+        if (m && m[1]) fallbackName = m[1].trim();
+      }
+      const parceiroNome = rawParceiro || fallbackName;
       const parceiroCnpj = isPrestada ? (n.tomadorCnpj || "") : (n.prestadorCnpj || "");
       const cnpjDigits = parceiroCnpj.replace(/\D/g, "");
 
@@ -960,10 +971,23 @@ export default function NfseCaptacaoView({
           border-color: #a8a8a8;
         }
         .vb-btn-primary {
-          background: linear-gradient(180deg, #f0f6ff 0%, #d6e6ff 50%, #bad5ff 100%);
-          border: 1px solid #336699;
+          background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+          border: 1px solid #002e50;
           font-weight: 600;
-          color: #002244;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .vb-btn-primary:hover {
+          background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
+          border-color: #001f38;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(0,90,158,0.25);
+        }
+        .vb-btn-primary:active {
+          background: #003862 !important;
+          border-color: #00182b !important;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+          transform: translateY(1px) scale(0.98);
         }
         .vb-btn-danger {
           background: linear-gradient(180deg, #fff2f2 0%, #fbd5d5 50%, #f6b5b5 100%);
@@ -1043,7 +1067,7 @@ export default function NfseCaptacaoView({
             className="vb-btn vb-btn-primary"
             title="Capturar notas fiscais de serviço no Portal Nacional ADN e Prefeitura de SP (Atalho: F5)"
           >
-            <RefreshCw size={13} className={syncingNacional ? "animate-spin text-[#003366]" : "text-[#003366]"} />
+            <RefreshCw size={13} className={syncingNacional ? "animate-spin text-white" : "text-white"} />
             <span>{syncingNacional ? "Consultando Portais..." : "Capturar NFS-e (F5)"}</span>
           </button>
 
@@ -1456,6 +1480,11 @@ export default function NfseCaptacaoView({
               <FileText size={13} className="text-[#003366]" />
               <span>
                 Dados da Nota de Serviço Selecionada na Grid (NFS-e nº {selectedNota.numeroNFe || "S/N"} • Série {selectedNota.dpsSerie || "1"})
+                {isNotaCancelada(selectedNota) && (
+                  <span className="bg-rose-700 text-white px-1.5 py-0.5 rounded text-[10px] font-bold ml-1.5 inline-flex items-center gap-1">
+                    CANCELADA {selectedNota.dataEvento ? `(${selectedNota.dataEvento})` : ""}
+                  </span>
+                )}
               </span>
             </legend>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-[11px] items-center">
@@ -1524,7 +1553,7 @@ export default function NfseCaptacaoView({
                   className="vb-btn vb-btn-primary"
                   title="Abrir DANFSe oficial da NFS-e em PDF no leitor padrão do Windows (Pressione Enter)"
                 >
-                  <FileText size={12} className="text-rose-700" />
+                  <FileText size={12} className="text-white" />
                   <span>Abrir DANFSe (Enter)</span>
                 </button>
                 <button
@@ -1639,13 +1668,19 @@ export default function NfseCaptacaoView({
                     const chaveUnica = n.chaveNotaNacional || n.numeroNFe || String(idx);
                     const isSelected = selectedChave === (n.chaveNotaNacional || n.numeroNFe);
                     const isPrestada = (n.tipo || "").toLowerCase().includes("prest") || (n.tipo || "").toLowerCase().includes("emit");
-                    const isCancelada = n.isCancelada || (n.situacao || "").toLowerCase().includes("cancelada");
+                    const isCancelada = isNotaCancelada(n);
                     const valorBruto = Number(n.valorServicos) || 0;
                     const valorLiquido = (n.valorLiquido !== undefined && n.valorLiquido !== null && Number(n.valorLiquido) > 0)
                       ? Number(n.valorLiquido)
                       : valorBruto;
                     const isPortalSp = n.origemCaptacao === "PORTAL_SP" || (n.tipo || "").toLowerCase().includes("são paulo");
-                    const parceiroNome = isPrestada ? (n.tomadorNome || "NÃO INFORMADO") : (n.prestadorNome || "NÃO INFORMADO");
+                    const rawParceiro = isPrestada ? (n.tomadorNome || "") : (n.prestadorNome || "");
+                    let fallbackName = "";
+                    if (!rawParceiro && n.nomeArquivoXml) {
+                      const m = n.nomeArquivoXml.replace(/\.xml$/i, "").match(/^NF\s*\d+\s*-\s*(.+?)(?:\s*-\s*(?:COM RETEN[CÇ][AÃ]O|RETEN[CÇ][AÃ]O|CANCELAD[AO]))?$/i);
+                      if (m && m[1]) fallbackName = m[1].trim();
+                    }
+                    const parceiroNome = rawParceiro || fallbackName || "NÃO INFORMADO";
                     const parceiroCnpj = isPrestada ? (n.tomadorCnpj || "-") : (n.prestadorCnpj || "-");
                     const chaveCurta = n.chaveNotaNacional
                       ? `${n.chaveNotaNacional.substring(0, 6)}...${n.chaveNotaNacional.substring(n.chaveNotaNacional.length - 6)}`
@@ -1895,7 +1930,7 @@ export default function NfseCaptacaoView({
             </div>
             <div className="p-3 flex flex-col gap-3">
               <p className="text-[#333333] leading-relaxed">
-                O cursor atual é <strong>{ultimoNsu}</strong>. Ao redefinir para <strong>0</strong>, o robô irá consultar todo o histórico de notas fiscais do Portal Nacional novamente.
+                O cursor atual de captação é <strong>{ultimoNsu}</strong>. Ao redefinir para <strong>0</strong>, o robô irá consultar todo o histórico de documentos do Portal Nacional ADN novamente, recuperando com segurança eventuais notas faltantes que tenham sido puladas anteriormente, sem apagar os arquivos já salvos.
               </p>
               <div>
                 <label className="font-bold text-[#333333] block mb-1">Novo Valor do NSU:</label>
@@ -1906,6 +1941,19 @@ export default function NfseCaptacaoView({
                   className="vb-input w-28 font-mono font-bold"
                 />
               </div>
+
+              <label className="flex items-center gap-2 cursor-pointer text-[#333333] select-none pt-1">
+                <input
+                  type="checkbox"
+                  checked={resetSyncNow}
+                  onChange={(e) => setResetSyncNow(e.target.checked)}
+                  className="rounded text-[#005a9e]"
+                />
+                <span className="font-semibold text-[11px]">
+                  Iniciar captação completa imediatamente para recuperar notas faltantes
+                </span>
+              </label>
+
               <div className="flex items-center justify-end gap-2 border-t border-[#d0d0d0] pt-2.5">
                 <button
                   type="button"

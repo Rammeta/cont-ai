@@ -491,6 +491,7 @@ export interface ParsedNfce {
   serie: string;
   dhEmi: string;
   formattedDate: string;
+  cfop?: string;
   emitente: string;
   cnpjEmitente: string;
   ufRem: string;

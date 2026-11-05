@@ -329,7 +329,7 @@ async function marcarComoCancelada(pastaEmpresaRaiz, chaveAlvo, xmlEventoContent
       const caminhoItem = path.join(diretorio, item);
       if (fs.statSync(caminhoItem).isDirectory()) {
         await verificarEAtualizar(caminhoItem);
-      } else if (item.toLowerCase().endsWith('.xml') && !item.toUpperCase().includes('EVENTO')) {
+      } else if (item.toLowerCase().endsWith('.xml') && !item.toUpperCase().includes('EVENTO_CANCELAMENTO') && !item.toUpperCase().endsWith('- EVENTO.XML')) {
         try {
           const conteudoXml = fs.readFileSync(caminhoItem, 'utf-8');
           let isTarget = false;
@@ -428,7 +428,7 @@ async function verificarEUnificarEventosPendentes(pastaEmpresaRaiz, chaveAlvo, p
       const caminhoItem = path.join(diretorio, item);
       if (fs.statSync(caminhoItem).isDirectory()) {
         procurarEMover(caminhoItem);
-      } else if (item.toLowerCase().endsWith('.xml') && item.toUpperCase().includes('EVENTO') && !diretorio.toUpperCase().includes('PRESTAD') && !diretorio.toUpperCase().includes('TOMAD')) {
+      } else if (item.toLowerCase().endsWith('.xml') && (item.toUpperCase().includes('EVENTO_CANCELAMENTO') || item.toUpperCase().endsWith('- EVENTO.XML')) && !diretorio.toUpperCase().includes('PRESTAD') && !diretorio.toUpperCase().includes('TOMAD')) {
         try {
           const conteudo = fs.readFileSync(caminhoItem, 'utf-8');
           const chAfetada = (

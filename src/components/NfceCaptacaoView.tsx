@@ -390,6 +390,7 @@ export default function NfceCaptacaoView({
       "Número NFC-e",
       "Série",
       "Chave de Acesso",
+      "CFOP",
       "Emitente",
       "CNPJ Emitente",
       "UF",
@@ -416,6 +417,7 @@ export default function NfceCaptacaoView({
         escape(n.nNF || "-"),
         escape(n.serie || "1"),
         chaveExcel,
+        escape(n.cfop || "-"),
         escape(n.emitente || ""),
         escape(formatDoc(n.cnpjEmitente)),
         escape(n.ufRem || ""),
@@ -428,6 +430,7 @@ export default function NfceCaptacaoView({
 
     const linhaTotais = [
       '"TOTAIS"',
+      '""',
       '""',
       '""',
       '""',
@@ -499,12 +502,14 @@ export default function NfceCaptacaoView({
       const termDigits = term.replace(/\D/g, "");
       const num = String(n.nNF || "").toLowerCase();
       const chave = String(n.chNFe || "").toLowerCase();
+      const cfop = String(n.cfop || "").toLowerCase();
       const dest = String(n.destinatario || "").toLowerCase();
       const destCnpj = String(n.cnpjDest || "").toLowerCase();
       const valor = String(n.vNF || "").replace(".", ",");
       return (
         num.includes(term) ||
         chave.includes(term) ||
+        cfop.includes(term) ||
         (termDigits.length >= 11 && chave.includes(termDigits)) ||
         dest.includes(term) ||
         destCnpj.includes(term) ||
@@ -543,6 +548,11 @@ export default function NfceCaptacaoView({
           const numA = Number(String(a.nNF || "0").replace(/\D/g, "")) || 0;
           const numB = Number(String(b.nNF || "0").replace(/\D/g, "")) || 0;
           return (numA - numB) * dir;
+        }
+        case "cfop": {
+          const cA = a.cfop || "";
+          const cB = b.cfop || "";
+          return cA.localeCompare(cB, "pt-BR", { sensitivity: "base", numeric: true }) * dir;
         }
         case "destinatario": {
           const dA = a.destinatario || "Consumidor Final";
@@ -649,10 +659,23 @@ export default function NfceCaptacaoView({
           border-color: #a8a8a8;
         }
         .vb-btn-primary {
-          background: linear-gradient(180deg, #f0f6ff 0%, #d6e6ff 50%, #bad5ff 100%);
-          border: 1px solid #336699;
+          background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+          border: 1px solid #002e50;
           font-weight: 600;
-          color: #002244;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .vb-btn-primary:hover {
+          background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
+          border-color: #001f38;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(0,90,158,0.25);
+        }
+        .vb-btn-primary:active {
+          background: #003862 !important;
+          border-color: #00182b !important;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+          transform: translateY(1px) scale(0.98);
         }
         .vb-btn-danger {
           background: linear-gradient(180deg, #fff2f2 0%, #fbd5d5 50%, #f6b5b5 100%);
@@ -733,7 +756,7 @@ export default function NfceCaptacaoView({
             className="vb-btn vb-btn-primary"
             title="Consultar WebService SEFAZ de NFC-e (Atalho: F5)"
           >
-            <RefreshCw size={13} className={syncing ? "animate-spin text-[#003366]" : "text-[#003366]"} />
+            <RefreshCw size={13} className={syncing ? "animate-spin text-white" : "text-white"} />
             <span>{syncing ? "Sincronizando..." : "Sincronizar NFC-e (F5)"}</span>
           </button>
 
@@ -985,6 +1008,10 @@ export default function NfceCaptacaoView({
                   <span className="font-semibold text-[#222222]">{selectedNota.formattedDate || selectedNota.dhEmi || "-"}</span>
                 </div>
                 <div>
+                  <span className="text-[10px] text-[#666666] block">CFOP:</span>
+                  <span className="font-mono font-bold text-[#003366]">{selectedNota.cfop || "-"}</span>
+                </div>
+                <div>
                   <span className="text-[10px] text-[#666666] block">Destinatário:</span>
                   <span className="font-bold text-[#222222]">{selectedNota.destinatario || "Consumidor Final"}</span>
                 </div>
@@ -1011,7 +1038,7 @@ export default function NfceCaptacaoView({
                   className="vb-btn vb-btn-primary"
                   title="Abrir DANFE oficial da NFC-e em PDF no leitor padrão do Windows"
                 >
-                  <FileText size={12} className="text-[#aa2222]" />
+                  <FileText size={12} className="text-white" />
                   <span>➔ Abrir DANFE PDF (Enter)</span>
                 </button>
 
@@ -1090,6 +1117,19 @@ export default function NfceCaptacaoView({
                     </div>
                   </th>
                   <th
+                    onClick={() => handleHeaderSort("cfop")}
+                    className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"
+                    style={{ width: "95px" }}
+                    title="Clique para ordenar por CFOP"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>CFOP</span>
+                      <span className="text-[10px] text-[#005a9e] font-bold">
+                        {sortColumn === "cfop" ? (sortDirection === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </div>
+                  </th>
+                  <th
                     onClick={() => handleHeaderSort("destinatario")}
                     className="cursor-pointer hover:bg-[#e2e2e2] select-none transition-colors"
                     title="Clique para ordenar por destinatário"
@@ -1148,13 +1188,13 @@ export default function NfceCaptacaoView({
                   <LoadingGearOverlay
                     isLoading={true}
                     variant="table"
-                    colSpan={7}
+                    colSpan={8}
                     title="Carregando Cupons Fiscais (NFC-e)..."
                     subtitle="Lendo cupons fiscais da empresa no disco..."
                   />
                 ) : displayedNotas.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-[#555555]">
+                    <td colSpan={8} className="text-center py-8 text-[#555555]">
                       Nenhum cupom fiscal NFC-e encontrado com os filtros selecionados.
                     </td>
                   </tr>
@@ -1173,6 +1213,9 @@ export default function NfceCaptacaoView({
                         </td>
                         <td className="font-mono whitespace-nowrap">
                           {n.formattedDate || n.dhEmi || "-"}
+                        </td>
+                        <td className="font-mono text-[#333333]">
+                          {n.cfop || "-"}
                         </td>
                         <td className="font-semibold truncate max-w-[280px]" title={n.destinatario || "Consumidor Final"}>
                           {n.destinatario || "Consumidor Final"}

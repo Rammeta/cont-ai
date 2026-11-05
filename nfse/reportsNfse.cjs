@@ -144,14 +144,16 @@ function sanitizarDiscriminacao(texto) {
 function parseXmlNota(xmlContent, nomeArquivo = '') {
     try {
         const upperName = String(nomeArquivo || '').toUpperCase();
+        const isEventoFile = upperName.includes('EVENTO_CANCELAMENTO') || upperName.includes('EVENTO_SUBSTITUICAO') || upperName.includes('EVENTO_MANIF') || upperName.endsWith('- EVENTO.XML');
+        const isEventoXml = xmlContent.includes('<evento') || xmlContent.includes('<procEventoNFSe') || xmlContent.includes('<pedRegEvento');
+
         // Se for arquivo de evento isolado ou de outro modelo fiscal (NF-e 55, NFC-e 65, CT-e 57), não contabiliza como NFS-e
         if (
-            upperName.includes('EVENTO') ||
+            isEventoFile ||
+            isEventoXml ||
             upperName.endsWith('-NFE.XML') ||
             upperName.endsWith('-NFCE.XML') ||
             upperName.endsWith('-CTE.XML') ||
-            xmlContent.includes('<evento') ||
-            xmlContent.includes('<procEventoNFSe') ||
             xmlContent.includes('<infNFe') ||
             xmlContent.includes('<nfeProc') ||
             xmlContent.includes('portalfiscal.inf.br/nfe') ||
@@ -183,7 +185,9 @@ function parseXmlNota(xmlContent, nomeArquivo = '') {
         const chaveNotaNacional = idAttr.replace(/^NFS/, '').replace(/\D/g, '') || t('ChaveNotaNacional');
 
         const emit = doc.getElementsByTagName('emit')[0] || doc.getElementsByTagName('prest')[0] || doc.getElementsByTagName('CPFCNPJPrestador')[0] || null;
+        const prestEl = doc.getElementsByTagName('prest')[0] || null;
         const toma = doc.getElementsByTagName('toma')[0] || doc.getElementsByTagName('interm')[0] || doc.getElementsByTagName('dest')[0] || doc.getElementsByTagName('CPFCNPJTomador')[0] || null;
+        const destEl = doc.getElementsByTagName('dest')[0] || null;
         const dps = doc.getElementsByTagName('DPS')[0] || doc;
         const infDPS = doc.getElementsByTagName('infDPS')[0] || dps;
         const valNFSe = infNFSe.getElementsByTagName('valores')[0];
@@ -211,20 +215,34 @@ function parseXmlNota(xmlContent, nomeArquivo = '') {
         };
 
         const numeroNFe = t('nNFSe') || t('nDFSe') || t('NumeroNFe') || '0';
-        const dhProc = t('dhProc') || t('dhEmi') || t('DataEmissaoNFe');
+        const dhProc = t('dhProc') || t('dhEmi') || t('dEmi') || t('DataEmissaoNFe') || t('DataEmissaoRPS') || t('dCompet');
         const dataGeracao = formatarData(dhProc);
         const dCompet = t('dCompet') || t('Competencia') || t('DataCompetencia') || t('DataFatoGeradorNFe') || t('DataEmissaoRPS') || dhProc;
         const competencia = formatarCompetencia(dCompet, dhProc);
 
         // Prestador
-        const prestadorCnpj = formatarCpfCnpj(te(emit, 'CNPJ') || te(emit, 'CPF') || t('CNPJPrestador') || '');
-        const prestadorNome = te(emit, 'xNome') || te(emit, 'xRazSoc') || t('RazaoSocialPrestador');
-        const prestadorIM = te(emit, 'IM') || t('InscricaoPrestador') || '-';
+        const prestadorCnpj = formatarCpfCnpj(te(emit, 'CNPJ') || te(emit, 'CPF') || te(prestEl, 'CNPJ') || te(prestEl, 'CPF') || t('CNPJPrestador') || '');
+        let prestadorNome = te(emit, 'xNome') || te(emit, 'xRazSoc') || te(prestEl, 'xNome') || te(prestEl, 'xRazSoc') || t('RazaoSocialPrestador') || t('xNomeEmit') || '';
+        const prestadorIM = te(emit, 'IM') || te(prestEl, 'IM') || t('InscricaoPrestador') || '-';
 
         // Tomador
-        const tomadorCnpj = formatarCpfCnpj(te(toma, 'CNPJ') || te(toma, 'CPF') || t('CPFCNPJTomador') || '');
-        const tomadorNome = te(toma, 'xNome') || te(toma, 'xRazSoc') || t('RazaoSocialTomador');
-        const tomadorIM = te(toma, 'IM') || t('InscricaoTomador') || '-';
+        const tomadorCnpj = formatarCpfCnpj(te(toma, 'CNPJ') || te(toma, 'CPF') || te(destEl, 'CNPJ') || te(destEl, 'CPF') || t('CPFCNPJTomador') || '');
+        let tomadorNome = te(toma, 'xNome') || te(toma, 'xRazSoc') || te(destEl, 'xNome') || te(destEl, 'xRazSoc') || t('RazaoSocialTomador') || t('xNomeDest') || '';
+        const tomadorIM = te(toma, 'IM') || te(destEl, 'IM') || t('InscricaoTomador') || '-';
+
+        // Fallback de parceiro a partir do nome do arquivo (ex: "NF 372 - EDSON BATISTA DA COSTA - ME.xml") se omitido no XML
+        if (nomeArquivo) {
+            const cleanFileName = path.basename(nomeArquivo, path.extname(nomeArquivo));
+            const mName = cleanFileName.match(/^NF\s*\d+\s*-\s*(.+?)(?:\s*-\s*(?:COM RETEN[CÇ][AÃ]O|RETEN[CÇ][AÃ]O|CANCELAD[AO]))?$/i);
+            if (mName && mName[1]) {
+                const filePartnerName = mName[1].trim();
+                if (!tomadorNome && filePartnerName) {
+                    tomadorNome = filePartnerName;
+                } else if (!prestadorNome && filePartnerName) {
+                    prestadorNome = filePartnerName;
+                }
+            }
+        }
 
         // Valores básicos
         const valorServicos = ne(valDPS, 'vServ') || ne(valNFSe, 'vLiq') || num('ValorServicos') || num('vServ');
@@ -451,6 +469,7 @@ function parseXmlNota(xmlContent, nomeArquivo = '') {
             simplesNacional,
             dpsNumero,
             dpsSerie,
+            serie: dpsSerie,
             situacaoNFSe,
             tributacaoISSQN,
             munIncid,
@@ -577,6 +596,7 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
         memNfseCache.set(cleanCnpj, companyCache);
     }
     let cacheDirty = false;
+    const eventosCancelamentoPorChave = new Map();
 
     function varrer(diretorio, tipoDocFolder = 'Geral') {
         let entries;
@@ -631,7 +651,8 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                     let parsed = null;
                     let xmlContentHasRootOwner = false;
 
-                    if (cached && cached.parsed) {
+                    const isCompleteCached = cached && cached.parsed && (cached.parsed.prestadorNome !== undefined || cached.parsed.dataGeracao !== undefined);
+                    if (isCompleteCached) {
                         parsed = cached.parsed;
                         xmlContentHasRootOwner = Boolean(cached.xmlContentHasRootOwner);
                     } else {
@@ -650,6 +671,35 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                                     fs.writeFileSync(cacheFilePath, JSON.stringify(companyCache), 'utf8');
                                     if (cleanCnpj) memNfseCache.set(cleanCnpj, companyCache);
                                 } catch (_) {}
+                            }
+                        } else {
+                            // Se for arquivo de evento de cancelamento isolado, indexa a chave para cancelamento de nota
+                            const isEv = item.toUpperCase().includes('EVENTO') || xmlContent.includes('<evento') || xmlContent.includes('<procEventoNFSe') || xmlContent.includes('<pedRegEvento');
+                            if (isEv) {
+                                const mChEv = xmlContent.match(/<chNFSe>(\d{50})<\/chNFSe>/i) || xmlContent.match(/<chNFSeRef>(\d{50})<\/chNFSeRef>/i);
+                                if (mChEv) {
+                                    const ch = mChEv[1];
+                                    let xDesc = 'Cancelamento de NFS-e';
+                                    let autor = '';
+                                    let dtEv = '';
+                                    let dtReg = '';
+                                    const mDesc = xmlContent.match(/<xDesc>([^<]+)<\/xDesc>/i);
+                                    if (mDesc) xDesc = mDesc[1].trim();
+                                    const mAutor = xmlContent.match(/<CNPJAutor>([^<]+)<\/CNPJAutor>/i);
+                                    if (mAutor) autor = mAutor[1].trim();
+                                    const mDtEv = xmlContent.match(/<dhEvento>([^<]+)<\/dhEvento>/i);
+                                    if (mDtEv) dtEv = formatarData(mDtEv[1]);
+                                    const mDtProc = xmlContent.match(/<dhProc>([^<]+)<\/dhProc>/i);
+                                    if (mDtProc) dtReg = formatarData(mDtProc[1]);
+
+                                    eventosCancelamentoPorChave.set(ch, {
+                                        evento: xDesc,
+                                        autorEvento: autor,
+                                        dataEvento: dtEv,
+                                        dataRegEvento: dtReg,
+                                        caminhoEventoXml: caminhoCompleto
+                                    });
+                                }
                             }
                         }
                     }
@@ -793,7 +843,24 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                         const hasPdf = fileSet.has(pdfFileName);
                         const hasEvento = fileSet.has(eventoFileName);
                         const pdfPath = hasPdf ? path.join(diretorio, pdfFileName) : null;
-                        const eventoPath = hasEvento ? path.join(diretorio, eventoFileName) : null;
+                        let eventoPath = hasEvento ? path.join(diretorio, eventoFileName) : null;
+
+                        const isPastaCancelada = diretorio.toUpperCase().includes('CANCELAD');
+                        const isArquivoCancelado = item.toUpperCase().includes('CANCELAD');
+
+                        const evAssociado = parsed.chaveNotaNacional ? eventosCancelamentoPorChave.get(parsed.chaveNotaNacional) : null;
+                        if (hasEvento || isPastaCancelada || isArquivoCancelado || evAssociado) {
+                            parsed.isCancelada = true;
+                            parsed.situacao = 'Cancelada';
+                            parsed.situacaoNFSe = 'Cancelada';
+                            if (evAssociado) {
+                                if (!eventoPath) eventoPath = evAssociado.caminhoEventoXml;
+                                if (!parsed.evento) parsed.evento = evAssociado.evento;
+                                if (!parsed.autorEvento) parsed.autorEvento = evAssociado.autorEvento;
+                                if (!parsed.dataEvento) parsed.dataEvento = evAssociado.dataEvento;
+                                if (!parsed.dataRegEvento) parsed.dataRegEvento = evAssociado.dataRegEvento;
+                            }
+                        }
 
                         // Se houver arquivo de evento de cancelamento associado, extrai os dados do evento (e cacheia no objeto)
                         if (hasEvento && !parsed.evento) {
@@ -824,6 +891,21 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
 
     varrer(pastaEmpresa);
 
+    // Conciliação pós-varredura: se algum evento de cancelamento foi indexado em pastas irmãs/posteriores (ex: Eventos - CANCELADAS), marca as notas
+    for (const nota of resultado) {
+        if (!nota.isCancelada && nota.chaveNotaNacional && eventosCancelamentoPorChave.has(nota.chaveNotaNacional)) {
+            const ev = eventosCancelamentoPorChave.get(nota.chaveNotaNacional);
+            nota.isCancelada = true;
+            nota.situacao = 'Cancelada';
+            nota.situacaoNFSe = 'Cancelada';
+            if (!nota.caminhoEventoXml) nota.caminhoEventoXml = ev.caminhoEventoXml;
+            if (!nota.evento) nota.evento = ev.evento;
+            if (!nota.autorEvento) nota.autorEvento = ev.autorEvento;
+            if (!nota.dataEvento) nota.dataEvento = ev.dataEvento;
+            if (!nota.dataRegEvento) nota.dataRegEvento = ev.dataRegEvento;
+        }
+    }
+
     if (cacheDirty) {
         try {
             fs.writeFileSync(cacheFilePath, JSON.stringify(companyCache), 'utf8');
@@ -835,7 +917,11 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
         const isCancelada = Boolean(
             existing.isCancelada || nota.isCancelada ||
             String(existing.situacao || '').toLowerCase().includes('cancel') ||
-            String(nota.situacao || '').toLowerCase().includes('cancel')
+            String(nota.situacao || '').toLowerCase().includes('cancel') ||
+            Boolean(existing.caminhoEventoXml || nota.caminhoEventoXml) ||
+            Boolean(existing.evento || nota.evento) ||
+            (existing.chaveNotaNacional && eventosCancelamentoPorChave.has(existing.chaveNotaNacional)) ||
+            (nota.chaveNotaNacional && eventosCancelamentoPorChave.has(nota.chaveNotaNacional))
         );
         const isOfficialNum = (n) => n && n !== '0' && !/^\d{4}00\d+$/.test(String(n));
         const preferNew = (
@@ -850,6 +936,7 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
         base.isCancelada = isCancelada;
         if (isCancelada) {
             base.situacao = 'Cancelada';
+            base.situacaoNFSe = 'Cancelada';
         }
 
         // Preserva o número de NFS-e oficial válido
@@ -922,15 +1009,55 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
         if (kCh && byChave.has(kCh)) {
             idx = byChave.get(kCh);
         } else if (kDps && byDps.has(kDps)) {
-            idx = byDps.get(kDps);
+            const candIdx = byDps.get(kDps);
+            const cand = dedupList[candIdx];
+            const candCh = String(cand.chaveNotaNacional || '').replace(/\D/g, '');
+            const candHas50 = candCh.length === 50;
+            const notaHas50 = ch.length === 50;
+            const candComp = String(cand.competencia || '').trim();
+            const notaComp = String(nota.competencia || '').trim();
+            // Se ambas possuem chaves oficiais de 50 dígitos diferentes, ou competências diferentes, NUNCA mescla
+            if (!(candHas50 && notaHas50 && candCh !== ch) && (!candComp || !notaComp || candComp === notaComp)) {
+                idx = candIdx;
+            }
         } else if (kNf && byNf.has(kNf)) {
             const candidates = byNf.get(kNf);
             for (let i = 0; i < candidates.length; i++) {
                 const cIdx = candidates[i];
                 const cand = dedupList[cIdx];
+                const candCh = String(cand.chaveNotaNacional || '').replace(/\D/g, '');
+                const candHas50 = candCh.length === 50;
+                const notaHas50 = ch.length === 50;
+
+                // 1. Se AMBAS possuem chave nacional oficial de 50 dígitos e são chaves diferentes,
+                // são dois documentos fiscais oficiais distintos! NUNCA mescla.
+                if (candHas50 && notaHas50 && candCh !== ch) {
+                    continue;
+                }
+
+                // 2. Se as competências são diferentes (ex: mês 06 vs mês 10), NUNCA mescla!
+                const candComp = String(cand.competencia || '').trim();
+                const notaComp = String(nota.competencia || '').trim();
+                if (candComp && notaComp && candComp !== notaComp) {
+                    continue;
+                }
+
+                // 3. Se a série da DPS é diferente (ex: Série 1 vs Série 2), NUNCA mescla!
+                const candS = String(cand.dpsSerie || '').trim();
+                const notS = s;
+                if (candS && notS && candS !== notS) {
+                    continue;
+                }
+
+                const candIsProvisional = !candHas50 || /^\d{4}00\d+$/.test(String(cand.numeroNFe)) || (cand.caminhoXml && cand.caminhoXml.includes('emitidas'));
+                const notaIsProvisional = !notaHas50 || /^\d{4}00\d+$/.test(String(nota.numeroNFe)) || (nota.caminhoXml && nota.caminhoXml.includes('emitidas'));
+
                 const vCand = Number(cand.valorServicos || 0);
                 const tomaCand = String(cand.tomadorCnpj || '').replace(/\D/g, '');
-                if (Math.abs(vCand - vServ) < 0.05 || (cleanToma && tomaCand && cleanToma === tomaCand)) {
+                const sameValue = Math.abs(vCand - vServ) < 0.05;
+                const sameToma = cleanToma && tomaCand && cleanToma === tomaCand;
+
+                if (sameValue || sameToma || candIsProvisional || notaIsProvisional) {
                     idx = cIdx;
                     break;
                 }
@@ -947,6 +1074,12 @@ function scanNotasEmpresa(pastaOutput, razaoSocial, cnpj, ano, mes, tipoFiltro =
                 // Se AMBAS as notas possuem chave oficial de 50 dígitos e são chaves diferentes,
                 // são dois documentos fiscais oficiais distintos (ex: cancelou e reemitiu para o mesmo cliente no mesmo dia)! NUNCA mescla.
                 if (candHas50 && notaHas50 && candCh !== ch) {
+                    continue;
+                }
+
+                const candComp = String(cand.competencia || '').trim();
+                const notaComp = String(nota.competencia || '').trim();
+                if (candComp && notaComp && candComp !== notaComp) {
                     continue;
                 }
 
@@ -1060,73 +1193,7 @@ function gerarChaveDedupNfse(arg1, arg2, arg3, arg4) {
 }
 
 function extractBasicMetaFast(xmlContent, fileName = '') {
-    if (!xmlContent) return null;
-    let mNum = xmlContent.match(/<NumeroNFe>(\d+)<\/NumeroNFe>/i) ||
-               xmlContent.match(/<nNF>(\d+)<\/nNF>/i) ||
-               xmlContent.match(/<nNFSe>(\d+)<\/nNFSe>/i) ||
-               xmlContent.match(/<nDFSe>(\d+)<\/nDFSe>/i) ||
-               xmlContent.match(/<numero>(\d+)<\/numero>/i) ||
-               fileName.match(/NF\s*(\d+)/i);
-    const numeroNFe = mNum ? mNum[1] : '';
-
-    let mPrest = xmlContent.match(/<CPFCNPJPrestador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
-                 xmlContent.match(/<prestador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
-                 xmlContent.match(/<prest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
-                 xmlContent.match(/<emit>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i);
-    const prestadorCnpj = mPrest ? mPrest[1] : '';
-
-    let mToma = xmlContent.match(/<CPFCNPJTomador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
-                xmlContent.match(/<CPFCNPJTomador>[\s\S]*?<CPF>(\d+)<\/CPF>/i) ||
-                xmlContent.match(/<tomador>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
-                xmlContent.match(/<toma>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i) ||
-                xmlContent.match(/<toma>[\s\S]*?<CPF>(\d+)<\/CPF>/i) ||
-                xmlContent.match(/<dest>[\s\S]*?<CNPJ>(\d+)<\/CNPJ>/i);
-    const tomadorCnpj = mToma ? mToma[1] : '';
-
-    let mVal = xmlContent.match(/<ValorServicos>([\d.,]+)<\/ValorServicos>/i) ||
-               xmlContent.match(/<vServ>([\d.,]+)<\/vServ>/i) ||
-               xmlContent.match(/<vLiq>([\d.,]+)<\/vLiq>/i) ||
-               xmlContent.match(/<vBC>([\d.,]+)<\/vBC>/i);
-    let valorServicos = 0;
-    if (mVal) {
-        const valStr = mVal[1].trim();
-        if (valStr.includes(',')) {
-            valorServicos = parseFloat(valStr.replace(/\./g, '').replace(',', '.')) || 0;
-        } else {
-            valorServicos = parseFloat(valStr) || 0;
-        }
-    }
-
-    let mChave = xmlContent.match(/Id=["'](?:NFS)?(\d{50})["']/i) ||
-                 xmlContent.match(/<chNFSe>(\d{50})<\/chNFSe>/i) ||
-                 xmlContent.match(/<chNFe>(\d{50})<\/chNFe>/i) ||
-                 xmlContent.match(/<chaveAcesso>(\d{50})<\/chaveAcesso>/i) ||
-                 fileName.match(/\b(\d{50})\b/);
-    const chaveNotaNacional = mChave ? mChave[1] : '';
-
-    let mCompet = xmlContent.match(/<dCompet>([^<]+)<\/dCompet>/i) ||
-                  xmlContent.match(/<dhEmi>([^<]{7})/i) ||
-                  xmlContent.match(/<dhProc>([^<]{7})/i);
-    const competencia = mCompet ? mCompet[1].slice(0, 7) : '';
-
-    const isCancelada = /<StatusNFe>C<\/StatusNFe>/i.test(xmlContent) ||
-                        /<DataCancelamento>/i.test(xmlContent) ||
-                        /<cStat>\s*2\s*<\/cStat>/i.test(xmlContent) ||
-                        fileName.toUpperCase().includes('CANCELAD');
-
-    const isPortalSp = /PORTAL_SP/i.test(xmlContent) || /prefeitura\.sp\.gov\.br/i.test(xmlContent);
-    const origemCaptacao = isPortalSp ? 'PORTAL_SP' : 'PORTAL_NACIONAL';
-
-    return {
-        numeroNFe,
-        prestadorCnpj,
-        tomadorCnpj,
-        valorServicos,
-        chaveNotaNacional,
-        competencia,
-        isCancelada,
-        origemCaptacao
-    };
+    return parseXmlNota(xmlContent, fileName);
 }
 
 function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
@@ -1170,16 +1237,21 @@ function indexarNotasExistentes(pastaEmpresa, cleanOwnerCnpj = '') {
                 if (['cte', 'nfce', 'nfe entradas', 'danfes', 'xmls', 'eventos'].includes(lower)) continue;
                 walk(full);
             } else if (entry.name.toLowerCase().endsWith('.xml')) {
-                if (entry.name.toUpperCase().includes('EVENTO')) continue;
+                const upperEntry = entry.name.toUpperCase();
+                if (upperEntry.includes('EVENTO_CANCELAMENTO') || upperEntry.includes('EVENTO_SUBSTITUICAO') || upperEntry.includes('EVENTO_MANIF') || upperEntry.endsWith('- EVENTO.XML')) continue;
                 try {
-                    let parsed = companyCache[full]?.parsed;
-                    if (!parsed) {
+                    let cached = companyCache[full];
+                    let parsed = cached?.parsed;
+                    // Se não estiver em cache ou se for do cache antigo incompleto (sem prestadorNome e sem dataGeracao), realiza parse completo com parseXmlNota
+                    if (!parsed || (parsed.prestadorNome === undefined && parsed.dataGeracao === undefined)) {
                         const xmlContent = fs.readFileSync(full, 'utf-8');
-                        parsed = extractBasicMetaFast(xmlContent, entry.name);
+                        parsed = parseXmlNota(xmlContent, entry.name);
                         if (parsed) {
+                            const xmlContentHasRootOwner = Boolean(cleanCnpj && cleanCnpj.length >= 8 && xmlContent.includes(cleanCnpj.slice(0, 8)));
                             companyCache[full] = {
                                 mtimeMs: Date.now(),
-                                parsed
+                                parsed,
+                                xmlContentHasRootOwner
                             };
                             cacheDirty = true;
                             if (map.size > 0 && map.size % 250 === 0) {
@@ -1265,10 +1337,18 @@ function gerarCsvRelatorio(listaNotas, tipoRelatorio = 'Tomadas') {
             ? Number(n.valorLiquido)
             : (Number(n.valorServicos) || 0);
 
+        const isNotaCanc = Boolean(
+            n.isCancelada ||
+            String(n.situacao || '').toLowerCase().includes('cancel') ||
+            Boolean(n.caminhoEventoXml) ||
+            Boolean(n.evento)
+        );
+        const situacaoTexto = isNotaCanc ? 'Cancelada' : (n.situacao || 'Normal');
+
         return [
             formatarCompetenciaCsv(n.competencia, n.dataGeracao),
             n.dataGeracao,
-            n.situacao,
+            situacaoTexto,
             n.numeroNFe,
             formatarTextoCsv(parceiroNome),
             formatarCpfCnpj(parceiroCnpj),
@@ -1298,7 +1378,13 @@ function gerarCsvRelatorio(listaNotas, tipoRelatorio = 'Tomadas') {
 
     for (const n of listaNotas) {
         // Exclui notas fiscais canceladas da linha de somatório geral do relatório (notas canceladas não geram receita nem impostos)
-        if (n.isCancelada || String(n.situacao || '').toLowerCase().includes('cancel')) {
+        const isNotaCanc = Boolean(
+            n.isCancelada ||
+            String(n.situacao || '').toLowerCase().includes('cancel') ||
+            Boolean(n.caminhoEventoXml) ||
+            Boolean(n.evento)
+        );
+        if (isNotaCanc) {
             continue;
         }
         const vServ = Number(n.valorServicos) || 0;

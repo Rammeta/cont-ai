@@ -307,14 +307,14 @@ export function generateExecutiveDashboardHtml(data: DashboardData): string {
     }
 
     .vb-btn-primary {
-      background: linear-gradient(180deg, #e6f2ff 0%, #cce5ff 100%);
-      border-color: #005a9e;
-      color: #003366;
+      background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+      border-color: #002e50;
+      color: #ffffff !important;
       font-weight: bold;
     }
 
     .vb-btn-primary:hover {
-      background: linear-gradient(180deg, #d8ecff 0%, #bddcff 100%);
+      background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
     }
 
     /* Conteúdo Principal */

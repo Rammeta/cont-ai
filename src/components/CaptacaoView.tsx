@@ -1380,10 +1380,23 @@ export default function CaptacaoView({
           border-color: #a8a8a8;
         }
         .vb-btn-primary {
-          background: linear-gradient(180deg, #f0f6ff 0%, #d6e6ff 50%, #bad5ff 100%);
-          border: 1px solid #336699;
+          background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+          border: 1px solid #002e50;
           font-weight: 600;
-          color: #002244;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .vb-btn-primary:hover {
+          background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
+          border-color: #001f38;
+          color: #ffffff !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(0,90,158,0.25);
+        }
+        .vb-btn-primary:active {
+          background: #003862 !important;
+          border-color: #00182b !important;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+          transform: translateY(1px) scale(0.98);
         }
         .vb-btn-danger {
           background: linear-gradient(180deg, #fff2f2 0%, #fbd5d5 50%, #f6b5b5 100%);
@@ -1464,7 +1477,7 @@ export default function CaptacaoView({
             className="vb-btn vb-btn-primary"
             title={cooldownRemaining > 0 ? `SEFAZ em repouso (restam ${formatCooldown(cooldownRemaining)})` : "Consultar novas notas fiscais na SEFAZ Nacional (Atalho: F5)"}
           >
-            <RefreshCw size={13} className={syncStatus.syncing ? "animate-spin text-[#003366]" : "text-[#003366]"} />
+            <RefreshCw size={13} className={syncStatus.syncing ? "animate-spin text-white" : "text-white"} />
             <span>{syncStatus.syncing ? "Sincronizando..." : cooldownRemaining > 0 ? `Repouso (${formatCooldown(cooldownRemaining)})` : "Sincronizar NF-e (F5)"}</span>
           </button>
 
@@ -1514,7 +1527,7 @@ export default function CaptacaoView({
               className="vb-btn vb-btn-primary font-bold"
               title="Enviar notas interestaduais para auditoria e cálculo DIFAL"
             >
-              <Calculator size={13} className="text-[#003366]" />
+              <Calculator size={13} className="text-white" />
               <span>Enviar p/ Auditoria DIFAL ({metrics.interestaduaisCount})</span>
             </button>
           )}
@@ -1852,7 +1865,7 @@ export default function CaptacaoView({
                   className="vb-btn vb-btn-primary"
                   title="Abrir DANFE oficial em PDF no leitor padrão do Windows"
                 >
-                  <FileText size={12} className="text-[#aa2222]" />
+                  <FileText size={12} className="text-white" />
                   <span>Abrir DANFE PDF (Enter)</span>
                 </button>
 
@@ -2370,7 +2383,7 @@ export default function CaptacaoView({
                       onClick={() => openDanfePdf(activeEmpresa!.cnpj, searchChaveResult.chNFe, searchChaveResult.yearMonth)}
                       className="vb-btn vb-btn-primary"
                     >
-                      <FileText size={12} className="text-[#aa2222]" />
+                      <FileText size={12} className="text-white" />
                       <span>Visualizar DANFE PDF</span>
                     </button>
                     <button

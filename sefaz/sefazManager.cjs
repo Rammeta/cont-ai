@@ -645,6 +645,14 @@ class SefazManager {
 
     const mod = getTagValue('mod', ide) || (chNFe.length === 44 ? chNFe.substring(20, 22) : '55');
 
+    // CFOPs dos itens
+    const cfopsSet = new Set();
+    const cfopMatches = xmlText.matchAll(/<CFOP[^>]*>(\d+)<\/CFOP>/gi);
+    for (const match of cfopMatches) {
+      if (match[1]) cfopsSet.add(match[1].trim());
+    }
+    const cfop = Array.from(cfopsSet).join(', ') || '';
+
     const emitente = getTagValue('xNome', emit) || 'Emitente Desconhecido';
     const cnpjEmitente = getTagValue('CNPJ', emit) || getTagValue('CPF', emit) || '';
     const ufRem = getTagValue('UF', getSection('enderEmit', emit)) || '';
@@ -669,6 +677,7 @@ class SefazManager {
       dhEmi,
       dhSaiEnt,
       formattedDate,
+      cfop,
       emitente,
       cnpjEmitente,
       ufRem,
@@ -1165,7 +1174,7 @@ class SefazManager {
 
           let meta = null;
           const cached = companyNfceCache.get(chNFe);
-          if (cached && cached.mtimeMs === stat.mtimeMs) {
+          if (cached && cached.mtimeMs === stat.mtimeMs && cached.meta && cached.meta.cfop !== undefined) {
             meta = cached.meta;
           } else {
             let content = '';
@@ -3219,6 +3228,10 @@ class SefazManager {
       const nfseStateRoot = path.join(companyDir, 'nfse_state.json');
       if (fs.existsSync(nfseStateRoot)) {
         try { fs.rmSync(nfseStateRoot, { force: true }); } catch (_) {}
+      }
+      const nfseMetaCache = path.join(companyDir, '.nfse_meta_cache.json');
+      if (fs.existsSync(nfseMetaCache)) {
+        try { fs.rmSync(nfseMetaCache, { force: true }); } catch (_) {}
       }
       const nfseDir = path.join(companyDir, 'nfse');
       if (fs.existsSync(nfseDir)) {

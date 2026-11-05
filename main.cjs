@@ -2024,6 +2024,11 @@ ipcMain.handle('nfse:reset-nsu', async (event, { cnpj, razaoSocial, targetNsu = 
       ultimoNsuNfse: parseInt(String(targetNsu), 10) || 0,
       ultimaDataSp: null
     }, cnpj);
+    invalidateNfseCache(cnpj);
+    try {
+      const cacheFilePath = path.join(companyDir, '.nfse_meta_cache.json');
+      if (fs.existsSync(cacheFilePath)) fs.rmSync(cacheFilePath, { force: true });
+    } catch (_) {}
     return { success: true, state };
   } catch (err) {
     return { success: false, error: err.message };

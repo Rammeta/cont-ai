@@ -1006,10 +1006,23 @@ export default function UnifiedConfigModal({
             border-color: #a8a8a8;
           }
           .vb-btn-primary {
-            background: linear-gradient(180deg, #f0f6ff 0%, #d6e6ff 50%, #bad5ff 100%);
-            border: 1px solid #336699;
+            background: linear-gradient(180deg, #0066b3 0%, #004578 100%);
+            border: 1px solid #002e50;
             font-weight: 600;
-            color: #002244;
+            color: #ffffff !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.2);
+          }
+          .vb-btn-primary:hover {
+            background: linear-gradient(180deg, #0078d4 0%, #005a9e 100%);
+            border-color: #001f38;
+            color: #ffffff !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(0,90,158,0.25);
+          }
+          .vb-btn-primary:active {
+            background: #003862 !important;
+            border-color: #00182b !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4) !important;
+            transform: translateY(1px) scale(0.98);
           }
           .vb-btn-danger {
             background: linear-gradient(180deg, #fff2f2 0%, #fbd5d5 50%, #f6b5b5 100%);
@@ -2045,7 +2058,7 @@ export default function UnifiedConfigModal({
                         onClick={handleStartNew}
                         className="vb-btn vb-btn-primary font-bold shadow-xs flex items-center gap-1.5"
                       >
-                        <Plus size={13} className="text-[#003366]" />
+                        <Plus size={13} className="text-white" />
                         <span>Cadastrar Nova Empresa</span>
                       </button>
                       <button
@@ -2422,7 +2435,7 @@ export default function UnifiedConfigModal({
                       </>
                     ) : (
                       <>
-                        <Play size={12} className="text-emerald-700" />
+                        <Play size={12} className="text-white" />
                         <span>Sincronizar Todas as Empresas Agora</span>
                       </>
                     )}
