@@ -27,7 +27,7 @@ import {
 import { calculateDaysRemaining } from "./utils/certUtils";
 import { getProcuradorConfig } from "./utils/electronBridge";
 import DifalView from "./components/DifalView";
-import { Calculator, FileText, Layers, RefreshCw, CheckCircle2, Building2, Building, Printer, HelpCircle, DownloadCloud, ShieldCheck, Landmark, ShoppingBag, AlertCircle, Truck, Settings, FolderOpen, Home } from "lucide-react";
+import { Calculator, FileText, Layers, RefreshCw, CheckCircle2, Building2, Building, Printer, HelpCircle, DownloadCloud, ShieldCheck, Landmark, ShoppingBag, AlertCircle, Truck, Settings, FolderOpen, Home, Lock, Scale } from "lucide-react";
 import ReportPrintModal from "./components/ReportPrintModal";
 import OnboardingModal from "./components/OnboardingModal";
 import CaptacaoView from "./components/CaptacaoView";
@@ -193,10 +193,25 @@ export default function App() {
                 };
               }
             }
+            let certStore = e.certStore;
+            let certThumbprint = e.certThumbprint || (e as any).thumbprint || "";
+            if (certThumbprint) {
+              certStore = "windows";
+            } else if (e.certPath) {
+              certStore = "file";
+            }
+
             const trimmedNotas = Array.isArray(e.notasEmitidasNfse) && e.notasEmitidasNfse.length > 50
               ? e.notasEmitidasNfse.slice(0, 50)
               : e.notasEmitidasNfse;
-            return { ...e, razaoSocial: rName || cleanC, certInfo, notasEmitidasNfse: trimmedNotas };
+            return {
+              ...e,
+              razaoSocial: rName || cleanC,
+              certInfo,
+              certStore,
+              certThumbprint,
+              notasEmitidasNfse: trimmedNotas
+            };
           })
           .sort((a: EmpresaSefaz, b: EmpresaSefaz) =>
             (a.razaoSocial || "").localeCompare(b.razaoSocial || "", "pt-BR", {
@@ -245,9 +260,27 @@ export default function App() {
 
   const activeEmpresa = empresas.find((e) => e.id === activeEmpresaId) || (empresas.length > 0 ? empresas[0] : null);
 
-  // Redireciona automaticamente se a guia ativa não for habilitada para a empresa selecionada
+  const activeHasCert = Boolean(
+    activeEmpresa?.certPath ||
+    (activeEmpresa?.certStore === "windows" && activeEmpresa?.certThumbprint) ||
+    activeEmpresa?.certThumbprint ||
+    (activeEmpresa as any)?.thumbprint
+  );
+
+  // Redireciona automaticamente se a guia ativa não for habilitada para a empresa selecionada.
+  // Para empresas sem certificado próprio cadastrado, desabilita NF-e, NFC-e, CT-e e DIFAL,
+  // permitindo exclusivamente NFS-e (que opera via Procuração Eletrônica).
   useEffect(() => {
     if (!activeEmpresa || appModule === "hub" || appModule === "acompanhamento") return;
+
+    if (!activeHasCert && ["captacao", "nfce", "cte", "difal"].includes(appModule)) {
+      setAppModule("nfse");
+      alertStatus(
+        `A empresa "${activeEmpresa.razaoSocial}" não possui certificado digital A1 cadastrado. Redirecionado para NFS-e (Procuração Eletrônica). Cadastre o certificado da empresa nas Configurações para habilitar os outros captadores.`,
+        "error"
+      );
+      return;
+    }
 
     let isAllowed = true;
     if (appModule === "captacao" || appModule === "difal") {
@@ -264,7 +297,7 @@ export default function App() {
       setAppModule("acompanhamento");
       alertStatus("A guia anterior não está habilitada para esta empresa. Redirecionado para a Guia Geral de Notas.");
     }
-  }, [activeEmpresaId, activeEmpresa, appModule]);
+  }, [activeEmpresaId, activeEmpresa, activeHasCert, appModule]);
 
   const handleSaveEmpresas = (updated: EmpresaSefaz[]) => {
     const sorted = [...updated].sort((a, b) =>
@@ -1149,36 +1182,57 @@ export default function App() {
               {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "nfe")) && (
                 <button
                   type="button"
-                  onClick={() => setAppModule("captacao")}
-                  className={`vb-top-btn ${appModule === "captacao" ? "vb-top-btn-active" : ""}`}
-                  title="Captação e Auditoria de NF-e Entradas (Modelo 55)"
+                  onClick={() => {
+                    if (activeEmpresa && !activeHasCert) {
+                      alertStatus(`A empresa "${activeEmpresa.razaoSocial}" opera via Procuração Eletrônica (apenas NFS-e). Para acessar NF-e Entradas (55), adicione o Certificado Digital A1 da empresa nas Configurações.`, "error");
+                      return;
+                    }
+                    setAppModule("captacao");
+                  }}
+                  className={`vb-top-btn ${appModule === "captacao" ? "vb-top-btn-active" : ""} ${activeEmpresa && !activeHasCert ? "!opacity-45 cursor-not-allowed !bg-[#f5f5f5] !text-[#888888] !border-[#cccccc]" : ""}`}
+                  title={activeEmpresa && !activeHasCert ? "Módulo indisponível sem Certificado Digital próprio da empresa (opera exclusivamente via Procuração Eletrônica na NFS-e)" : "Captação e Auditoria de NF-e Entradas (Modelo 55)"}
                 >
-                  <DownloadCloud size={12} className={appModule === "captacao" ? "text-white" : "text-sky-700"} />
+                  <DownloadCloud size={12} className={appModule === "captacao" ? "text-white" : activeEmpresa && !activeHasCert ? "text-gray-400" : "text-sky-700"} />
                   <span>NF-e Entradas (55)</span>
+                  {activeEmpresa && !activeHasCert && <Lock size={10} className="text-amber-700 ml-0.5" />}
                 </button>
               )}
 
               {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "nfce")) && (
                 <button
                   type="button"
-                  onClick={() => setAppModule("nfce")}
-                  className={`vb-top-btn ${appModule === "nfce" ? "vb-top-btn-active" : ""}`}
-                  title="Captação de Cupons Fiscais Eletrônicos NFC-e (Modelo 65)"
+                  onClick={() => {
+                    if (activeEmpresa && !activeHasCert) {
+                      alertStatus(`A empresa "${activeEmpresa.razaoSocial}" opera via Procuração Eletrônica (apenas NFS-e). Para acessar NFC-e (65), adicione o Certificado Digital A1 da empresa nas Configurações.`, "error");
+                      return;
+                    }
+                    setAppModule("nfce");
+                  }}
+                  className={`vb-top-btn ${appModule === "nfce" ? "vb-top-btn-active" : ""} ${activeEmpresa && !activeHasCert ? "!opacity-45 cursor-not-allowed !bg-[#f5f5f5] !text-[#888888] !border-[#cccccc]" : ""}`}
+                  title={activeEmpresa && !activeHasCert ? "Módulo indisponível sem Certificado Digital próprio da empresa" : "Captação de Cupons Fiscais Eletrônicos NFC-e (Modelo 65)"}
                 >
-                  <ShoppingBag size={12} className={appModule === "nfce" ? "text-white" : "text-purple-700"} />
+                  <ShoppingBag size={12} className={appModule === "nfce" ? "text-white" : activeEmpresa && !activeHasCert ? "text-gray-400" : "text-purple-700"} />
                   <span>NFC-e (65)</span>
+                  {activeEmpresa && !activeHasCert && <Lock size={10} className="text-amber-700 ml-0.5" />}
                 </button>
               )}
 
               {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "cte")) && (
                 <button
                   type="button"
-                  onClick={() => setAppModule("cte")}
-                  className={`vb-top-btn ${appModule === "cte" ? "vb-top-btn-active" : ""}`}
-                  title="Captação de Conhecimentos de Transporte CT-e (Modelo 57)"
+                  onClick={() => {
+                    if (activeEmpresa && !activeHasCert) {
+                      alertStatus(`A empresa "${activeEmpresa.razaoSocial}" opera via Procuração Eletrônica (apenas NFS-e). Para acessar CT-e Fretes (57), adicione o Certificado Digital A1 da empresa nas Configurações.`, "error");
+                      return;
+                    }
+                    setAppModule("cte");
+                  }}
+                  className={`vb-top-btn ${appModule === "cte" ? "vb-top-btn-active" : ""} ${activeEmpresa && !activeHasCert ? "!opacity-45 cursor-not-allowed !bg-[#f5f5f5] !text-[#888888] !border-[#cccccc]" : ""}`}
+                  title={activeEmpresa && !activeHasCert ? "Módulo indisponível sem Certificado Digital próprio da empresa" : "Captação de Conhecimentos de Transporte CT-e (Modelo 57)"}
                 >
-                  <Truck size={12} className={appModule === "cte" ? "text-white" : "text-amber-700"} />
+                  <Truck size={12} className={appModule === "cte" ? "text-white" : activeEmpresa && !activeHasCert ? "text-gray-400" : "text-amber-700"} />
                   <span>CT-e Fretes (57)</span>
+                  {activeEmpresa && !activeHasCert && <Lock size={10} className="text-amber-700 ml-0.5" />}
                 </button>
               )}
 
@@ -1197,13 +1251,20 @@ export default function App() {
               {(appModule === "hub" || isModeloHabilitado(activeEmpresa, "nfe")) && (
                 <button
                   type="button"
-                  onClick={() => setAppModule("difal")}
-                  className={`vb-top-btn ${appModule === "difal" ? "vb-top-btn-active" : ""}`}
-                  title="Apuração e Memória de Cálculo de DIFAL / Antecipação Tributária"
+                  onClick={() => {
+                    if (activeEmpresa && !activeHasCert) {
+                      alertStatus(`A empresa "${activeEmpresa.razaoSocial}" opera via Procuração Eletrônica (apenas NFS-e). Para acessar o Cálculo DIFAL, adicione o Certificado Digital A1 da empresa nas Configurações.`, "error");
+                      return;
+                    }
+                    setAppModule("difal");
+                  }}
+                  className={`vb-top-btn ${appModule === "difal" ? "vb-top-btn-active" : ""} ${activeEmpresa && !activeHasCert ? "!opacity-45 cursor-not-allowed !bg-[#f5f5f5] !text-[#888888] !border-[#cccccc]" : ""}`}
+                  title={activeEmpresa && !activeHasCert ? "Módulo indisponível sem Certificado Digital próprio da empresa" : "Apuração e Memória de Cálculo de DIFAL / Antecipação Tributária"}
                 >
-                  <Calculator size={12} className={appModule === "difal" ? "text-white" : "text-indigo-700"} />
+                  <Calculator size={12} className={appModule === "difal" ? "text-white" : activeEmpresa && !activeHasCert ? "text-gray-400" : "text-indigo-700"} />
                   <span>Cálculo DIFAL</span>
-                  {notas.length > 0 && (
+                  {activeEmpresa && !activeHasCert && <Lock size={10} className="text-amber-700 ml-0.5" />}
+                  {notas.length > 0 && activeHasCert && (
                     <span className={`ml-0.5 px-1 rounded text-[9px] font-bold ${appModule === "difal" ? "bg-white text-[#005a9e]" : "bg-indigo-100 text-indigo-900"}`}>
                       {notas.length}
                     </span>
@@ -1211,6 +1272,23 @@ export default function App() {
                 </button>
               )}
             </nav>
+
+            {/* Aviso informativo de empresa operando exclusivamente via Procuração Eletrônica */}
+            {activeEmpresa && !activeHasCert && (
+              <div
+                onClick={() => {
+                  setConfigModalTab("empresas");
+                  setIsConfigModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 bg-[#fff8e1] hover:bg-[#ffecb3] border border-[#ffca28] text-[#8d6e63] px-2 py-0.5 rounded cursor-pointer transition-colors shadow-2xs shrink-0 select-none"
+                title="Esta empresa não possui Certificado Digital A1 individual cadastrado e opera via Procuração Eletrônica exclusivamente na NFS-e. Clique aqui para adicionar o certificado e habilitar os outros captadores (NF-e, NFC-e, CT-e e DIFAL)."
+              >
+                <Scale size={11} className="text-[#e65100] shrink-0" />
+                <span className="text-[10px] text-[#4e342e]">
+                  Apenas NFS-e (Procuração) • <span className="underline font-bold text-[#b71c1c]">Adicionar Certificado A1</span>
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Right Global Utility Actions */}

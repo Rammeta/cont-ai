@@ -948,35 +948,72 @@ export default function EmpresasHubView({
                   </span>
                 </div>
                 <div className="text-[11px] text-[#555555] mt-0.5">
-                  Certificado Digital:{" "}
-                  <strong>
-                    {selectedMetric.certIssuer ||
-                      selectedRawEmpresa?.certInfo?.issuer ||
-                      selectedMetric.certSubject ||
-                      "A1 Instalado"}
-                  </strong>{" "}
-                  | Validade:{" "}
-                  <strong>
-                    {formatDateBr(selectedMetric.certValidTo || selectedRawEmpresa?.certInfo?.validTo, "N/D")}
-                  </strong>{" "}
-                  (
                   {(() => {
-                    let d = selectedMetric.certDaysRemaining;
-                    if ((d === null || d === undefined) && (selectedMetric.certValidTo || selectedRawEmpresa?.certInfo?.validTo)) {
-                      d = calculateDaysRemaining(selectedMetric.certValidTo || selectedRawEmpresa?.certInfo?.validTo);
+                    const hasCert = Boolean(
+                      selectedRawEmpresa?.certPath ||
+                      (selectedRawEmpresa?.certStore === "windows" && selectedRawEmpresa?.certThumbprint) ||
+                      selectedRawEmpresa?.certThumbprint ||
+                      (selectedRawEmpresa as any)?.thumbprint
+                    );
+
+                    if (!hasCert) {
+                      return (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[#a80000] font-semibold">
+                            Certificado Digital Próprio: Não cadastrado
+                          </span>
+                          <span className="inline-flex items-center gap-1 bg-[#fff8e1] border border-[#ffca28] text-[#8d6e63] px-2 py-0.5 rounded text-[10px] font-bold">
+                            <Scale size={11} className="text-[#e65100]" />
+                            <span>Opera via Procuração Eletrônica (Apenas NFS-e)</span>
+                          </span>
+                          {onOpenCompanyModal && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenCompanyModal("empresas")}
+                              className="text-[10px] text-[#005a9e] underline hover:text-[#003366] font-bold cursor-pointer"
+                              title="Cadastrar o Certificado Digital A1 desta empresa para liberar NF-e, NFC-e, CT-e e DIFAL"
+                            >
+                              + Adicionar Certificado A1 da empresa
+                            </button>
+                          )}
+                        </div>
+                      );
                     }
-                    if (selectedMetric.certStatus === "expired" || (d !== null && d !== undefined && d <= 0)) {
-                      return <span className="text-[#a80000] font-bold">Certificado Vencido / Expirado</span>;
-                    }
-                    if (d !== null && d !== undefined && d <= 30) {
-                      return <span className="text-[#b7791f] font-bold">{d} dias restantes (Requer renovação)</span>;
-                    }
-                    if (d !== null && d !== undefined) {
-                      return <span className="text-[#107c41] font-semibold">{d} dias restantes (Regular)</span>;
-                    }
-                    return <span className="text-[#777777]">Não verificado</span>;
+
+                    return (
+                      <>
+                        Certificado Digital:{" "}
+                        <strong>
+                          {selectedMetric.certIssuer ||
+                            selectedRawEmpresa?.certInfo?.issuer ||
+                            selectedMetric.certSubject ||
+                            "A1 Instalado"}
+                        </strong>{" "}
+                        | Validade:{" "}
+                        <strong>
+                          {formatDateBr(selectedMetric.certValidTo || selectedRawEmpresa?.certInfo?.validTo, "N/D")}
+                        </strong>{" "}
+                        (
+                        {(() => {
+                          let d = selectedMetric.certDaysRemaining;
+                          if ((d === null || d === undefined) && (selectedMetric.certValidTo || selectedRawEmpresa?.certInfo?.validTo)) {
+                            d = calculateDaysRemaining(selectedMetric.certValidTo || selectedRawEmpresa?.certInfo?.validTo);
+                          }
+                          if (selectedMetric.certStatus === "expired" || (d !== null && d !== undefined && d <= 0)) {
+                            return <span className="text-[#a80000] font-bold">Certificado Vencido / Expirado</span>;
+                          }
+                          if (d !== null && d !== undefined && d <= 30) {
+                            return <span className="text-[#b7791f] font-bold">{d} dias restantes (Requer renovação)</span>;
+                          }
+                          if (d !== null && d !== undefined) {
+                            return <span className="text-[#107c41] font-semibold">{d} dias restantes (Regular)</span>;
+                          }
+                          return <span className="text-[#777777]">Não verificado</span>;
+                        })()}
+                        )
+                      </>
+                    );
                   })()}
-                  )
                 </div>
               </div>
 

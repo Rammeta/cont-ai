@@ -341,6 +341,9 @@ class SefazManager {
     const companyDir = this.getCompanyDir(cleanCnpj, company.razaoSocial);
     const storage = new XmlStorage(companyDir, cleanCnpj);
     const state = storage.loadState();
+    if (!resetNsu && (!state.ultNSU || state.ultNSU === '0') && (company.ultNSU || company.ultimoNsu)) {
+      state.ultNSU = String(company.ultNSU || company.ultimoNsu);
+    }
     if (resetNsu) {
       const cleanTarget = String(targetNsu || '0').replace(/\D/g, '') || '0';
       state.ultNSU = cleanTarget;
@@ -1767,6 +1770,30 @@ class SefazManager {
         continue;
       }
 
+      const hasCertNfe = Boolean(
+        company.certPath ||
+        (company.certStore === 'windows' && company.certThumbprint) ||
+        company.certThumbprint ||
+        company.thumbprint
+      );
+
+      if (!hasCertNfe) {
+        summary.nfe.skipped++;
+        if (onProgress) {
+          onProgress({
+            type: 'company_skipped',
+            stage: 1,
+            stageName: 'NF-e',
+            index: i + 1,
+            total,
+            companyName,
+            cnpj: cleanCnpj,
+            message: `[Etapa 1/4 - NF-e] ${companyName}: Ignorada (Empresa sem certificado digital A1 próprio - requer certificado individual).`
+          });
+        }
+        continue;
+      }
+
       if (onProgress) {
         onProgress({
           type: 'company_start',
@@ -1954,6 +1981,30 @@ class SefazManager {
         continue;
       }
 
+      const hasCertNfce = Boolean(
+        company.certPath ||
+        (company.certStore === 'windows' && company.certThumbprint) ||
+        company.certThumbprint ||
+        company.thumbprint
+      );
+
+      if (!hasCertNfce) {
+        summary.nfce.skipped++;
+        if (onProgress) {
+          onProgress({
+            type: 'company_skipped',
+            stage: 2,
+            stageName: 'NFC-e',
+            index: i + 1,
+            total,
+            companyName,
+            cnpj: cleanCnpj,
+            message: `[Etapa 2/4 - NFC-e] ${companyName}: Ignorada (Empresa sem certificado digital A1 próprio).`
+          });
+        }
+        continue;
+      }
+
       if (onProgress) {
         onProgress({
           type: 'company_start',
@@ -2074,6 +2125,30 @@ class SefazManager {
             companyName,
             cnpj: cleanCnpj,
             message: `[Etapa 3/4 - CT-e] ${companyName}: Ignorada (Modelo 57 desabilitado no painel).`
+          });
+        }
+        continue;
+      }
+
+      const hasCertCte = Boolean(
+        company.certPath ||
+        (company.certStore === 'windows' && company.certThumbprint) ||
+        company.certThumbprint ||
+        company.thumbprint
+      );
+
+      if (!hasCertCte) {
+        summary.cte.skipped++;
+        if (onProgress) {
+          onProgress({
+            type: 'company_skipped',
+            stage: 3,
+            stageName: 'CT-e',
+            index: i + 1,
+            total,
+            companyName,
+            cnpj: cleanCnpj,
+            message: `[Etapa 3/4 - CT-e] ${companyName}: Ignorada (Empresa sem certificado digital A1 próprio).`
           });
         }
         continue;
@@ -2710,6 +2785,10 @@ class SefazManager {
       downloadedKeys: {}
     });
     stateCte.downloadedKeys = stateCte.downloadedKeys || {};
+
+    if ((!stateCte.ultimoNsuCte || stateCte.ultimoNsuCte === '0') && (company.ultimoNsuCte || company.ultimoNsu)) {
+      stateCte.ultimoNsuCte = String(company.ultimoNsuCte || company.ultimoNsu);
+    }
 
     let ultNSU = stateCte.ultimoNsuCte || '0';
     let totalBaixadas = 0;

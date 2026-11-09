@@ -479,19 +479,33 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
   }
 
   const cleanCnpj = String(company.cnpj).replace(/\D/g, '');
-  const cleanThumb = (company.certThumbprint || company.thumbprint || '').replace(/[^a-fA-F0-9]/g, '');
-  let isWindowsCert = company.certStore === 'windows' || (!company.certPath && !!cleanThumb);
+  let cleanThumb = (company.certThumbprint || company.thumbprint || '').replace(/[^a-fA-F0-9]/g, '');
   let certPath = company.certPath;
 
+  // Auto-recuperação: se thumbprint não veio configurado no objeto, tenta localizar pelo CNPJ no repositório nativo do Windows
+  if (!cleanThumb && (company.certStore === 'windows' || !certPath || !fs.existsSync(certPath))) {
+    try {
+      const psCmd = `powershell -NoProfile -Command "(Get-ChildItem -Path Cert:\\CurrentUser\\My, Cert:\\LocalMachine\\My -ErrorAction SilentlyContinue | Where-Object { $_.Subject -like '*${cleanCnpj}*' } | Select-Object -First 1).Thumbprint"`;
+      const foundThumb = cp.execSync(psCmd, { timeout: 10000 }).toString('utf8').trim();
+      if (foundThumb && /^[a-fA-F0-9]{40}$/.test(foundThumb)) {
+        cleanThumb = foundThumb;
+        log(`Auto-localizado Certificado Digital no Windows pelo CNPJ: ${cleanThumb}`);
+      }
+    } catch (_) {}
+  }
+
+  const hasValidPfx = Boolean(certPath && fs.existsSync(certPath));
+  let isWindowsCert = Boolean(cleanThumb && (company.certStore === 'windows' || !hasValidPfx));
+
   if (!isWindowsCert) {
-    if (!certPath || !fs.existsSync(certPath)) {
+    if (!hasValidPfx) {
       const fallbackCert = path.join(process.env.APPDATA || '', 'contai-robo', 'certificados', `${cleanCnpj}.pfx`);
       if (fs.existsSync(fallbackCert)) {
         certPath = fallbackCert;
       } else if (cleanThumb) {
         isWindowsCert = true;
       } else {
-        throw new Error(`Certificado digital A1 não encontrado em: ${company.certPath}`);
+        throw new Error(`Certificado digital A1 não configurado ou arquivo não encontrado para a empresa ${cleanCnpj}.`);
       }
     }
   }
@@ -561,7 +575,10 @@ async function rodarCaptacaoNfseEmpresa({ company, companyOutputDir, onProgress,
       try {
         await delay(tentativas === 0 ? 1000 : 3000 * tentativas);
         if (isWindowsCert) {
-          const certFlag = cleanThumb ? `--cert "CurrentUser\\My\\${cleanThumb}"` : '';
+          if (!cleanThumb) {
+            throw new Error(`Thumbprint do certificado digital Windows ausente para a empresa ${cleanCnpj}.`);
+          }
+          const certFlag = `--cert "CurrentUser\\My\\${cleanThumb}"`;
           const cmd = `curl.exe -s -H "Accept: application/json" ${certFlag} "${url}"`;
           const stdout = cp.execSync(cmd, { timeout: 45000, maxBuffer: 15 * 1024 * 1024 }).toString('utf8');
           if (stdout && stdout.trim()) {

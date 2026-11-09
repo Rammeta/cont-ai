@@ -40,7 +40,8 @@ import {
   CheckSquare,
   Scale,
   Square,
-  Tag
+  Tag,
+  ArrowLeft
 } from "lucide-react";
 import {
   selectCertFile,
@@ -99,20 +100,17 @@ export default function UnifiedConfigModal({
 }: UnifiedConfigModalProps) {
   const [activeTab, setActiveTab] = useState<"empresas" | "schedulers" | "storage">(initialTab);
 
-  // Sincronizar activeTab se initialTab mudar ao abrir
+  // Ao abrir o modal, sincroniza aba e garante que sempre entra na visão geral de empresas (sem pré-selecionar edição)
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab);
       loadSettingsData();
-      if (initialTab === "empresas" && activeEmpresaId && !editingCompany) {
-        const activeComp = empresas.find((e) => e.id === activeEmpresaId);
-        if (activeComp) {
-          setEditingCompany(activeComp);
-          setEditCompanyTab("empresa");
-        }
-      }
+      setEditingCompany(null);
+      setEditCompanyTab("empresa");
+      setSelectedModeloId(null);
+      setTestingStatus({ loading: false });
     }
-  }, [isOpen, initialTab, activeEmpresaId]);
+  }, [isOpen, initialTab]);
 
   // -------------------------------------------------------------
   // ESTADOS DA ABA DE EMPRESAS
@@ -569,7 +567,7 @@ export default function UnifiedConfigModal({
   const handleSelectCert = async () => {
     const filePath = await selectCertFile(editingCompany?.certPath);
     if (filePath) {
-      setEditingCompany((prev) => (prev ? { ...prev, certPath: filePath } : null));
+      setEditingCompany((prev) => (prev ? { ...prev, certPath: filePath, certStore: "file", certThumbprint: "" } : null));
       if (editingCompany?.password) {
         autoDetectAndTestCert(filePath, editingCompany.password);
       }
@@ -922,7 +920,7 @@ export default function UnifiedConfigModal({
       certPath: editingCompany.certPath || "",
       password: editingCompany.password || "",
       ambiente: Number(editingCompany.ambiente) || 1,
-      certStore: editingCompany.certStore || (editingCompany.certThumbprint ? "windows" : "file"),
+      certStore: editingCompany.certThumbprint ? "windows" : (editingCompany.certPath ? "file" : (editingCompany.certStore || "file")),
       certThumbprint: editingCompany.certThumbprint || "",
       inscricaoMunicipal: editingCompany.inscricaoMunicipal?.trim() || editingCompany.emissaoConfig?.inscricaoMunicipal?.trim() || "",
       emissaoConfig: editingCompany.emissaoConfig,
@@ -1105,7 +1103,10 @@ export default function UnifiedConfigModal({
         <div className="bg-[#e4e4e4] border-b border-[#b0b0b0] px-2 pt-1 flex items-center gap-1 text-[11px]">
           <button
             type="button"
-            onClick={() => setActiveTab("empresas")}
+            onClick={() => {
+              setActiveTab("empresas");
+              setEditingCompany(null);
+            }}
             className={`px-3 py-1.5 font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === "empresas"
                 ? "bg-[#f0f0f0] text-[#003366] border-t-2 border-t-[#005a9e] border-x border-[#b0b0b0] -mb-px z-10"
@@ -1172,23 +1173,39 @@ export default function UnifiedConfigModal({
                     <span>{empresas.some((e) => e.id === editingCompany.id) ? "Editar Empresa" : "Nova Empresa"}</span>
                   </legend>
 
-                  {/* Sub-Abas do Cadastro: Empresa | Emissão (Padrão Solicitado) */}
-                  <div className="flex items-center gap-1 border-b border-[#b5b5b5] mb-2 pb-0">
+                  {/* Sub-Abas do Cadastro: Empresa | Emissão (Padrão Solicitado) + Botão Voltar */}
+                  <div className="flex items-center justify-between border-b border-[#b5b5b5] mb-2 pb-0">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditCompanyTab("empresa")}
+                        className={`erp-tab-btn ${editCompanyTab === "empresa" ? "active" : ""}`}
+                      >
+                        <Building2 size={12} className={editCompanyTab === "empresa" ? "text-[#003366]" : "text-[#555555]"} />
+                        <span>Empresa</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditCompanyTab("emissao")}
+                        className={`erp-tab-btn ${editCompanyTab === "emissao" ? "active" : ""}`}
+                      >
+                        <Send size={12} className={editCompanyTab === "emissao" ? "text-[#003366]" : "text-[#555555]"} />
+                        <span>Emissão</span>
+                      </button>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={() => setEditCompanyTab("empresa")}
-                      className={`erp-tab-btn ${editCompanyTab === "empresa" ? "active" : ""}`}
+                      onClick={() => {
+                        setEditingCompany(null);
+                        setTestingStatus({ loading: false });
+                        setSelectedModeloId(null);
+                      }}
+                      className="vb-btn flex items-center gap-1 text-[11px] text-[#003366] hover:bg-[#e4e4e4] font-semibold cursor-pointer mb-1 shadow-2xs"
+                      title="Voltar para a listagem geral de empresas"
                     >
-                      <Building2 size={12} className={editCompanyTab === "empresa" ? "text-[#003366]" : "text-[#555555]"} />
-                      <span>Empresa</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditCompanyTab("emissao")}
-                      className={`erp-tab-btn ${editCompanyTab === "emissao" ? "active" : ""}`}
-                    >
-                      <Send size={12} className={editCompanyTab === "emissao" ? "text-[#003366]" : "text-[#555555]"} />
-                      <span>Emissão</span>
+                      <ArrowLeft size={12} className="text-[#003366]" />
+                      <span>Voltar para Lista</span>
                     </button>
                   </div>
 
@@ -2029,10 +2046,16 @@ export default function UnifiedConfigModal({
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#d0d0d0]">
                       <button
                         type="button"
-                        onClick={() => setEditingCompany(null)}
-                        className="vb-btn"
+                        onClick={() => {
+                          setEditingCompany(null);
+                          setTestingStatus({ loading: false });
+                          setSelectedModeloId(null);
+                        }}
+                        className="vb-btn flex items-center gap-1.5"
+                        title="Voltar para a listagem geral de empresas"
                       >
-                        Cancelar
+                        <ArrowLeft size={12} className="text-[#555555]" />
+                        <span>Voltar</span>
                       </button>
                       <button
                         type="button"
@@ -2163,7 +2186,17 @@ export default function UnifiedConfigModal({
                             .map((emp) => {
                             const isActive = emp.id === activeEmpresaId;
                             return (
-                              <tr key={emp.id} className={isActive ? "bg-[#eaf3ff]" : ""}>
+                              <tr
+                                key={emp.id}
+                                onDoubleClick={() => {
+                                  setEditingCompany(emp);
+                                  setEditCompanyTab("empresa");
+                                  setSelectedModeloId(null);
+                                  setTestingStatus({ loading: false });
+                                }}
+                                className={`cursor-pointer ${isActive ? "bg-[#eaf3ff]" : ""}`}
+                                title="Duplo-clique para editar as configurações desta empresa"
+                              >
                                 <td className="text-center font-bold">
                                   {isActive ? (
                                     <span className="px-1.5 py-0.2 bg-[#003366] text-white text-[9px] rounded-xs font-mono">

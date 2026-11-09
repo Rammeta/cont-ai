@@ -29,7 +29,9 @@ import {
   Zap,
   ArrowLeft,
   FolderOpen,
-  Globe
+  Globe,
+  Scale,
+  Lock
 } from "lucide-react";
 import {
   listCompanyXmls,
@@ -145,6 +147,13 @@ export default function GuiaAcompanhamentoView({
   const [itensConsolidados, setItensConsolidados] = useState<NotaAcompanhamentoItem[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  const activeHasCert = Boolean(
+    activeEmpresa?.certPath ||
+    (activeEmpresa?.certStore === "windows" && activeEmpresa?.certThumbprint) ||
+    activeEmpresa?.certThumbprint ||
+    (activeEmpresa as any)?.thumbprint
+  );
 
   // Modificadores de teclado reais para CAPS e NUM da StatusBar
   const [isCapsLockOn, setIsCapsLockOn] = useState(false);
@@ -1298,6 +1307,28 @@ export default function GuiaAcompanhamentoView({
 
       {/* ================= 3. ÁREA PRINCIPAL DA GUIA ================= */}
       <div className="p-2 flex flex-col gap-2 flex-1 overflow-auto">
+        {/* Banner de Empresa Operando Exclusivamente via Procuração Eletrônica */}
+        {activeEmpresa && !activeHasCert && (
+          <div className="bg-[#fff9e6] border border-[#ffe082] px-3 py-2 flex items-center justify-between gap-3 text-xs text-[#795548] rounded shadow-2xs">
+            <div className="flex items-center gap-2">
+              <Scale size={16} className="text-[#f57c00] shrink-0" />
+              <span>
+                <strong>Empresa operando via Procuração Eletrônica (Apenas NFS-e):</strong> Esta empresa não possui Certificado Digital A1 próprio cadastrado. Apenas a captação de <strong>NFS-e (Portal Nacional)</strong> está ativa via Procuração do Contador. Os captadores de <strong>NF-e (55), NFC-e (65) e CT-e (57)</strong> exigem certificado digital individual da empresa.
+              </span>
+            </div>
+            {onOpenCompanyModal && (
+              <button
+                type="button"
+                onClick={() => onOpenCompanyModal("empresas")}
+                className="vb-btn shrink-0 !bg-[#f57c00] !text-white !border-[#e65100] font-bold text-[11px] shadow-xs hover:!bg-[#e65100]"
+                title="Cadastrar Certificado Digital A1 desta empresa"
+              >
+                <span>+ Adicionar Certificado A1</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* GROUPBOX 1: EMPRESA ATIVA & SELEÇÃO DE PERÍODO */}
         <fieldset className="vb-groupbox">
           <legend className="vb-legend">Empresa sob Análise & Seleção de Período</legend>

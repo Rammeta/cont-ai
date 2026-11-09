@@ -1792,11 +1792,47 @@ async function generateMissingNfsePdfs({ companyNfseDir, diasRetroativos = 90, o
 
 async function executarCaptacaoUnificadaNfse({ company, targetNsu, onProgress }) {
   const currentSet = loadSettings();
-  const isUsandoProcurador = Boolean(company.usarProcuradorNfse && currentSet.procurador && currentSet.procurador.ativo);
+  const cleanCnpj = String(company.cnpj || '').replace(/\D/g, '');
+  let resolvedThumb = (company.certThumbprint || company.thumbprint || '').replace(/[^a-fA-F0-9]/g, '');
+
+  // Auto-localização preventiva do Thumbprint no Windows pelo CNPJ da empresa
+  if (!resolvedThumb && (company.certStore === 'windows' || !company.certPath || !fs.existsSync(company.certPath))) {
+    try {
+      const cp = require('child_process');
+      const psCmd = `powershell -NoProfile -Command "(Get-ChildItem -Path Cert:\\CurrentUser\\My, Cert:\\LocalMachine\\My -ErrorAction SilentlyContinue | Where-Object { $_.Subject -like '*${cleanCnpj}*' } | Select-Object -First 1).Thumbprint"`;
+      const found = cp.execSync(psCmd, { timeout: 10000 }).toString('utf8').trim();
+      if (found && /^[a-fA-F0-9]{40}$/.test(found)) {
+        resolvedThumb = found;
+      }
+    } catch (_) {}
+  }
+
+  const hasValidPfx = Boolean(company.certPath && fs.existsSync(company.certPath));
+  const effectiveCertStore = resolvedThumb ? 'windows' : (hasValidPfx ? 'file' : company.certStore || 'file');
+
+  company = {
+    ...company,
+    certStore: effectiveCertStore,
+    certThumbprint: resolvedThumb || company.certThumbprint || '',
+    thumbprint: resolvedThumb || company.thumbprint || ''
+  };
+
+  const hasOwnCert = Boolean(
+    hasValidPfx ||
+    resolvedThumb ||
+    company.certThumbprint ||
+    company.thumbprint
+  );
+  const isUsandoProcurador = Boolean(
+    currentSet.procurador && currentSet.procurador.ativo &&
+    (company.usarProcuradorNfse || !hasOwnCert)
+  );
+
   if (isUsandoProcurador) {
     const proc = currentSet.procurador;
     company = {
       ...company,
+      usarProcuradorNfse: true,
       certStore: proc.certStore,
       certThumbprint: proc.certThumbprint,
       thumbprint: proc.certThumbprint,
@@ -1818,37 +1854,39 @@ async function executarCaptacaoUnificadaNfse({ company, targetNsu, onProgress })
   let ultimaDataSp = nfseState.ultimaDataSp || null;
 
   if (!isUsandoProcurador) {
-    try {
-      const empDescript = {
-        ...company,
-        caminhoPfx: company.certPath,
-        senhaPfx: company.password ? decryptPassword(company.password) : ''
-      };
-      const resSp = await consultarTomadasSP(empDescript, companyNfseDir, {
-        ultimaDataSp: isResetRun ? null : nfseState.ultimaDataSp,
-        onProgress,
-        onSaveState: (stateUpdate) => {
-          saveNfseState(companyDir, stateUpdate, company.cnpj);
-        }
-      });
-      if (resSp && resSp.sucesso) {
-        baixadasSp = Number(resSp.totalBaixadas || 0);
-        canceladasSp = Number(resSp.totalCanceladas || 0);
-        if (resSp.ultimaDataSp) ultimaDataSp = resSp.ultimaDataSp;
-      }
-    } catch (errSp) {
-      if (onProgress) {
-        onProgress({
-          message: `[Prefeitura SP] Aviso: ${errSp.message}`,
-          type: 'warn',
-          timestamp: new Date().toLocaleTimeString('pt-BR')
+    if (hasOwnCert) {
+      try {
+        const empDescript = {
+          ...company,
+          caminhoPfx: company.certPath,
+          senhaPfx: company.password ? decryptPassword(company.password) : ''
+        };
+        const resSp = await consultarTomadasSP(empDescript, companyNfseDir, {
+          ultimaDataSp: isResetRun ? null : nfseState.ultimaDataSp,
+          onProgress,
+          onSaveState: (stateUpdate) => {
+            saveNfseState(companyDir, stateUpdate, company.cnpj);
+          }
         });
+        if (resSp && resSp.sucesso) {
+          baixadasSp = Number(resSp.totalBaixadas || 0);
+          canceladasSp = Number(resSp.totalCanceladas || 0);
+          if (resSp.ultimaDataSp) ultimaDataSp = resSp.ultimaDataSp;
+        }
+      } catch (errSp) {
+        if (onProgress) {
+          onProgress({
+            message: `[Prefeitura SP] Aviso: ${errSp.message}`,
+            type: 'warn',
+            timestamp: new Date().toLocaleTimeString('pt-BR')
+          });
+        }
       }
     }
   } else {
     if (onProgress) {
       onProgress({
-        message: `[NFS-e ADN] Captação via Procurador: busca executada exclusivamente pelo Portal Nacional ADN (prefeituras ignoradas).`,
+        message: `[NFS-e ADN] Captação via Procurador: busca executada exclusivamente pelo Portal Nacional ADN com o certificado do Procurador (${currentSet.procurador?.nome || 'Contador'}).`,
         type: 'info',
         timestamp: new Date().toLocaleTimeString('pt-BR')
       });
@@ -1857,15 +1895,25 @@ async function executarCaptacaoUnificadaNfse({ company, targetNsu, onProgress })
 
   // 2. Captação no Portal Nacional (ADN)
   // (Ignora automaticamente notas que já foram baixadas pelo Portal SP ou que já existem na pasta)
+  const targetNsuNum = (targetNsu !== undefined && targetNsu !== null && targetNsu !== '')
+    ? parseInt(String(targetNsu), 10)
+    : null;
+
+  const baseNsu = isResetRun
+    ? 0
+    : targetNsuNum !== null
+      ? targetNsuNum
+      : Math.max(Number(nfseState.ultimoNsuNfse) || 0, Number(company.ultimoNsuNfse) || 0);
+
   const safeCompany = {
     ...company,
-    ultimoNsuNfse: (targetNsu !== undefined && targetNsu !== null) ? targetNsu : (nfseState.ultimoNsuNfse || 0)
+    ultimoNsuNfse: baseNsu
   };
 
   const resNacional = await rodarCaptacaoNfseEmpresa({
     company: safeCompany,
     companyOutputDir: companyNfseDir,
-    targetNsu,
+    targetNsu: baseNsu,
     onProgress
   });
 

@@ -7,9 +7,20 @@ const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const SECRET_SEED = 'CONT_AI_FISCAL_SECURE_STORAGE_V1_2026';
 const SALT = 'cont_ai_salt_appdata_sqlite_v1';
 
+function getDefaultUserDataDir() {
+  try {
+    const { app } = require('electron');
+    if (app && typeof app.getPath === 'function') {
+      return app.getPath('userData');
+    }
+  } catch (_) {}
+  const base = process.env.APPDATA || path.join(process.env.USERPROFILE || '.', '.cont_ai');
+  return path.join(base, 'cont-ai-entradas-difal-sn');
+}
+
 class StateDatabase {
   constructor(userDataDir) {
-    this.userDataDir = userDataDir || process.env.APPDATA || path.join(process.env.USERPROFILE || '.', '.cont_ai');
+    this.userDataDir = userDataDir || getDefaultUserDataDir();
     if (!fs.existsSync(this.userDataDir)) {
       try {
         fs.mkdirSync(this.userDataDir, { recursive: true });
@@ -304,7 +315,15 @@ class StateDatabase {
 let instance = null;
 
 function getStateDatabase(userDataDir) {
+  const targetDir = userDataDir || getDefaultUserDataDir();
   if (!instance) {
+    instance = new StateDatabase(targetDir);
+  } else if (userDataDir && instance.userDataDir !== userDataDir) {
+    try {
+      if (instance.db && typeof instance.db.close === 'function') {
+        instance.db.close();
+      }
+    } catch (_) {}
     instance = new StateDatabase(userDataDir);
   }
   return instance;

@@ -415,8 +415,16 @@ export const syncAllCompanies = async (
     regime: c?.regime,
     certPath: String(c?.certPath || ""),
     password: c?.password ? String(c.password) : "",
+    certStore: c?.certStore || "file",
+    certThumbprint: c?.certThumbprint || "",
+    thumbprint: c?.certThumbprint || (c as any)?.thumbprint || "",
     ambiente: Number(c?.ambiente || 1),
     modelosHabilitados: c?.modelosHabilitados,
+    usarProcuradorNfse: Boolean(c?.usarProcuradorNfse),
+    ultimoNsuNfse: (c as any)?.ultimoNsuNfse,
+    ultimoNsu: (c as any)?.ultimoNsu,
+    inscricaoMunicipal: c?.inscricaoMunicipal || "",
+    emissaoConfig: c?.emissaoConfig,
   }));
 
   return await ipc.invoke("sefaz:sync-all", { companies: safeCompanies });
